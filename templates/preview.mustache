@@ -1,0 +1,83 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_groupdist/preview
+
+    Preview page shell (step 2). The recap is server-rendered; stats, warnings
+    and group cards are hydrated by the local_groupdist/preview AMD module from
+    the preview web service, into the data-region containers below.
+
+    Context variables required for this template:
+    * groupcount - number of selected groups
+    * optionsjson - JSON-encoded canonical options, consumed by the AMD module
+    * recap - array of rows: label plus items (text, optional on flag)
+
+    Example context (json):
+    {
+        "groupcount": 42,
+        "optionsjson": "{\"courseid\":2,\"seed\":123}",
+        "recap": [
+            {
+                "label": "Group members",
+                "items": [
+                    {"text": "Role: Student"},
+                    {"text": "Only active enrolments", "on": true}
+                ]
+            }
+        ]
+    }
+}}
+<div class="local-groupdist-preview" data-region="local-groupdist-preview" data-options="{{optionsjson}}">
+    <div class="alert alert-info d-flex gap-2" role="status">
+        <i class="fa fa-info-circle mt-1" aria-hidden="true"></i>
+        <span>{{#str}} previewnothingsaved, local_groupdist, {{groupcount}} {{/str}}</span>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body py-3">
+            <h2 class="h6 text-uppercase text-muted">{{#str}} chosenoptions, local_groupdist {{/str}}</h2>
+            <dl class="local-groupdist-recap mb-0">
+                {{#recap}}
+                <div class="d-flex flex-wrap align-items-baseline gap-2 mb-1">
+                    <dt class="small text-muted local-groupdist-recap-label">{{label}}</dt>
+                    <dd class="mb-0 d-flex flex-wrap gap-1">
+                        {{#items}}
+                        <span class="badge bg-light text-dark border fw-normal">
+                            {{#on}}<i class="fa fa-check text-success" aria-hidden="true"></i> {{/on}}{{text}}
+                        </span>
+                        {{/items}}
+                    </dd>
+                </div>
+                {{/recap}}
+            </dl>
+        </div>
+    </div>
+
+    <div data-region="stats" class="local-groupdist-stats mb-3" aria-live="polite"></div>
+    <div data-region="warnings" aria-live="polite"></div>
+
+    <h2 class="h6 text-uppercase text-muted mt-4">{{#str}} samplesheading, local_groupdist {{/str}}</h2>
+    <div data-region="groups"></div>
+
+    <div class="d-flex flex-column align-items-center gap-1 my-3">
+        <button type="button" class="btn btn-secondary" data-action="loadmore" hidden>
+            {{#str}} loadmoregroups, local_groupdist {{/str}}
+        </button>
+        <div data-region="capnote" class="small text-muted" hidden></div>
+        <div data-region="counter" class="small text-muted"></div>
+    </div>
+</div>

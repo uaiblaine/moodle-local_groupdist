@@ -1,0 +1,39 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_groupdist/preview_skeleton
+
+    Loading placeholders shown while a preview page is being fetched.
+
+    Context variables required for this template:
+    * cards - array with one (empty-object) entry per skeleton card
+
+    Example context (json):
+    {
+        "cards": [{}, {}]
+    }
+}}
+{{#cards}}
+<div class="card mb-2 local-groupdist-skeleton" data-region="skeleton" aria-hidden="true">
+    <div class="card-body py-3 placeholder-glow">
+        <span class="placeholder col-3 mb-2"></span>
+        <span class="placeholder col-12 placeholder-xs mb-2"></span>
+        <span class="placeholder col-7 mb-1"></span>
+        <span class="placeholder col-6"></span>
+    </div>
+</div>
+{{/cards}}

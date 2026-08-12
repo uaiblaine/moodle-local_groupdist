@@ -1,0 +1,416 @@
+<title>Protótipo — Distribuir participantes (opções)</title>
+<style>
+  /* ── Tokens: same system as the preview prototype ─────────────────── */
+  :root {
+    --brand: #0f6cbf;
+    --brand-ink: #0a4a84;
+    --bg: #f8f9fa;
+    --surface: #ffffff;
+    --surface-2: #f1f3f5;
+    --ink: #1d2125;
+    --ink-2: #5b6470;
+    --line: #dee2e6;
+    --ok: #357a32;
+    --warn-bg: #fcefdc;
+    --warn-ink: #7a5a1e;
+    --info-bg: #e7f1fa;
+    --info-ink: #0a4a84;
+    --chip-bg: #eef2f6;
+    --shadow: 0 1px 2px rgba(29, 33, 37, .06);
+    --radius: .5rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --brand: #4da3e8; --brand-ink: #8ec4f0; --bg: #14171a; --surface: #1f2429;
+      --surface-2: #262c33; --ink: #e8eaed; --ink-2: #9aa4b0; --line: #343b43;
+      --ok: #6fbf6b; --warn-bg: #3a3120; --warn-ink: #ecc879;
+      --info-bg: #1d2f40; --info-ink: #9ec9ee; --chip-bg: #2b323a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --brand: #4da3e8; --brand-ink: #8ec4f0; --bg: #14171a; --surface: #1f2429;
+    --surface-2: #262c33; --ink: #e8eaed; --ink-2: #9aa4b0; --line: #343b43;
+    --ok: #6fbf6b; --warn-bg: #3a3120; --warn-ink: #ecc879;
+    --info-bg: #1d2f40; --info-ink: #9ec9ee; --chip-bg: #2b323a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .35);
+  }
+  :root[data-theme="light"] {
+    --brand: #0f6cbf; --brand-ink: #0a4a84; --bg: #f8f9fa; --surface: #ffffff;
+    --surface-2: #f1f3f5; --ink: #1d2125; --ink-2: #5b6470; --line: #dee2e6;
+    --ok: #357a32; --warn-bg: #fcefdc; --warn-ink: #7a5a1e;
+    --info-bg: #e7f1fa; --info-ink: #0a4a84; --chip-bg: #eef2f6;
+    --shadow: 0 1px 2px rgba(29, 33, 37, .06);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 400 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 1.5rem 1.25rem 6.5rem; }
+
+  .crumbs { font-size: .82rem; color: var(--ink-2); margin-bottom: .35rem; }
+  .crumbs a { color: var(--brand); text-decoration: none; }
+  .crumbs a:hover, .crumbs a:focus { text-decoration: underline; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 .2rem; text-wrap: balance; }
+  .lede { color: var(--ink-2); margin: 0 0 1.25rem; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .proto-banner {
+    display: flex; gap: .6rem; align-items: baseline;
+    background: var(--info-bg); color: var(--info-ink);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: .6rem .9rem; margin-bottom: 1.5rem; font-size: .85rem;
+  }
+  .proto-banner .tag {
+    flex: none; font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; border: 1px solid currentColor;
+    border-radius: 999px; padding: .1rem .5rem;
+  }
+  .proto-banner code { font-size: .8em; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+
+  /* ── Selected groups summary ───────────────────────────────────────── */
+  .selgroups { padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
+  .selgroups h2 { margin-bottom: .6rem; }
+  h2 { font-size: .78rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); margin: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .chip {
+    display: inline-flex; align-items: center; background: var(--chip-bg);
+    border-radius: 999px; padding: .12rem .65rem; font-size: .82rem; white-space: nowrap;
+  }
+  .chip.count { background: none; border: 1px dashed var(--line); color: var(--ink-2); }
+  .selgroups .hint { font-size: .8rem; color: var(--ink-2); margin: .55rem 0 0; }
+
+  /* ── mform look ────────────────────────────────────────────────────── */
+  form.mform { display: block; }
+  .form-tools { display: flex; justify-content: flex-end; margin-bottom: .25rem; }
+  .expander { font: inherit; font-size: .82rem; color: var(--brand); background: none; border: none; cursor: pointer; padding: .2rem .3rem; }
+  .expander:hover { text-decoration: underline; }
+  .expander:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+  fieldset { border: none; border-top: 1px solid var(--line); margin: 0; padding: 0 0 .5rem; }
+  legend {
+    width: 100%; padding: 0; margin: 0; float: left; /* Float trick: legend as full-width row. */
+  }
+  legend + * { clear: both; }
+  legend button {
+    width: 100%; display: flex; align-items: center; gap: .5rem;
+    font: inherit; font-size: 1.02rem; font-weight: 600; color: var(--ink);
+    background: none; border: none; cursor: pointer; text-align: left;
+    padding: .85rem .25rem;
+  }
+  legend button:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: 4px; }
+  legend .chev { flex: none; transition: transform .15s ease; color: var(--ink-2); font-size: .8rem; }
+  @media (prefers-reduced-motion: reduce) { legend .chev { transition: none; } }
+  fieldset.collapsed .chev { transform: rotate(-90deg); }
+  fieldset.collapsed .fbody { display: none; }
+  legend .badge {
+    margin-left: auto; font-size: .72rem; font-weight: 600; color: var(--ink-2);
+    background: var(--chip-bg); border-radius: 999px; padding: .1rem .6rem;
+  }
+  legend .badge.on { color: var(--ok); }
+
+  .frow { display: grid; grid-template-columns: 240px 1fr; gap: .3rem 1.25rem; padding: .45rem 0; align-items: start; }
+  @media (max-width: 640px) { .frow { grid-template-columns: 1fr; } }
+  .flabel { display: flex; justify-content: flex-end; gap: .4rem; align-items: baseline; text-align: right; font-size: .92rem; padding-top: .35rem; }
+  @media (max-width: 640px) { .flabel { justify-content: flex-start; text-align: left; padding-top: 0; } }
+  .help {
+    flex: none; width: 1rem; height: 1rem; border-radius: 50%;
+    display: inline-grid; place-items: center; align-self: center;
+    font-size: .68rem; font-weight: 700; cursor: help;
+    background: var(--chip-bg); color: var(--ink-2); border: none;
+  }
+  .ffield { min-width: 0; }
+  select, input[type="number"] {
+    font: inherit; font-size: .92rem; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: .4rem; padding: .4rem .6rem; max-width: 26rem; width: 100%;
+  }
+  select:focus-visible, input:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+  select:disabled, input:disabled { opacity: .5; cursor: not-allowed; }
+  input[type="number"] { width: 7rem; }
+  .check { display: flex; gap: .55rem; align-items: baseline; padding: .25rem 0; }
+  .check input { width: 1rem; height: 1rem; accent-color: var(--brand); flex: none; transform: translateY(2px); }
+  .check .sub { display: block; font-size: .8rem; color: var(--ink-2); }
+  .radios { display: flex; flex-direction: column; gap: .35rem; }
+  .radios label { display: flex; gap: .55rem; align-items: baseline; font-size: .92rem; }
+  .radios input { accent-color: var(--brand); flex: none; transform: translateY(2px); }
+  .radios.off { opacity: .5; }
+  .fhint { font-size: .8rem; color: var(--ink-2); margin-top: .3rem; max-width: 34rem; }
+  .fnote {
+    display: flex; gap: .5rem; font-size: .84rem; margin-top: .5rem; max-width: 34rem;
+    background: var(--warn-bg); color: var(--warn-ink);
+    border: 1px solid var(--line); border-radius: .4rem; padding: .5rem .75rem;
+  }
+  .fnote a { color: inherit; font-weight: 600; }
+  .inline { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+  .inline .unit { font-size: .85rem; color: var(--ink-2); }
+
+  /* ── Sticky footer (mock of core \core\output\sticky_footer) ──────── */
+  .stickyfooter {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface); border-top: 1px solid var(--line);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, .06);
+  }
+  .stickyfooter .inner {
+    max-width: 940px; margin: 0 auto; padding: .7rem 1.25rem;
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  }
+  .stickyfooter .note { font-size: .78rem; color: var(--ink-2); margin-left: auto; max-width: 26rem; }
+  .btn {
+    font: inherit; font-size: .9rem; border-radius: var(--radius); cursor: pointer;
+    padding: .45rem 1.1rem; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); text-decoration: none; display: inline-block;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.link { border: none; background: none; color: var(--brand); }
+  .btn.link:hover { text-decoration: underline; background: none; }
+</style>
+
+<div class="wrap">
+  <nav class="crumbs" aria-label="Localização">
+    <a href="#">Engenharia de Software — 2026.2</a> ›
+    <a href="#">Participantes</a> ›
+    <a href="#">Grupos</a> ›
+    <span>Distribuir participantes</span>
+  </nav>
+  <h1>Distribuir participantes</h1>
+  <p class="lede">Etapa 1 de 2 — <strong>opções da distribuição</strong>. Nada é gravado nesta etapa; a próxima tela mostra a pré-visualização.</p>
+
+  <div class="proto-banner">
+    <span class="tag">Protótipo</span>
+    <span>Mockup da tela de opções (formulário moodleform). A barra inferior representa o <code>\core\output\sticky_footer</code> do core. Os controles de Afinidade e Vagas habilitam/desabilitam conforme a seleção — experimente.</span>
+  </div>
+
+  <section class="card selgroups" aria-labelledby="sel-h">
+    <h2 id="sel-h">Grupos selecionados (42)</h2>
+    <div class="chips">
+      <span class="chip">Grupo 01</span><span class="chip">Grupo 02</span><span class="chip">Grupo 03</span>
+      <span class="chip">Grupo 04</span><span class="chip">Grupo 05</span><span class="chip">Grupo 06</span>
+      <span class="chip">Grupo 07</span><span class="chip">Grupo 08</span>
+      <span class="chip count">+34 grupos</span>
+    </div>
+    <p class="hint">A seleção vem da página de grupos do curso. Para mudar os grupos, volte e selecione novamente.</p>
+  </section>
+
+  <form class="mform" onsubmit="return false">
+    <div class="form-tools">
+      <button class="expander" type="button" id="expandall">Contrair tudo</button>
+    </div>
+
+    <fieldset id="fs-members">
+      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Membros <span class="badge">2 filtros ativos</span></button></legend>
+      <div class="fbody">
+        <div class="frow">
+          <div class="flabel"><label for="roleid">Selecionar membros com o papel</label><span class="help" title="Somente usuários com este papel no curso entram na distribuição.">?</span></div>
+          <div class="ffield">
+            <select id="roleid">
+              <option selected>Estudante</option>
+              <option>Todos os papéis</option>
+              <option>Moderador</option>
+              <option>Professor</option>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="flabel"><label for="cohortid">Selecionar membros da coorte</label><span class="help" title="Restringe a distribuição aos membros de uma coorte.">?</span></div>
+          <div class="ffield">
+            <select id="cohortid">
+              <option>Todas</option>
+              <option selected>Ingressantes 2026</option>
+              <option>Polo Sobral</option>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="flabel" aria-hidden="true"></div>
+          <div class="ffield">
+            <label class="check"><input type="checkbox" checked> <span>Incluir apenas inscrições ativas
+              <span class="sub">Inscrições suspensas ou expiradas ficam de fora.</span></span></label>
+            <label class="check"><input type="checkbox" checked> <span>Ignorar usuários já em grupos
+              <span class="sub">Quem já pertence a algum dos grupos selecionados não é redistribuído.</span></span></label>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset id="fs-alloc">
+      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Alocação</button></legend>
+      <div class="fbody">
+        <div class="frow">
+          <div class="flabel"><label for="allocateby">Alocar membros</label><span class="help" title="Define a ordem em que os participantes são distribuídos entre os grupos.">?</span></div>
+          <div class="ffield">
+            <select id="allocateby">
+              <option selected>Aleatoriamente</option>
+              <option>Alfabeticamente por nome, sobrenome</option>
+              <option>Alfabeticamente por sobrenome, nome</option>
+              <option>Alfabeticamente por número de identificação (ID)</option>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="flabel" aria-hidden="true"></div>
+          <div class="ffield">
+            <label class="check"><input type="checkbox"> <span>Evitar último grupo pequeno
+              <span class="sub">Redistribui a sobra para não deixar um grupo com poucos membros. Sem efeito quando "Respeitar vagas" está ativo.</span></span></label>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset id="fs-affinity">
+      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Afinidade por campo de perfil <span class="badge on" id="aff-badge">Cidade · manter juntos</span></button></legend>
+      <div class="fbody">
+        <div class="frow">
+          <div class="flabel"><label for="afffield">Campo de perfil</label><span class="help" title="Campos nativos do usuário e campos de perfil personalizados aparecem juntos nesta lista.">?</span></div>
+          <div class="ffield">
+            <select id="afffield">
+              <option value="">Não agrupar (padrão)</option>
+              <optgroup label="Campos nativos">
+                <option value="city" selected>Cidade</option>
+                <option value="department">Departamento</option>
+                <option value="institution">Instituição</option>
+                <option value="country">País</option>
+              </optgroup>
+              <optgroup label="Campos personalizados">
+                <option value="polo">Polo</option>
+                <option value="turno">Turno</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="flabel"><span>Estratégia</span><span class="help" title="Manter juntos: mesmo valor no campo, mesmo grupo. Manter separados: o algoritmo evita repetir o mesmo valor dentro de um grupo.">?</span></div>
+          <div class="ffield">
+            <div class="radios" id="affmode">
+              <label><input type="radio" name="affmode" checked> <span><b>Manter juntos</b> — participantes com o mesmo valor vão para o mesmo grupo</span></label>
+              <label><input type="radio" name="affmode"> <span><b>Manter separados</b> — evita participantes com o mesmo valor no mesmo grupo</span></label>
+            </div>
+            <p class="fhint" id="affhint">Participantes sem valor em "Cidade" são alocados aleatoriamente e aparecem como aviso na pré-visualização.</p>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset id="fs-seats">
+      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Vagas e overbooking <span class="badge on" id="seats-badge">ativo · +2</span></button></legend>
+      <div class="fbody">
+        <div class="frow">
+          <div class="flabel" aria-hidden="true"></div>
+          <div class="ffield">
+            <label class="check"><input type="checkbox" id="useseats" checked> <span>Respeitar o campo "Vagas" dos grupos
+              <span class="sub">Cada grupo recebe no máximo o número de participantes definido no seu campo "Vagas".</span></span></label>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="flabel"><label for="overbook">Overbooking por grupo</label><span class="help" title="Participantes extras permitidos além das vagas, por grupo, quando as vagas declaradas não bastam para todos.">?</span></div>
+          <div class="ffield">
+            <div class="inline">
+              <input type="number" id="overbook" min="0" max="99" value="2">
+              <span class="unit">participantes além das vagas (0 = desativado)</span>
+            </div>
+            <div class="fnote" id="seatsnote">
+              <span aria-hidden="true">!</span>
+              <span>3 dos 42 grupos selecionados não têm "Vagas" definido — serão tratados como <b>sem limite</b>. <a href="#">Editar campos dos grupos</a></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+  </form>
+</div>
+
+<div class="stickyfooter" id="sticky-footer">
+  <div class="inner">
+    <a class="btn primary" href="step2-preview.html">Pré-visualizar distribuição</a>
+    <button class="btn link" type="button">Cancelar</button>
+    <span class="note">A distribuição só é gravada na próxima etapa, ao clicar em "Aplicar distribuição".</span>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // Collapsible fieldsets + expand/collapse all, like moodleform sections.
+  const sets = Array.from(document.querySelectorAll('fieldset'));
+  const allbtn = document.getElementById('expandall');
+  sets.forEach(fs => {
+    const btn = fs.querySelector('legend button');
+    btn.addEventListener('click', () => {
+      const collapsed = fs.classList.toggle('collapsed');
+      btn.setAttribute('aria-expanded', String(!collapsed));
+      syncAll();
+    });
+  });
+  function syncAll() {
+    const anyOpen = sets.some(fs => !fs.classList.contains('collapsed'));
+    allbtn.textContent = anyOpen ? 'Contrair tudo' : 'Expandir tudo';
+  }
+  allbtn.addEventListener('click', () => {
+    const anyOpen = sets.some(fs => !fs.classList.contains('collapsed'));
+    sets.forEach(fs => {
+      fs.classList.toggle('collapsed', anyOpen);
+      fs.querySelector('legend button').setAttribute('aria-expanded', String(!anyOpen));
+    });
+    syncAll();
+  });
+
+  // Affinity: strategy radios only make sense once a field is chosen.
+  const afffield = document.getElementById('afffield');
+  const affmode = document.getElementById('affmode');
+  const affhint = document.getElementById('affhint');
+  const affbadge = document.getElementById('aff-badge');
+  function syncAffinity() {
+    const off = afffield.value === '';
+    affmode.classList.toggle('off', off);
+    affmode.querySelectorAll('input').forEach(r => { r.disabled = off; });
+    const label = afffield.selectedOptions[0].textContent;
+    if (off) {
+      affhint.textContent = 'Escolha um campo para ativar a estratégia de afinidade.';
+      affbadge.textContent = 'inativo';
+      affbadge.classList.remove('on');
+    } else {
+      const together = affmode.querySelector('input').checked;
+      affhint.textContent = `Participantes sem valor em "${label}" são alocados aleatoriamente e aparecem como aviso na pré-visualização.`;
+      affbadge.textContent = `${label} · ${together ? 'manter juntos' : 'manter separados'}`;
+      affbadge.classList.add('on');
+    }
+  }
+  afffield.addEventListener('change', syncAffinity);
+  affmode.addEventListener('change', syncAffinity);
+
+  // Seats: overbooking input only enabled while the seats checkbox is on.
+  const useseats = document.getElementById('useseats');
+  const overbook = document.getElementById('overbook');
+  const seatsnote = document.getElementById('seatsnote');
+  const seatsbadge = document.getElementById('seats-badge');
+  function syncSeats() {
+    const on = useseats.checked;
+    overbook.disabled = !on;
+    seatsnote.style.display = on ? '' : 'none';
+    if (on) {
+      const n = parseInt(overbook.value, 10) || 0;
+      seatsbadge.textContent = n > 0 ? `ativo · +${n}` : 'ativo';
+      seatsbadge.classList.add('on');
+    } else {
+      seatsbadge.textContent = 'inativo';
+      seatsbadge.classList.remove('on');
+    }
+  }
+  useseats.addEventListener('change', syncSeats);
+  overbook.addEventListener('input', syncSeats);
+
+  syncAffinity();
+  syncSeats();
+})();
+</script>

@@ -1,0 +1,30 @@
+name: ci
+
+# workflow_dispatch is the manual escape hatch: it lets a run be launched for
+# a push whose commits would otherwise skip CI, without pushing another commit.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # One reusable-workflow call per supported Moodle branch (version.php
+  # $plugin->supported) — update these jobs when the supported range changes,
+  # in the same commit as the version.php change. The highest branch runs the
+  # full PHP x DB matrix; older branches run one DB only. PHPUnit and Behat
+  # run on every runtime leg.
+  #
+  # For plugins that depend on sibling plugins, add to each job:
+  #   plugin-dependencies: uaiblaine/moodle-<component>,main
+  ci-502:
+    name: Moodle 5.02
+    uses: moodle-an-hochschulen/moodle-workflows/.github/workflows/moodle-plugin-ci.yml@main
+    with:
+      moodle-core-branch: MOODLE_502_STABLE
+
+  ci-501:
+    name: Moodle 5.01
+    uses: moodle-an-hochschulen/moodle-workflows/.github/workflows/moodle-plugin-ci.yml@main
+    with:
+      moodle-core-branch: MOODLE_501_STABLE
+      one-db-only: true

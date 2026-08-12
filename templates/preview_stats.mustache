@@ -1,0 +1,66 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_groupdist/preview_stats
+
+    Summary tiles for the distribution preview, client-rendered from the
+    preview web service totals.
+
+    Context variables required for this template:
+    * candidates - users taking part
+    * groups - target group count
+    * average - localised average of new members per group
+    * hasseats - whether seat totals apply
+    * seatstotal - sum of declared seats
+    * overbooked - memberships beyond declared seats
+    * warningcount - number of warnings
+
+    Example context (json):
+    {
+        "candidates": 487,
+        "groups": 42,
+        "average": "11.6",
+        "hasseats": true,
+        "seatstotal": 476,
+        "overbooked": 7,
+        "warningcount": 2
+    }
+}}
+<div class="local-groupdist-tiles">
+    <div class="card"><div class="card-body py-2">
+        <div class="h4 mb-0">{{candidates}}</div>
+        <div class="small text-muted">{{#str}} statcandidates, local_groupdist {{/str}}</div>
+    </div></div>
+    <div class="card"><div class="card-body py-2">
+        <div class="h4 mb-0">{{groups}}</div>
+        <div class="small text-muted">{{#str}} statgroups, local_groupdist {{/str}}</div>
+    </div></div>
+    <div class="card"><div class="card-body py-2">
+        <div class="h4 mb-0">{{average}}</div>
+        <div class="small text-muted">{{#str}} stataverage, local_groupdist {{/str}}</div>
+    </div></div>
+    {{#hasseats}}
+    <div class="card"><div class="card-body py-2">
+        <div class="h4 mb-0">{{seatstotal}}{{#overbooked}} <small class="text-muted">+{{overbooked}}</small>{{/overbooked}}</div>
+        <div class="small text-muted">{{#str}} statseats, local_groupdist {{/str}}</div>
+    </div></div>
+    {{/hasseats}}
+    <div class="card"><div class="card-body py-2">
+        <div class="h4 mb-0{{#warningcount}} text-warning{{/warningcount}}">{{warningcount}}</div>
+        <div class="small text-muted">{{#str}} statwarnings, local_groupdist {{/str}}</div>
+    </div></div>
+</div>

@@ -1,0 +1,51 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_groupdist/selected_groups
+
+    Chips summarising the groups selected on the group management page
+    (first few names plus a counter chip for the rest).
+
+    Context variables required for this template:
+    * total - total number of selected groups
+    * groups - array of objects with a name property (the sample shown)
+    * morecount - how many further groups are not shown (0 hides the chip)
+
+    Example context (json):
+    {
+        "total": 42,
+        "groups": [
+            {"name": "Group 01"},
+            {"name": "Group 02"}
+        ],
+        "morecount": 40
+    }
+}}
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <h2 class="h6 text-uppercase text-muted">{{#str}} selectedgroups, local_groupdist, {{total}} {{/str}}</h2>
+        <div class="d-flex flex-wrap gap-1">
+            {{#groups}}
+            <span class="badge bg-light text-dark border fw-normal">{{name}}</span>
+            {{/groups}}
+            {{#morecount}}
+            <span class="badge bg-light text-muted border fw-normal">+{{morecount}}</span>
+            {{/morecount}}
+        </div>
+        <p class="small text-muted mb-0 mt-2">{{#str}} selectedgroupsnote, local_groupdist {{/str}}</p>
+    </div>
+</div>

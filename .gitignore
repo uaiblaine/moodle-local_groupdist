@@ -1,0 +1,13 @@
+# OS files
+.DS_Store
+
+# IDE / Editor
+.vscode/
+.idea/
+.claude/
+
+# Node.js / Composer (build tooling only — not part of the plugin)
+node_modules/
+vendor/
+package.json
+package-lock.json

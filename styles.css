@@ -1,0 +1,37 @@
+/* Styles for local_groupdist (Moodle 5.1+, Bootstrap 5 vocabulary only). */
+
+.local-groupdist-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+}
+
+.local-groupdist-tiles .h4 {
+    font-variant-numeric: tabular-nums;
+}
+
+.local-groupdist-recap-label {
+    min-width: 10rem;
+}
+
+.local-groupdist-meter {
+    height: 6px;
+}
+
+.local-groupdist-members {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.25rem 0.9rem;
+}
+
+.local-groupdist-members .badge {
+    flex-shrink: 0;
+}
+
+.local-groupdist-skeleton .placeholder {
+    display: block;
+}
+
+.local-groupdist-footnote {
+    max-width: 26rem;
+}

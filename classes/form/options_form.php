@@ -132,11 +132,14 @@ class options_form extends \moodleform {
         $mform->setDefault('affinitymode', options::AFFINITY_TOGETHER);
         $mform->disabledIf('affinitymodegroup', 'affinityfield', 'eq', '');
 
-        // Section: seats and overbooking.
+        // Section: seats and overbooking. Labels echo the field's STORED name
+        // (set once at provisioning time): a site provisioned in English shows
+        // "Seats" here even when the UI language is Portuguese.
+        $seatslabel = (string) $this->_customdata['seatslabel'];
         $mform->addElement('header', 'seatshdr', get_string('seatssection', 'local_groupdist'));
         $mform->setExpanded('seatshdr', true);
-        $mform->addElement('advcheckbox', 'useseats', get_string('useseats', 'local_groupdist'));
-        $mform->addHelpButton('useseats', 'useseats', 'local_groupdist');
+        $mform->addElement('advcheckbox', 'useseats', get_string('useseats', 'local_groupdist', $seatslabel));
+        $mform->addHelpButton('useseats', 'useseats', 'local_groupdist', '', false, $seatslabel);
         $mform->setDefault('useseats', 1);
 
         $mform->addElement('text', 'overbook', get_string('overbook', 'local_groupdist'), 'maxlength="2" size="4"');
@@ -146,7 +149,7 @@ class options_form extends \moodleform {
         $mform->disabledIf('overbook', 'useseats', 'notchecked');
 
         if ($noseats > 0) {
-            $a = (object) ['noseats' => $noseats, 'total' => count($groupids)];
+            $a = (object) ['noseats' => $noseats, 'total' => count($groupids), 'field' => $seatslabel];
             $mform->addElement('static', 'noseatsnote', '', get_string('noseatsnote', 'local_groupdist', $a));
         }
 

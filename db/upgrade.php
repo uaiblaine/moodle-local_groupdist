@@ -34,6 +34,11 @@ function xmldb_local_groupdist_upgrade(int $oldversion): bool {
         upgrade_plugin_savepoint(true, 2026081201, 'local', 'groupdist');
     }
 
+    if ($oldversion < 2026081210) {
+        // The bulk edit feature: save_group_fields web service registers here.
+        upgrade_plugin_savepoint(true, 2026081210, 'local', 'groupdist');
+    }
+
     // Catch-all: re-provision the group custom fields on every upgrade, so an
     // upgrade heals a category an admin deleted between releases.
     \local_groupdist\local\fields::ensure_fields_exist();

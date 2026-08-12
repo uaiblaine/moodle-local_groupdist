@@ -37,6 +37,9 @@ distribute.php               Step 1+2 controller: options form POST target and
                              preview renderer (sticky_footer with apply/back)
 apply.php                    Step 3: fingerprint re-check, inline vs adhoc
 status.php                   Background apply progress (core task_indicator)
+bulkedit.php                 Bulk edit table of the selected groups' custom
+                             fields (gate: moodle/course:managegroups)
+lib.php                      local_groupdist_user_preferences() (column prefs)
 classes/
   hook_callbacks.php         before_footer_html_generation → injects the button
   local/options.php          Canonical option value object (form/WS/task shape)
@@ -48,6 +51,11 @@ classes/
   local/fields.php           Group custom field provisioning + bulk readers
   local/profilefields.php    Affinity field enumeration (visibility-filtered)
   external/get_preview.php   Paged preview WS (recomputes per call)
+  external/save_group_fields.php Chunked bulk-edit save (dirty cells only,
+                             MAX_CHANGES=200 per call; client chunks at 100)
+  output/bulkedit_page.php   Table context builder (also refreshes one row
+                             after the settings modal saves)
+  form/group_settings_form.php Dynamic-form modal wrapping core group settings
   task/apply_distribution.php Adhoc apply with stored progress
   event/distribution_applied.php One event per applied run (no objecttable)
 amd/src/index_button.js      Injected formaction submit button on group/index
@@ -125,6 +133,16 @@ docs/                        Approved HTML mockups + design decisions (export-ig
 - **WS return structure is an allowlist**: preview data is rendered client-side
   only, from `get_preview` — a field added to the payload must be added to
   `execute_returns()` or `clean_returnvalue` silently strips it.
+- **Bulk edit saves are payload-bounded by design**: only dirty cells travel,
+  the client slices sequential chunks of 100 and `save_group_fields` rejects
+  calls above `MAX_CHANGES` (200). Partial cell saves are safe because
+  customfield data controllers early-return on absent `customfield_<shortname>`
+  properties (`data_controller::instance_form_save`, property_exists check) —
+  never "helpfully" fill in the other fields' properties, that would wipe them.
+- **The privacy provider is preference-based, not null**: the collapsible
+  columns store `local_groupdist_bulkedit_hiddencols` (declared in
+  `lib.php:local_groupdist_user_preferences()` so the WS may set it). A new
+  user preference means extending BOTH lib.php and the privacy provider.
 
 ## Testing notes
 

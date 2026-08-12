@@ -144,7 +144,10 @@ const loadPage = async(root) => {
         state.shownmax = data.shownmax;
         state.offset += data.groups.length;
 
-        const {html, js} = await Templates.renderForPromise('local_groupdist/preview_groups', {groups: data.groups});
+        const {html, js} = await Templates.renderForPromise('local_groupdist/preview_groups', {
+            groups: data.groups,
+            locationlabel: data.locationlabel,
+        });
         Templates.appendNodeContents(groupsregion, html, js);
 
         const counter = root.querySelector(SELECTORS.COUNTER);

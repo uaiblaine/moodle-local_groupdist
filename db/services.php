@@ -32,4 +32,11 @@ $functions = [
         'ajax' => true,
         'capabilities' => 'local/groupdist:distribute',
     ],
+    'local_groupdist_save_group_fields' => [
+        'classname' => 'local_groupdist\external\save_group_fields',
+        'description' => 'Save changed group custom field cells from the bulk edit table (chunked, max 200 per call).',
+        'type' => 'write',
+        'ajax' => true,
+        'capabilities' => 'moodle/course:managegroups',
+    ],
 ];

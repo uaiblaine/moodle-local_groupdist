@@ -14,6 +14,7 @@ the shipped plugin resolves all labels through language packs (`en` +
 |------|--------|
 | [`mockups/step1-options.html`](mockups/step1-options.html) | Step 1 — distribution options form (moodleform sections, affinity + seats controls with enable/disable behaviour) |
 | [`mockups/step2-preview.html`](mockups/step2-preview.html) | Step 2 — preview (recap chips, stat tiles, warnings, group cards with capacity meters, simulated lazy loading in pages of 5 up to the 25-group cap) |
+| [`mockups/bulk-edit.html`](mockups/bulk-edit.html) | Bulk edit groups (approved v3, 2026-08-12) — table of selected groups with inline custom-field editing, mass-apply for seats, dynamic overbooking indicator on the members column, empty-seats highlighting + filter, collapsible columns menu, floating tooltips on truncated names/idnumbers, per-row "Edit" modal wrapping core's group settings, responsive card layout on mobile |
 
 The mockups link to each other the same way the real pages flow ("Preview
 distribution" / "Back and adjust"). The bottom action bar in both mockups

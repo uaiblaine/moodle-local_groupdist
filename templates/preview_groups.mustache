@@ -22,12 +22,14 @@
     attribute of the capacity meter.
 
     Context variables required for this template:
+    * locationlabel - stored display name of the location custom field
     * groups - array of group entries: name, location, seats, current,
       allocated, total, overflow, hasseats, fillpct, spillpct, hiddencount and
       a members array (fullname, affinity, isnew)
 
     Example context (json):
     {
+        "locationlabel": "Location",
         "groups": [
             {
                 "id": 12,
@@ -54,7 +56,7 @@
     <div class="card-body py-3">
         <div class="d-flex flex-wrap align-items-baseline gap-2 mb-1">
             <h3 class="h6 mb-0">{{name}}</h3>
-            {{#location}}<span class="small text-muted">{{#str}} grouplocation, local_groupdist, {{.}} {{/str}}</span>{{/location}}
+            {{#location}}<span class="small text-muted">{{locationlabel}}: {{.}}</span>{{/location}}
             <span class="ms-auto small text-muted">
                 {{#hasseats}}
                 <strong class="text-body">{{total}}</strong> / {{seats}}

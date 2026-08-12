@@ -35,3 +35,147 @@
 .local-groupdist-footnote {
     max-width: 26rem;
 }
+
+/* Bulk edit table. */
+
+.local-groupdist-massvalue {
+    width: 5.5rem;
+}
+
+.local-groupdist-swatch {
+    display: inline-block;
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    vertical-align: -2px;
+}
+
+.local-groupdist-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: #b25e09;
+    vertical-align: 1px;
+}
+
+.local-groupdist-bulktable td {
+    vertical-align: middle;
+}
+
+.local-groupdist-gcell {
+    max-width: 20rem;
+    min-width: 0;
+}
+
+.local-groupdist-gavatar {
+    flex-shrink: 0;
+    width: 2.1rem;
+    height: 2.1rem;
+    object-fit: cover;
+}
+
+.local-groupdist-ginitial {
+    display: inline-grid;
+    place-items: center;
+    font-weight: 700;
+}
+
+.local-groupdist-gname {
+    min-width: 0;
+}
+
+.local-groupdist-idn {
+    max-width: 9rem;
+    vertical-align: bottom;
+}
+
+.local-groupdist-numinput {
+    width: 5.5rem;
+}
+
+.local-groupdist-dirtydot {
+    flex-shrink: 0;
+    opacity: 0;
+}
+
+.local-groupdist-dirty .local-groupdist-dirtydot {
+    opacity: 1;
+}
+
+.local-groupdist-dirtycount {
+    color: #b25e09;
+}
+
+.local-groupdist-colhidden {
+    display: none;
+}
+
+.local-groupdist-colmenu .dropdown-menu {
+    min-width: 15rem;
+}
+
+/* Bulk edit on narrow screens: rows become stacked cards. */
+@media (max-width: 720px) {
+    .local-groupdist-legend,
+    .local-groupdist-colmenu {
+        display: none;
+    }
+
+    .local-groupdist-tablewrap {
+        border: 0;
+        background: none;
+        box-shadow: none;
+    }
+
+    .local-groupdist-bulktable,
+    .local-groupdist-bulktable tbody {
+        display: block;
+    }
+
+    .local-groupdist-bulktable thead {
+        display: none;
+    }
+
+    .local-groupdist-bulktable tbody tr {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.35rem 0.9rem;
+        border: 1px solid rgba(0, 0, 0, 0.125);
+        border-radius: 0.5rem;
+        padding: 0.75rem 0.9rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .local-groupdist-bulktable td {
+        display: block;
+        border: 0;
+        padding: 0;
+    }
+
+    .local-groupdist-bulktable td.local-groupdist-colhidden {
+        display: block;
+    }
+
+    .local-groupdist-bulktable td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.74rem;
+        opacity: 0.7;
+        margin-bottom: 0.1rem;
+    }
+
+    .local-groupdist-bulktable td:first-child,
+    .local-groupdist-bulktable td[data-colkey="actions"] {
+        grid-column: 1 / -1;
+    }
+
+    .local-groupdist-bulktable td[data-colkey="actions"] .btn {
+        width: 100%;
+    }
+
+    .local-groupdist-gcell {
+        max-width: none;
+    }
+}

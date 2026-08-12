@@ -73,6 +73,31 @@ class fields {
     }
 
     /**
+     * Display name of the seats field as the admin actually named it.
+     *
+     * Custom field names are stored once at provisioning time (in the
+     * provisioning admin's language) and are not translatable afterwards, so
+     * every UI text referring to the field must echo the stored name instead
+     * of hardcoding a translated "Seats"/"Vagas".
+     *
+     * @return string The formatted field name (lang-pack fallback when missing).
+     */
+    public static function get_seats_label(): string {
+        $field = self::get_seats_field();
+        return $field ? format_string($field->get('name')) : get_string('fieldseats', 'local_groupdist');
+    }
+
+    /**
+     * Display name of the location field as the admin actually named it.
+     *
+     * @return string The formatted field name (lang-pack fallback when missing).
+     */
+    public static function get_location_label(): string {
+        $field = self::get_location_field();
+        return $field ? format_string($field->get('name')) : get_string('fieldlocation', 'local_groupdist');
+    }
+
+    /**
      * Find one of the plugin's fields inside the group handler's area.
      *
      * Reads through {@see api::get_categories_with_fields()} directly instead of

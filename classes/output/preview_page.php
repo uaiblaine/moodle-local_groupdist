@@ -101,7 +101,8 @@ class preview_page implements \renderable, \templatable {
 
         $seatschips = [];
         if ($options->useseats) {
-            $seatschips[] = ['text' => get_string('useseats', 'local_groupdist'), 'on' => true];
+            $seatslabel = \local_groupdist\local\fields::get_seats_label();
+            $seatschips[] = ['text' => get_string('useseats', 'local_groupdist', $seatslabel), 'on' => true];
             if ($options->overbook > 0) {
                 $seatschips[] = ['text' => get_string('recapoverbook', 'local_groupdist', $options->overbook)];
             }

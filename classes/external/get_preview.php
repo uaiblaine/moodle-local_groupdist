@@ -221,6 +221,7 @@ class get_preview extends external_api {
             ],
             'warnings' => self::format_warnings($distribution, $context),
             'groups' => $groupspayload,
+            'locationlabel' => \local_groupdist\local\fields::get_location_label(),
             'total' => $groupstotal,
             'shownmax' => min($groupstotal, self::GROUP_CAP),
             'capped' => $groupstotal > self::GROUP_CAP,
@@ -267,6 +268,7 @@ class get_preview extends external_api {
                 ])),
                 'hiddencount' => new external_value(PARAM_INT, 'Members not shown in the sample'),
             ])),
+            'locationlabel' => new external_value(PARAM_TEXT, 'Stored display name of the location field'),
             'total' => new external_value(PARAM_INT, 'Total target groups'),
             'shownmax' => new external_value(PARAM_INT, 'Most groups the preview will page through'),
             'capped' => new external_value(PARAM_BOOL, 'Whether the preview cap hides groups'),
@@ -338,7 +340,10 @@ class get_preview extends external_api {
             $count = $warning['count'] ?? 0;
             switch ($warning['type']) {
                 case distribution::WARNING_NOSEATS:
-                    $message = get_string('warningnoseats', 'local_groupdist', $count);
+                    $message = get_string('warningnoseats', 'local_groupdist', (object) [
+                        'count' => $count,
+                        'field' => \local_groupdist\local\fields::get_seats_label(),
+                    ]);
                     break;
                 case distribution::WARNING_COMMSLOW:
                     $message = get_string('warningcommslow', 'local_groupdist');

@@ -15,18 +15,29 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Plugin version and other metadata.
+ * Procedural callbacks.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->component = 'local_groupdist';
-$plugin->version = 2026081210;
-$plugin->requires = 2025100600;
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->release = 'v0.1.0';
-$plugin->supported = [501, 502];
+/**
+ * User preferences this plugin may set through the web service.
+ *
+ * @return array Preference definitions keyed by name.
+ */
+function local_groupdist_user_preferences(): array {
+    return [
+        // Comma-separated column keys the user collapsed on the bulk edit table.
+        'local_groupdist_bulkedit_hiddencols' => [
+            'type' => PARAM_NOTAGS,
+            'null' => NULL_NOT_ALLOWED,
+            'default' => '',
+            'permissioncallback' => function ($user, $preferencename) {
+                global $USER;
+                return $user->id == $USER->id;
+            },
+        ],
+    ];
+}

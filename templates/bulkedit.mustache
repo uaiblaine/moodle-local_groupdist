@@ -1,0 +1,214 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_groupdist/bulkedit
+
+    Bulk edit table: one row per selected group, one column per group custom
+    field. Inline editors for number/text/select/checkbox fields; other types
+    display read-only and are edited through the settings modal. Hydrated by
+    the local_groupdist/bulkedit AMD module (dirty tracking, chunked saves,
+    mass apply, column visibility, overbooking indicator).
+
+    Context variables required for this template:
+    * courseid - course id
+    * total - number of selected groups
+    * seatslabel - stored display name of the seats field
+    * seatsshortname - shortname of the seats field
+    * hiddencols - comma-separated column keys the user collapsed
+    * sesskey - session key
+    * menucolumns - array of key/label/visible for the columns menu
+    * columns - array of column descriptors (key, label)
+    * rows - array of row contexts (groupid, name, pictureurl, initial,
+      idnumber, members, over, isover, cells)
+
+    Example context (json):
+    {
+        "courseid": 2,
+        "total": 1,
+        "seatslabel": "Seats",
+        "seatsshortname": "groupdist_seats",
+        "hiddencols": "",
+        "sesskey": "abc",
+        "menucolumns": [
+            {"key": "id", "label": "ID", "visible": true}
+        ],
+        "columns": [
+            {"key": "cf_groupdist_seats", "label": "Seats"}
+        ],
+        "rows": [
+            {
+                "groupid": 5,
+                "name": "Group 01",
+                "pictureurl": "",
+                "initial": "G",
+                "idnumber": "G01",
+                "members": 9,
+                "over": 0,
+                "isover": false,
+                "cells": [
+                    {
+                        "key": "cf_groupdist_seats",
+                        "shortname": "groupdist_seats",
+                        "label": "Seats",
+                        "isseats": true,
+                        "isnumber": true,
+                        "istext": false,
+                        "isselect": false,
+                        "ischeckbox": false,
+                        "isreadonly": false,
+                        "value": "12",
+                        "displayvalue": "",
+                        "checked": false,
+                        "empty": false,
+                        "options": []
+                    }
+                ]
+            }
+        ]
+    }
+}}
+<div class="local-groupdist-bulkedit" data-region="local-groupdist-bulkedit"
+     data-courseid="{{courseid}}" data-seatsshortname="{{seatsshortname}}" data-hiddencols="{{hiddencols}}">
+
+    <div class="card mb-2">
+        <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
+            <span class="fw-bold">{{#str}} massactions, local_groupdist {{/str}}</span>
+            <label class="mb-0" for="local-groupdist-massvalue">{{#str}} massapplyseats, local_groupdist, {{seatslabel}} {{/str}}</label>
+            <input type="number" id="local-groupdist-massvalue" class="form-control form-control-sm local-groupdist-massvalue"
+                   min="0" max="99" data-region="massvalue">
+            <button type="button" class="btn btn-secondary btn-sm" data-action="massapply">
+                {{#str}} applytoall, local_groupdist {{/str}}
+            </button>
+            <span class="small text-muted">{{#str}} massapplyhint, local_groupdist {{/str}}</span>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
+        <span class="text-muted">{{#str}} selectedgroups, local_groupdist, {{total}} {{/str}}</span>
+        <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="local-groupdist-filterempty" data-action="filterempty">
+            <label class="form-check-label" for="local-groupdist-filterempty">
+                {{#str}} filternoseats, local_groupdist, {{seatslabel}} {{/str}}
+            </label>
+        </div>
+        <div class="dropdown local-groupdist-colmenu">
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                    data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                {{#str}} columnsbutton, local_groupdist {{/str}}
+                <span class="badge bg-light text-muted border fw-normal" data-region="hiddencount" hidden></span>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end p-2">
+                <div class="small text-muted px-2 pb-1">{{#str}} columnsmenuhead, local_groupdist, {{seatslabel}} {{/str}}</div>
+                {{#menucolumns}}
+                <label class="dropdown-item d-flex align-items-center gap-2 mb-0">
+                    <input class="form-check-input mt-0" type="checkbox" data-action="togglecol"
+                           data-colkey="{{key}}" {{#visible}}checked{{/visible}}>
+                    {{label}}
+                </label>
+                {{/menucolumns}}
+            </div>
+        </div>
+        <div class="ms-auto d-flex gap-3 small text-muted local-groupdist-legend">
+            <span><span class="local-groupdist-swatch table-warning"></span> {{#str}} legendnoseats, local_groupdist, {{seatslabel}} {{/str}}</span>
+            <span><span class="local-groupdist-swatch table-danger"></span> {{#str}} legendover, local_groupdist, {{seatslabel}} {{/str}}</span>
+            <span><span class="local-groupdist-dot"></span> {{#str}} legenddirty, local_groupdist {{/str}}</span>
+        </div>
+    </div>
+
+    <div class="table-responsive card local-groupdist-tablewrap">
+        <table class="table generaltable local-groupdist-bulktable mb-0">
+            <thead>
+                <tr>
+                    <th scope="col">{{#str}} group, group {{/str}}</th>
+                    <th scope="col" data-colkey="id">{{#str}} idnumbercolumn, local_groupdist {{/str}}</th>
+                    <th scope="col" data-colkey="members">{{#str}} memberscolumn, local_groupdist {{/str}}</th>
+                    {{#columns}}
+                    <th scope="col" data-colkey="{{key}}">{{label}}</th>
+                    {{/columns}}
+                    <th scope="col" data-colkey="actions"><span class="visually-hidden">{{#str}} actions, core {{/str}}</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#rows}}
+                <tr data-groupid="{{groupid}}" data-members="{{members}}">
+                    <td>
+                        <div class="d-flex align-items-center gap-2 local-groupdist-gcell">
+                            {{#pictureurl}}
+                            <img src="{{.}}" class="local-groupdist-gavatar rounded-circle" alt="">
+                            {{/pictureurl}}
+                            {{^pictureurl}}
+                            <span class="local-groupdist-gavatar local-groupdist-ginitial rounded-circle bg-secondary text-white"
+                                  aria-hidden="true">{{initial}}</span>
+                            {{/pictureurl}}
+                            <span class="fw-bold text-truncate local-groupdist-gname" tabindex="0"
+                                  data-bs-toggle="tooltip" title="{{name}}">{{name}}</span>
+                            <span class="local-groupdist-dot local-groupdist-dirtydot" aria-hidden="true"></span>
+                        </div>
+                    </td>
+                    <td data-colkey="id" data-label="{{#str}} idnumbercolumn, local_groupdist {{/str}}" class="text-muted small text-nowrap">
+                        #{{groupid}}
+                        {{#idnumber}}
+                        <span class="badge bg-light text-muted border fw-normal local-groupdist-idn text-truncate" tabindex="0"
+                              data-bs-toggle="tooltip" title="{{.}}">{{.}}</span>
+                        {{/idnumber}}
+                    </td>
+                    <td data-colkey="members" data-label="{{#str}} memberscolumn, local_groupdist {{/str}}"
+                        class="text-nowrap local-groupdist-memcell {{#isover}}table-danger{{/isover}}" data-region="memcell">
+                        {{members}} <small class="text-muted">{{#str}} memberscolumnunit, local_groupdist {{/str}}</small>
+                        <span class="badge bg-light border local-groupdist-overbadge" data-region="overbadge"
+                              {{^isover}}hidden{{/isover}}>+{{over}}</span>
+                    </td>
+                    {{#cells}}
+                    <td data-colkey="{{key}}" data-shortname="{{shortname}}" data-label="{{label}}"
+                        class="{{#empty}}table-warning{{/empty}}">
+                        {{#isnumber}}
+                        <input type="number" class="form-control form-control-sm local-groupdist-numinput" min="0"
+                               data-fieldtype="number" value="{{value}}" aria-label="{{label}}">
+                        {{/isnumber}}
+                        {{#istext}}
+                        <input type="text" class="form-control form-control-sm" maxlength="255"
+                               data-fieldtype="text" value="{{value}}" aria-label="{{label}}">
+                        {{/istext}}
+                        {{#isselect}}
+                        <select class="form-select form-select-sm" data-fieldtype="select" aria-label="{{label}}">
+                            <option value="0"></option>
+                            {{#options}}
+                            <option value="{{value}}" {{#selected}}selected{{/selected}}>{{label}}</option>
+                            {{/options}}
+                        </select>
+                        {{/isselect}}
+                        {{#ischeckbox}}
+                        <input type="checkbox" class="form-check-input" data-fieldtype="checkbox"
+                               {{#checked}}checked{{/checked}} aria-label="{{label}}">
+                        {{/ischeckbox}}
+                        {{#isreadonly}}
+                        <span class="local-groupdist-readonly small">{{{displayvalue}}}</span>
+                        {{/isreadonly}}
+                    </td>
+                    {{/cells}}
+                    <td data-colkey="actions" data-label="">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="editgroup"
+                                data-groupid="{{groupid}}" data-groupname="{{name}}">
+                            {{#str}} edit, core {{/str}}
+                        </button>
+                    </td>
+                </tr>
+                {{/rows}}
+            </tbody>
+        </table>
+    </div>
+</div>

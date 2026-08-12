@@ -14,65 +14,108 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Injects the "Distribute participants" bulk action on the group management page.
+ * Injects the plugin's bulk actions on the group management page:
+ * "Bulk edit groups" and, below it, "Distribute participants".
  *
- * The control is a submit button with a formaction pointing at the plugin's
- * distribute.php: the browser posts the core form (groups[], id, sesskey)
- * straight to the plugin. It carries no name attribute on purpose — an
- * unknown "action" value makes group/index.php throw.
+ * Each control is a submit button with a formaction pointing at the plugin's
+ * page: the browser posts the core form (groups[], id, sesskey) straight to
+ * the plugin. They carry no name attribute on purpose — an unknown "action"
+ * value makes group/index.php throw.
  *
  * @module     local_groupdist/index_button
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import {getString} from 'core/str';
+import {getStrings} from 'core/str';
 
 const SELECTORS = {
     FORM: '#groupeditform',
     GROUPS: '#groups',
     DELETEBUTTON: '#deletegroup',
-    OWNBUTTON: '#local-groupdist-distribute',
+    OWNBUTTONS: '.local-groupdist-action',
 };
 
 /**
- * Inject the button and mirror the selection-based enable/disable behaviour.
+ * Build one injected action button.
  *
- * @param {Number} courseid The course id.
- * @returns {Promise<void>}
+ * @param {String} id The element id.
+ * @param {String} label The button label.
+ * @param {String} url The formaction target.
+ * @returns {HTMLElement} The wrapper div containing the button.
  */
-export const init = async(courseid) => {
-    const form = document.querySelector(SELECTORS.FORM);
-    const groups = document.querySelector(SELECTORS.GROUPS);
-    if (!form || !groups || document.querySelector(SELECTORS.OWNBUTTON)) {
-        return;
-    }
-
-    const label = await getString('distributeparticipants', 'local_groupdist');
-
+const buildButton = (id, label, url) => {
     const button = document.createElement('button');
     button.type = 'submit';
-    button.id = 'local-groupdist-distribute';
-    button.className = 'btn btn-secondary';
+    button.id = id;
+    button.className = 'btn btn-secondary local-groupdist-action';
     button.textContent = label;
     button.disabled = true;
-    button.formAction = M.cfg.wwwroot + '/local/groupdist/distribute.php?id=' + courseid;
+    button.formAction = url;
 
     const wrapper = document.createElement('div');
     wrapper.className = 'mb-3';
     wrapper.appendChild(button);
+    return wrapper;
+};
+
+/**
+ * Inject the buttons and mirror the selection-based enable/disable behaviour.
+ *
+ * @param {Number} courseid The course id.
+ * @param {Boolean} candistribute Whether to offer the distribute action.
+ * @param {Boolean} canbulkedit Whether to offer the bulk edit action.
+ * @returns {Promise<void>}
+ */
+export const init = async(courseid, candistribute, canbulkedit) => {
+    const form = document.querySelector(SELECTORS.FORM);
+    const groups = document.querySelector(SELECTORS.GROUPS);
+    if (!form || !groups || document.querySelector(SELECTORS.OWNBUTTONS)) {
+        return;
+    }
+
+    const [bulklabel, distlabel] = await getStrings([
+        {key: 'bulkeditgroups', component: 'local_groupdist'},
+        {key: 'distributeparticipants', component: 'local_groupdist'},
+    ]);
+
+    const wrappers = [];
+    if (canbulkedit) {
+        wrappers.push(buildButton(
+            'local-groupdist-bulkedit',
+            bulklabel,
+            M.cfg.wwwroot + '/local/groupdist/bulkedit.php?id=' + courseid
+        ));
+    }
+    if (candistribute) {
+        wrappers.push(buildButton(
+            'local-groupdist-distribute',
+            distlabel,
+            M.cfg.wwwroot + '/local/groupdist/distribute.php?id=' + courseid
+        ));
+    }
+    if (!wrappers.length) {
+        return;
+    }
 
     const anchor = form.querySelector(SELECTORS.DELETEBUTTON);
     const anchorwrapper = anchor ? anchor.closest('div') : null;
-    if (anchorwrapper) {
-        anchorwrapper.insertAdjacentElement('afterend', wrapper);
-    } else {
-        form.appendChild(wrapper);
-    }
+    let previous = anchorwrapper;
+    wrappers.forEach((wrapper) => {
+        if (previous) {
+            previous.insertAdjacentElement('afterend', wrapper);
+        } else {
+            form.appendChild(wrapper);
+        }
+        previous = wrapper;
+    });
 
     // Own listener only — the page's three legacy layers keep their own state.
     const sync = () => {
-        button.disabled = !groups.querySelector('option:checked');
+        const none = !groups.querySelector('option:checked');
+        document.querySelectorAll(SELECTORS.OWNBUTTONS).forEach((button) => {
+            button.disabled = none;
+        });
     };
     groups.addEventListener('change', sync);
     sync();

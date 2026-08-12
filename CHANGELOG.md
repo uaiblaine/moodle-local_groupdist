@@ -8,6 +8,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Bulk edit groups: a second action on the group management page opening a
+  table of the selected groups — picture, name, ids, member count and every
+  group custom field — with inline editing (number/text/select/checkbox),
+  mass-apply for the seats field, an empty-seats filter, per-user collapsible
+  columns (user preference), floating tooltips on truncated names/idnumbers,
+  a dynamic soft-red overbooking indicator on the members column, a
+  responsive card layout on narrow screens, and a per-row modal wrapping the
+  core group settings (dynamic form). Saves go through the chunked
+  `local_groupdist_save_group_fields` web service: only changed cells are
+  sent, at most 200 per call, sequential chunks of 100 client-side.
+- The distribution UI now echoes the STORED names of the provisioned custom
+  fields (set in the provisioning admin's language) instead of translated
+  placeholders, so a site provisioned in English shows "Seats" even in a
+  Portuguese UI.
+
+### Fixed
+
+- Switching the interface language on the distribution pages no longer
+  throws "A required parameter (sesskey) was missing": rendering requires no
+  sesskey (form submissions and the apply/save endpoints keep their own
+  checks) and a bare GET quietly returns to the groups page.
+
 - Initial implementation (Moodle 5.1–5.2): "Distribute participants" bulk
   action on the course group management page, injected client-side and posting
   the selected groups to the plugin's flow.

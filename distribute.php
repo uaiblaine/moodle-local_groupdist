@@ -34,7 +34,10 @@ $course = get_course($courseid);
 require_login($course);
 $context = \core\context\course::instance($course->id);
 require_capability('local/groupdist:distribute', $context);
-require_sesskey();
+/* No page-level require_sesskey() here: the language menu re-requests this URL
+   as a plain GET without a sesskey and must not explode. Nothing on this page
+   mutates state — form submissions are sesskey-checked by formslib, and the
+   mutating endpoint (apply.php) keeps its own require_sesskey(). */
 
 \local_groupdist\local\fields::ensure_fields_exist();
 
@@ -52,7 +55,12 @@ $groupids = array_values(array_unique(array_intersect(
 
 $returnurl = new moodle_url('/group/index.php', ['id' => $course->id]);
 if (!$groupids) {
-    redirect($returnurl, get_string('errornogroups', 'local_groupdist'), null, \core\output\notification::NOTIFY_ERROR);
+    if (data_submitted()) {
+        redirect($returnurl, get_string('errornogroups', 'local_groupdist'), null, \core\output\notification::NOTIFY_ERROR);
+    }
+    // Plain GET without a selection (e.g. a language switch): back to the
+    // groups page quietly — the new language is already set for the session.
+    redirect($returnurl);
 }
 
 $PAGE->set_url(new moodle_url('/local/groupdist/distribute.php', ['id' => $course->id]));
@@ -78,6 +86,7 @@ $form = new \local_groupdist\form\options_form(null, [
     'groupids' => $groupids,
     'roles' => $rolenames,
     'noseats' => $noseats,
+    'seatslabel' => \local_groupdist\local\fields::get_seats_label(),
 ]);
 
 if ($form->is_cancelled()) {

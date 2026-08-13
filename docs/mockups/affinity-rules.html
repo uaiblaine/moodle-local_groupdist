@@ -324,7 +324,7 @@
   <section aria-labelledby="builder-h">
     <div class="sec-head">
       <h2 id="builder-h">1 · Construtor de regras (etapa 1)</h2>
-      <span class="sub">linhas repetíveis · soma ("E") · ordem = prioridade</span>
+      <span class="sub">tipo primeiro · soma ("E") · ordem = prioridade · coorte pesquisável acima de 10</span>
     </div>
     <div class="card" style="padding: .25rem 1.25rem .5rem;">
       <fieldset>
@@ -334,6 +334,10 @@
           <div class="builder-tools">
             <button class="btn" type="button" id="addrule">+ Adicionar regra</button>
             <span class="hint" id="addhint">Cada linha soma uma restrição — todas valem ao mesmo tempo.</span>
+            <label class="hint" style="margin-left:auto; display:flex; align-items:center; gap:.35rem; cursor:pointer;">
+              <input type="checkbox" id="simulatemany" style="accent-color: var(--brand);">
+              Simular plataforma com mais de 10 coortes (o seletor vira pesquisa)
+            </label>
           </div>
           <div class="prio-note">
             <span aria-hidden="true">i</span>
@@ -697,36 +701,39 @@
   'use strict';
 
   /* ══════════ Rule builder ══════════ */
-  const SOURCES = [
-    { group: 'Campos nativos', items: [
-      { v: 'city', l: 'Cidade' },
-      { v: 'department', l: 'Departamento' },
-      { v: 'institution', l: 'Instituição' },
-      { v: 'country', l: 'País' },
-    ] },
-    { group: 'Campos personalizados', items: [
-      { v: 'profile_7', l: 'Gênero' },
-      { v: 'profile_9', l: 'Nome da mãe' },
-      { v: 'profile_3', l: 'Polo' },
-      { v: 'profile_4', l: 'Turno' },
-    ] },
-    { group: 'Coortes', items: [
-      { v: 'cohort_31', l: 'Gestores' },
-      { v: 'cohort_12', l: 'Ingressantes 2026' },
-      { v: 'cohort_18', l: 'Monitores' },
-    ] },
+  /* Faithful to the implementation: each row picks a TYPE first (profile
+     field or cohort); the cohort picker is a menu while the platform has at
+     most 10 visible cohorts and a debounced search beyond that. */
+  const FIELDS = [
+    { v: 'city', l: 'Cidade' },
+    { v: 'department', l: 'Departamento' },
+    { v: 'institution', l: 'Instituição' },
+    { v: 'country', l: 'País' },
+    { v: 'profile_7', l: 'Gênero' },
+    { v: 'profile_9', l: 'Nome da mãe' },
+    { v: 'profile_3', l: 'Polo' },
+    { v: 'profile_4', l: 'Turno' },
   ];
-  const label = v => {
-    for (const g of SOURCES) { const hit = g.items.find(i => i.v === v); if (hit) { return hit.l; } }
-    return '';
-  };
-  const iscohort = v => v.startsWith('cohort_');
+  const COHORTS = [
+    { v: 'cohort_31', l: 'Gestores' },
+    { v: 'cohort_12', l: 'Ingressantes 2026' },
+    { v: 'cohort_18', l: 'Monitores' },
+  ];
+  const MANYCOHORTS = COHORTS.concat([
+    'Ingressantes 2025', 'Polo Sobral', 'Polo Crato', 'Bolsistas PIBIC', 'Atletas', 'Repetentes',
+    'Tutores EAD', 'Estagiários', 'Intercâmbio',
+  ].map((l, i) => ({ v: 'cohort_' + (100 + i), l })));
+
+  const fieldlabel = v => (FIELDS.find(i => i.v === v) || { l: '' }).l;
+  const cohortlist = () => (document.getElementById('simulatemany').checked ? MANYCOHORTS : COHORTS);
+  const cohortlabel = v => (MANYCOHORTS.find(i => i.v === v) || { l: '' }).l;
+  const searchmode = () => cohortlist().length > 10;
 
   let rules = [
-    { source: 'department', mode: 'together' },
-    { source: 'profile_7', mode: 'apart' },
-    { source: 'profile_9', mode: 'apart' },
-    { source: 'cohort_31', mode: 'apart' },
+    { kind: 'field', source: 'department', mode: 'together' },
+    { kind: 'field', source: 'profile_7', mode: 'apart' },
+    { kind: 'field', source: 'profile_9', mode: 'apart' },
+    { kind: 'cohort', source: 'cohort_31', mode: 'apart' },
   ];
 
   const list = document.getElementById('rulelist');
@@ -735,17 +742,38 @@
   const addbtn = document.getElementById('addrule');
   let dragindex = null;
 
-  function sourceOptions(selected) {
-    let html = '<option value=""' + (selected === '' ? ' selected' : '') + '>Escolha o campo ou a coorte…</option>';
-    for (const g of SOURCES) {
-      html += '<optgroup label="' + g.group + '">';
-      for (const i of g.items) {
-        const used = rules.some(r => r.source === i.v) && selected !== i.v;
-        html += '<option value="' + i.v + '"' + (selected === i.v ? ' selected' : '') + (used ? ' disabled' : '') + '>' + i.l + '</option>';
-      }
-      html += '</optgroup>';
+  function optionsFor(items, selected, placeholder) {
+    let html = '<option value=""' + (selected === '' ? ' selected' : '') + '>' + placeholder + '</option>';
+    for (const i of items) {
+      const used = rules.some(r => r.source === i.v) && selected !== i.v;
+      html += '<option value="' + i.v + '"' + (selected === i.v ? ' selected' : '') + (used ? ' disabled' : '') + '>'
+        + i.l + '</option>';
     }
     return html;
+  }
+
+  function secondControl(r, idx) {
+    if (r.kind === 'field') {
+      return '<select class="src" aria-label="Campo da regra ' + (idx + 1) + '">'
+        + optionsFor(FIELDS, r.source, 'Escolha o campo…') + '</select>';
+    }
+    if (!searchmode()) {
+      return '<select class="src" aria-label="Coorte da regra ' + (idx + 1) + '">'
+        + optionsFor(cohortlist(), r.source, 'Escolha a coorte…') + '</select>';
+    }
+    const chosen = r.source !== ''
+      ? '<span class="chip" style="flex:none;">' + cohortlabel(r.source) + '</span>'
+      : '';
+    return '<span class="cohortpick" style="position:relative; flex:1 1 12rem; display:flex; gap:.4rem; align-items:center;">'
+      + chosen
+      + '<input type="text" class="srch" aria-label="Pesquisa de coorte da regra ' + (idx + 1) + '"'
+      + ' placeholder="Escolha a coorte…" autocomplete="off"'
+      + ' style="font:inherit; font-size:.9rem; color:var(--ink); background:var(--surface);'
+      + ' border:1px solid var(--line); border-radius:.4rem; padding:.35rem .5rem; min-width:0; flex:1;">'
+      + '<span class="sug" role="listbox" hidden style="position:absolute; top:100%; left:0; right:0; z-index:5;'
+      + ' background:var(--surface); border:1px solid var(--line); border-radius:.4rem;'
+      + ' box-shadow:var(--shadow); max-height:11rem; overflow:auto;"></span>'
+      + '</span>';
   }
 
   function render() {
@@ -765,7 +793,11 @@
       li.innerHTML =
         '<span class="grip" title="Arraste para reordenar" aria-hidden="true">⠿</span>' +
         '<span class="prio" title="Prioridade ' + (idx + 1) + '">' + (idx + 1) + '</span>' +
-        '<select class="src" aria-label="Fonte da regra ' + (idx + 1) + '">' + sourceOptions(r.source) + '</select>' +
+        '<select class="kind" aria-label="Tipo da regra ' + (idx + 1) + '" style="flex:0 1 10rem;">' +
+          '<option value="field"' + (r.kind === 'field' ? ' selected' : '') + '>Campo de perfil</option>' +
+          '<option value="cohort"' + (r.kind === 'cohort' ? ' selected' : '') + '>Coorte</option>' +
+        '</select>' +
+        secondControl(r, idx) +
         '<select class="mode" aria-label="Estratégia da regra ' + (idx + 1) + '">' +
           '<option value="together"' + (r.mode === 'together' ? ' selected' : '') + '>Manter juntos</option>' +
           '<option value="apart"' + (r.mode === 'apart' ? ' selected' : '') + '>Manter separados</option>' +
@@ -776,7 +808,40 @@
           '<button type="button" class="del" aria-label="Remover regra ' + (idx + 1) + '">✕</button>' +
         '</span>';
 
-      li.querySelector('.src').addEventListener('change', e => { rules[idx].source = e.target.value; render(); });
+      li.querySelector('.kind').addEventListener('change', e => {
+        rules[idx].kind = e.target.value;
+        rules[idx].source = '';
+        render();
+      });
+      const src = li.querySelector('.src');
+      if (src) { src.addEventListener('change', e => { rules[idx].source = e.target.value; render(); }); }
+      const srch = li.querySelector('.srch');
+      if (srch) {
+        const sug = li.querySelector('.sug');
+        srch.addEventListener('input', () => {
+          const q = srch.value.trim().toLowerCase();
+          const hits = cohortlist().filter(c => c.l.toLowerCase().includes(q)).slice(0, 8);
+          sug.textContent = '';
+          if (!hits.length) {
+            const none = document.createElement('span');
+            none.style.cssText = 'display:block; padding:.4rem .6rem; font-size:.82rem; color:var(--ink-2);';
+            none.textContent = 'Nenhuma coorte encontrada';
+            sug.appendChild(none);
+          }
+          hits.forEach(c => {
+            const opt = document.createElement('button');
+            opt.type = 'button';
+            opt.setAttribute('role', 'option');
+            opt.style.cssText = 'display:block; width:100%; text-align:left; font:inherit; font-size:.86rem;'
+              + ' color:var(--ink); background:none; border:none; border-top:1px solid var(--line);'
+              + ' padding:.4rem .6rem; cursor:pointer;';
+            opt.textContent = c.l;
+            opt.addEventListener('click', () => { rules[idx].source = c.v; render(); });
+            sug.appendChild(opt);
+          });
+          sug.hidden = false;
+        });
+      }
       li.querySelector('.mode').addEventListener('change', e => { rules[idx].mode = e.target.value; render(); });
       li.querySelector('.up').addEventListener('click', () => { move(idx, idx - 1); });
       li.querySelector('.down').addEventListener('click', () => { move(idx, idx + 1); });
@@ -806,7 +871,7 @@
       chip.className = 'chip' + (r.mode === 'apart' ? ' apart' : '');
       chip.innerHTML = '<span class="dot"></span>' + (idx + 1) + ' · ' +
         (r.mode === 'apart' ? 'Manter separados' : 'Manter juntos') + ': <b>' +
-        (iscohort(r.source) ? 'coorte ' : '') + label(r.source) + '</b>';
+        (r.kind === 'cohort' ? 'coorte ' + cohortlabel(r.source) : fieldlabel(r.source)) + '</b>';
       chips.appendChild(chip);
     });
     if (!chips.textContent) {
@@ -821,7 +886,8 @@
     render();
   }
 
-  addbtn.addEventListener('click', () => { rules.push({ source: '', mode: 'together' }); render(); });
+  addbtn.addEventListener('click', () => { rules.push({ kind: 'field', source: '', mode: 'together' }); render(); });
+  document.getElementById('simulatemany').addEventListener('change', render);
   render();
 
   /* ══════════ Enrolment options (section 1b) ══════════ */

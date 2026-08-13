@@ -82,3 +82,29 @@ use.
   "Include course logs" is ticked (excluded under anonymised backups).
 - **sticky_footer carries action buttons only** — explanatory notes render in
   the page content area, never in the footer.
+
+## v2 backlog (recorded 2026-08-13, none scheduled)
+
+Ideas approved for a future major version. Each one was weighed during the
+multi-rule design round and deliberately deferred so v1 could ship the flat
+AND-only ruleset:
+
+- **Friend-circle chaining (union-find).** Keep-together clusters by
+  identical composite value tuples today. A chaining mode would union
+  transitive pairs — A–B and B–C put A, B and C in one circle even when A and
+  C share no value — via a union-find pass before packing. This is the
+  semantics "OR-together" was actually asking for, delivered as an explicit
+  per-rule flag instead of boolean algebra.
+- **Existing group/grouping membership as a rule source.** "Keep together by
+  current group in grouping X" or "keep apart the members of group Y":
+  membership columns resolved the same way cohort sources are, with the same
+  never-enumerate discipline on large courses.
+- **Per-rule boolean scope matchers.** The one sound place for
+  availability-style boolean UX: a matcher tree deciding *which* members a
+  rule applies to (e.g. only students with country = BR), while the rule
+  itself stays a plain (source, mode) pair. The `rulesjson` envelope is
+  versioned (`"v"`) precisely so this can land without a migration.
+- **Anti-isolation mode (CATME-style).** Avoid leaving exactly one member of
+  a minority value alone in a group (e.g. a single woman on a team): a soft
+  constraint preferring two-or-none per group, evaluated after the
+  together/apart rules.

@@ -87,6 +87,9 @@ $form = new \local_groupdist\form\options_form(null, [
     'roles' => $rolenames,
     'noseats' => $noseats,
     'seatslabel' => \local_groupdist\local\fields::get_seats_label(),
+    // Fresh entry: empty. Redisplays (validation error, back from preview)
+    // repopulate the builder from the flattened POST arrays.
+    'initialrules' => \local_groupdist\local\options::rules_from_post(),
 ]);
 
 if ($form->is_cancelled()) {
@@ -106,12 +109,8 @@ if ($data && !empty($data->previewbutton)) {
         'allocateby' => $data->allocateby,
         'ignoregrouped' => !empty($data->ignoregrouped),
         'onlyactive' => !empty($data->includeonlyactiveenrol),
-        'affinityrules' => (($data->affinityfield ?? '') !== '')
-            ? [[
-                'source' => $data->affinityfield,
-                'mode' => $data->affinitymode ?? \local_groupdist\local\options::AFFINITY_TOGETHER,
-            ]]
-            : [],
+        'includefuture' => !empty($data->includefuture),
+        'affinityrules' => \local_groupdist\local\options::rules_from_post(),
         'useseats' => !empty($data->useseats),
         'overbook' => $data->overbook ?? 0,
         'seed' => $data->seed,
@@ -181,8 +180,7 @@ if (!$form->is_submitted()) {
             'allocateby' => $posted->allocateby,
             'ignoregrouped' => (int) $posted->ignoregrouped,
             'includeonlyactiveenrol' => (int) $posted->onlyactive,
-            'affinityfield' => $posted->get_affinity_source(),
-            'affinitymode' => $posted->get_affinity_mode(),
+            'includefuture' => (int) $posted->includefuture,
             'useseats' => (int) $posted->useseats,
             'overbook' => $posted->overbook,
             'seed' => $posted->seed,

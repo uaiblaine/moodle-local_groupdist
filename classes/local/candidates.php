@@ -200,6 +200,51 @@ class candidates {
                 $user->{'affinity' . $i} = isset($members[$user->id]) ? '1' : null;
             }
         }
+
+        if ($includefuture && $users && $options->courseid != SITEID) {
+            /* Display-only marker (never an allocator input, so it stays out
+               of the fingerprint): candidates whose only qualifying enrolment
+               starts in the future carry its earliest start timestamp. */
+            $now = round(time(), -2);
+            [$insql, $inparams] = $DB->get_in_or_equal(array_keys($users), SQL_PARAMS_NAMED, 'fs');
+            $starts = $DB->get_records_sql_menu(
+                "SELECT fue.userid, MIN(fue.timestart) AS starts
+                   FROM {user_enrolments} fue
+                   JOIN {enrol} fe ON fe.id = fue.enrolid AND fe.courseid = :fscourseid
+                  WHERE fue.status = :fsactive AND fe.status = :fsenabled
+                        AND fue.timestart >= :fsnow AND fue.userid {$insql}
+               GROUP BY fue.userid",
+                $inparams + [
+                    'fscourseid' => $options->courseid,
+                    'fsactive' => ENROL_USER_ACTIVE,
+                    'fsenabled' => ENROL_INSTANCE_ENABLED,
+                    'fsnow' => $now,
+                ]
+            );
+            if ($starts) {
+                [$cwsql, $cwparams] = $DB->get_in_or_equal(array_keys($starts), SQL_PARAMS_NAMED, 'cw');
+                $current = $DB->get_records_sql_menu(
+                    "SELECT DISTINCT cue.userid, 1 AS incurrent
+                       FROM {user_enrolments} cue
+                       JOIN {enrol} ce ON ce.id = cue.enrolid AND ce.courseid = :cwcourseid
+                      WHERE cue.status = :cwactive AND ce.status = :cwenabled
+                            AND cue.timestart < :cwnow1 AND (cue.timeend = 0 OR cue.timeend > :cwnow2)
+                            AND cue.userid {$cwsql}",
+                    $cwparams + [
+                        'cwcourseid' => $options->courseid,
+                        'cwactive' => ENROL_USER_ACTIVE,
+                        'cwenabled' => ENROL_INSTANCE_ENABLED,
+                        'cwnow1' => $now,
+                        'cwnow2' => $now,
+                    ]
+                );
+                foreach ($starts as $userid => $start) {
+                    if (!isset($current[$userid])) {
+                        $users[$userid]->futurestart = (int) $start;
+                    }
+                }
+            }
+        }
         return $users;
     }
 

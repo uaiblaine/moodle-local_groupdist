@@ -33,6 +33,7 @@ const SELECTORS = {
     STATS: '[data-region="stats"]',
     WARNINGS: '[data-region="warnings"]',
     GROUPS: '[data-region="groups"]',
+    RULEREPORT: '[data-region="rulereport"]',
     LOADMORE: '[data-action="loadmore"]',
     COUNTER: '[data-region="counter"]',
     CAPNOTE: '[data-region="capnote"]',
@@ -97,6 +98,16 @@ const renderHeader = async(root, data) => {
     const warningsregion = root.querySelector(SELECTORS.WARNINGS);
     warningsregion.textContent = '';
     data.warnings.forEach((warning) => addAlert(warningsregion, warning.message));
+
+    const reportregion = root.querySelector(SELECTORS.RULEREPORT);
+    if (data.rulereport.length) {
+        const report = await Templates.renderForPromise('local_groupdist/preview_rulereport', {
+            rules: data.rulereport,
+        });
+        Templates.replaceNodeContents(reportregion, report.html, report.js);
+    } else {
+        reportregion.textContent = '';
+    }
 
     state.fingerprint = data.fingerprint;
     document.querySelectorAll(SELECTORS.FINGERPRINT).forEach((input) => {

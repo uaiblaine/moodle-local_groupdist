@@ -86,6 +86,12 @@ class options_form extends \moodleform {
             $mform->addElement('checkbox', 'includeonlyactiveenrol', get_string('includeonlyactiveenrol', 'group'), '');
             $mform->addHelpButton('includeonlyactiveenrol', 'includeonlyactiveenrol', 'group');
             $mform->setDefault('includeonlyactiveenrol', 1);
+
+            $mform->addElement('checkbox', 'includefuture', get_string('includefutureenrol', 'local_groupdist'), '');
+            $mform->addHelpButton('includefuture', 'includefutureenrol', 'local_groupdist');
+            $mform->setDefault('includefuture', 0);
+            // Without the only-active filter, future enrolments are already in.
+            $mform->disabledIf('includefuture', 'includeonlyactiveenrol', 'notchecked');
         }
 
         // Section: allocation order.
@@ -100,37 +106,26 @@ class options_form extends \moodleform {
         $mform->addElement('select', 'allocateby', get_string('allocateby', 'group'), $allocateoptions);
         $mform->setDefault('allocateby', options::ALLOCATE_RANDOM);
 
-        // Section: affinity by profile field.
+        // Section: affinity rules. The builder is an AMD-driven widget whose
+        // rows post through the flattened affinityrulesources[]/modes[]
+        // hidden inputs (read back via options::rules_from_post()).
+        global $OUTPUT, $PAGE;
+        $sources = [];
+        foreach (profilefields::get_available($context) as $value => $label) {
+            if ($value === '') {
+                continue;
+            }
+            $sources[] = ['value' => $value, 'label' => $label];
+        }
         $mform->addElement('header', 'affinityhdr', get_string('affinitysection', 'local_groupdist'));
         $mform->setExpanded('affinityhdr', true);
-        $mform->addElement(
-            'select',
-            'affinityfield',
-            get_string('affinityfield', 'local_groupdist'),
-            profilefields::get_available($context)
-        );
-        $mform->addHelpButton('affinityfield', 'affinityfield', 'local_groupdist');
-        $mform->setDefault('affinityfield', '');
-
-        $modes = [];
-        $modes[] = $mform->createElement(
-            'radio',
-            'affinitymode',
-            '',
-            get_string('affinitymodetogether', 'local_groupdist'),
-            options::AFFINITY_TOGETHER
-        );
-        $modes[] = $mform->createElement(
-            'radio',
-            'affinitymode',
-            '',
-            get_string('affinitymodeapart', 'local_groupdist'),
-            options::AFFINITY_APART
-        );
-        $mform->addGroup($modes, 'affinitymodegroup', get_string('affinitymode', 'local_groupdist'), '<br>', false);
-        $mform->addHelpButton('affinitymodegroup', 'affinitymode', 'local_groupdist');
-        $mform->setDefault('affinitymode', options::AFFINITY_TOGETHER);
-        $mform->disabledIf('affinitymodegroup', 'affinityfield', 'eq', '');
+        $mform->addElement('html', $OUTPUT->render_from_template('local_groupdist/rules_builder', [
+            'sourcesjson' => json_encode($sources),
+            'rulesjson' => json_encode($this->_customdata['initialrules'] ?? []),
+            'maxrules' => \local_groupdist\local\ruleset::DEFAULT_MAX_RULES,
+        ]));
+        $mform->addElement('static', 'affinityruleserr', '', '');
+        $PAGE->requires->js_call_amd('local_groupdist/rules', 'init');
 
         // Section: seats and overbooking. Labels echo the field's STORED name
         // (set once at provisioning time): a site provisioned in English shows
@@ -182,8 +177,22 @@ class options_form extends \moodleform {
         if (($data['overbook'] ?? 0) < 0 || ($data['overbook'] ?? 0) > 99) {
             $errors['overbook'] = get_string('erroroverbookrange', 'local_groupdist');
         }
-        if (!profilefields::is_allowed($data['affinityfield'] ?? '', $context)) {
-            $errors['affinityfield'] = get_string('invaliddata', 'error');
+
+        /* The builder's rows are not registered elements, so they arrive via
+           the flattened POST arrays instead of $data. Structural validation
+           (shape, duplicates, guardrail) and per-source authorization both
+           run here so a bad ruleset never reaches the preview. */
+        $rules = options::rules_from_post();
+        try {
+            $ruleset = \local_groupdist\local\ruleset::from_array($rules);
+            foreach ($ruleset->get_rules() as $rule) {
+                if (!profilefields::is_allowed($rule['source'], $context)) {
+                    $errors['affinityruleserr'] = get_string('invaliddata', 'error');
+                    break;
+                }
+            }
+        } catch (\moodle_exception $exception) {
+            $errors['affinityruleserr'] = get_string('invaliddata', 'error');
         }
         return $errors;
     }

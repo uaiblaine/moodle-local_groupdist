@@ -32,8 +32,43 @@
     display: block;
 }
 
-.local-groupdist-footnote {
-    max-width: 26rem;
+/* Affinity rule builder (options form). */
+
+.local-groupdist-rules .local-groupdist-rule {
+    border-left-width: 3px;
+    border-left-color: var(--bs-success);
+}
+
+.local-groupdist-rules .local-groupdist-rule-apart {
+    border-left-color: var(--bs-warning);
+}
+
+.local-groupdist-rulegrip {
+    cursor: grab;
+}
+
+.local-groupdist-ruleconnector {
+    padding-left: 2.2rem;
+    margin: 0.15rem 0;
+}
+
+.local-groupdist-rulestatus i {
+    margin-right: 0.15rem;
+}
+
+.local-groupdist-rulereport summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.local-groupdist-rulereport summary::before {
+    content: "▸";
+    margin-right: 0.35rem;
+    opacity: 0.6;
+}
+
+.local-groupdist-rulereport[open] summary::before {
+    content: "▾";
 }
 
 /* Bulk edit table. */

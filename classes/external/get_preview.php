@@ -47,6 +47,12 @@ class get_preview extends external_api {
     /** @var int Sample size of members shown per group. */
     public const MEMBER_SAMPLE = 5;
 
+    /** @var int Most value entries listed per rule in the rules report. */
+    public const REPORT_VALUE_CAP = 15;
+
+    /** @var int Most destination group names listed per report entry. */
+    public const REPORT_GROUP_CAP = 5;
+
     /**
      * Parameter definition.
      *
@@ -172,14 +178,8 @@ class get_preview extends external_api {
 
         $existingsamples = self::fetch_existing_samples($distribution, $window);
 
-        // Map raw first-rule values to display text where the raw value would
-        // be opaque: country codes, and the binary cohort membership flag.
-        $valuemap = ($options->get_affinity_source() === 'country')
-            ? get_string_manager()->get_list_of_countries(true)
-            : [];
-        if (\local_groupdist\local\ruleset::source_cohortid($options->get_affinity_source())) {
-            $valuemap = ['1' => profilefields::get_label($options->get_affinity_source(), $context)];
-        }
+        $rules = $options->affinityrules->get_rules();
+        $valuemaps = self::build_value_maps($rules, $context);
 
         $groupspayload = [];
         foreach ($window as $group) {
@@ -189,10 +189,28 @@ class get_preview extends external_api {
             $members = [];
             foreach (array_slice($allocated, 0, self::MEMBER_SAMPLE) as $userid) {
                 $user = $distribution->users[$userid];
-                $affinityvalue = trim((string) ($user->affinity0 ?? ''));
+                $affinities = [];
+                foreach ($rules as $i => $rule) {
+                    $value = trim((string) ($user->{'affinity' . $i} ?? ''));
+                    if ($value === '') {
+                        continue;
+                    }
+                    $affinities[] = [
+                        'value' => $valuemaps[$i][$value] ?? $value,
+                        'apart' => ($rule['mode'] === options::AFFINITY_APART),
+                    ];
+                }
+                $enrolstart = '';
+                if (!empty($user->futurestart)) {
+                    $enrolstart = get_string('enrolstartbadge', 'local_groupdist', userdate(
+                        (int) $user->futurestart,
+                        get_string('strftimedatefullshort', 'langconfig')
+                    ));
+                }
                 $members[] = [
                     'fullname' => fullname($user),
-                    'affinity' => $valuemap[$affinityvalue] ?? $affinityvalue,
+                    'affinities' => $affinities,
+                    'enrolstart' => $enrolstart,
                     'isnew' => true,
                 ];
             }
@@ -200,7 +218,38 @@ class get_preview extends external_api {
                 if (count($members) >= self::MEMBER_SAMPLE) {
                     break;
                 }
-                $members[] = ['fullname' => fullname($user), 'affinity' => '', 'isnew' => false];
+                $members[] = ['fullname' => fullname($user), 'affinities' => [], 'enrolstart' => '', 'isnew' => false];
+            }
+
+            $rulestatus = [];
+            foreach ($rules as $i => $rule) {
+                $counts = [];
+                foreach ($allocated as $userid) {
+                    $value = trim((string) ($distribution->users[$userid]->{'affinity' . $i} ?? ''));
+                    if ($value !== '') {
+                        $counts[$value] = ($counts[$value] ?? 0) + 1;
+                    }
+                }
+                if ($rule['mode'] === options::AFFINITY_TOGETHER) {
+                    $ok = count($counts) <= 1;
+                    $single = $counts ? array_key_first($counts) : '';
+                    $text = $ok
+                        ? (string) ($valuemaps[$i][$single] ?? $single)
+                        : get_string('rulestatusvalues', 'local_groupdist', count($counts));
+                } else {
+                    $repeats = 0;
+                    foreach ($counts as $count) {
+                        $repeats += max(0, $count - 1);
+                    }
+                    $ok = ($repeats === 0);
+                    $text = $ok ? '' : get_string('rulestatusrepeats', 'local_groupdist', $repeats);
+                }
+                $rulestatus[] = [
+                    'index' => $i + 1,
+                    'label' => profilefields::get_label($rule['source'], $context),
+                    'ok' => $ok,
+                    'text' => $text,
+                ];
             }
 
             $seats = $group['seats'];
@@ -219,6 +268,7 @@ class get_preview extends external_api {
                 'fillpct' => $denominator ? (int) round(min($total, $seats) / $denominator * 100) : 0,
                 'spillpct' => $denominator ? (int) round($overflow / $denominator * 100) : 0,
                 'members' => $members,
+                'rules' => $rulestatus,
                 'hiddencount' => max(0, $total - count($members)),
             ];
         }
@@ -234,7 +284,8 @@ class get_preview extends external_api {
                 'overbooked' => $totals['overbooked'],
                 'average' => $totals['groups'] ? format_float($totals['memberships'] / $totals['groups'], 1) : '0',
             ],
-            'warnings' => self::format_warnings($distribution, $context),
+            'warnings' => self::format_warnings($distribution, $context, $valuemaps),
+            'rulereport' => self::build_rule_report($distribution, $valuemaps, $context),
             'groups' => $groupspayload,
             'locationlabel' => \local_groupdist\local\fields::get_location_label(),
             'total' => $groupstotal,
@@ -264,6 +315,20 @@ class get_preview extends external_api {
                 'type' => new external_value(PARAM_ALPHANUMEXT, 'Warning type'),
                 'message' => new external_value(PARAM_TEXT, 'Localised message'),
             ])),
+            'rulereport' => new external_multiple_structure(new external_single_structure([
+                'index' => new external_value(PARAM_INT, '1-based rule priority'),
+                'label' => new external_value(PARAM_TEXT, 'Rule source label'),
+                'mode' => new external_value(PARAM_TEXT, 'Localised short mode name'),
+                'apart' => new external_value(PARAM_BOOL, 'Whether the rule is keep-apart'),
+                'entries' => new external_multiple_structure(new external_single_structure([
+                    'value' => new external_value(PARAM_TEXT, 'Display value'),
+                    'count' => new external_value(PARAM_INT, 'Allocated holders of the value'),
+                    'groups' => new external_value(PARAM_TEXT, 'Destination group names (capped list)'),
+                    'flagtext' => new external_value(PARAM_TEXT, 'Split/violation note ("" when clean)'),
+                ])),
+                'more' => new external_value(PARAM_INT, 'Value entries beyond the cap'),
+                'novalue' => new external_value(PARAM_INT, 'Participants without a value in this rule'),
+            ])),
             'groups' => new external_multiple_structure(new external_single_structure([
                 'id' => new external_value(PARAM_INT, 'Group id'),
                 'name' => new external_value(PARAM_TEXT, 'Group name'),
@@ -278,9 +343,19 @@ class get_preview extends external_api {
                 'spillpct' => new external_value(PARAM_INT, 'Meter overbooking percentage'),
                 'members' => new external_multiple_structure(new external_single_structure([
                     'fullname' => new external_value(PARAM_TEXT, 'Member name'),
-                    'affinity' => new external_value(PARAM_TEXT, 'Affinity field value ("" when none)'),
+                    'affinities' => new external_multiple_structure(new external_single_structure([
+                        'value' => new external_value(PARAM_TEXT, 'Display value'),
+                        'apart' => new external_value(PARAM_BOOL, 'Whether the rule is keep-apart'),
+                    ]), 'One badge per non-empty rule value, in priority order'),
+                    'enrolstart' => new external_value(PARAM_TEXT, 'Future enrolment start note ("" when current)'),
                     'isnew' => new external_value(PARAM_BOOL, 'Whether this run adds the member'),
                 ])),
+                'rules' => new external_multiple_structure(new external_single_structure([
+                    'index' => new external_value(PARAM_INT, '1-based rule priority'),
+                    'label' => new external_value(PARAM_TEXT, 'Rule source label'),
+                    'ok' => new external_value(PARAM_BOOL, 'Whether the rule holds inside this group'),
+                    'text' => new external_value(PARAM_TEXT, 'Status detail ("" when none)'),
+                ]), 'Per-rule status over the members this run allocates'),
                 'hiddencount' => new external_value(PARAM_INT, 'Members not shown in the sample'),
             ])),
             'locationlabel' => new external_value(PARAM_TEXT, 'Stored display name of the location field'),
@@ -342,13 +417,137 @@ class get_preview extends external_api {
     }
 
     /**
+     * Per-rule maps of raw values to display text.
+     *
+     * Raw values are shown as-is except where they would be opaque: country
+     * codes map to country names, the binary cohort flag to the cohort label.
+     *
+     * @param array $rules The ruleset entries.
+     * @param \core\context\course $context The course context.
+     * @return array List (rule index => map of raw value => display text).
+     */
+    private static function build_value_maps(array $rules, \core\context\course $context): array {
+        $valuemaps = [];
+        foreach ($rules as $i => $rule) {
+            if ($rule['source'] === 'country') {
+                $valuemaps[$i] = get_string_manager()->get_list_of_countries(true);
+            } else if (\local_groupdist\local\ruleset::source_cohortid($rule['source'])) {
+                $valuemaps[$i] = ['1' => profilefields::get_label($rule['source'], $context)];
+            } else {
+                $valuemaps[$i] = [];
+            }
+        }
+        return $valuemaps;
+    }
+
+    /**
+     * Global per-rule report: value clusters, destinations and trouble flags.
+     *
+     * Computed over the full allocation (not the paged window), so it is the
+     * proof that each rule worked: which values clustered where, which were
+     * split, which keep-apart values had to repeat. Values held by fewer than
+     * two allocated members are noise and are skipped; entries are capped with
+     * an explicit remainder count — never a silent truncation.
+     *
+     * @param distribution $distribution The distribution.
+     * @param array $valuemaps Per-rule display maps from build_value_maps().
+     * @param \core\context\course $context The course context.
+     * @return array Report entries, one per rule.
+     */
+    private static function build_rule_report(
+        distribution $distribution,
+        array $valuemaps,
+        \core\context\course $context
+    ): array {
+        $rules = $distribution->options->affinityrules->get_rules();
+        if (!$rules) {
+            return [];
+        }
+
+        $groupnames = [];
+        foreach ($distribution->groups as $group) {
+            $groupnames[$group['id']] = format_string($group['name'], true, ['context' => $context]);
+        }
+
+        $violations = [];
+        $novalue = [];
+        foreach ($distribution->warnings as $warning) {
+            if ($warning['type'] === allocator::WARNING_APART) {
+                $violations[$warning['rule']][$warning['value']] = $warning['count'];
+            } else if ($warning['type'] === allocator::WARNING_NOVALUE) {
+                $novalue[$warning['rule']] = $warning['count'];
+            }
+        }
+
+        $report = [];
+        foreach ($rules as $i => $rule) {
+            $buckets = [];
+            foreach ($distribution->allocation->assignments as $groupid => $userids) {
+                foreach ($userids as $userid) {
+                    $value = trim((string) ($distribution->users[$userid]->{'affinity' . $i} ?? ''));
+                    if ($value === '') {
+                        continue;
+                    }
+                    $buckets[$value]['count'] = ($buckets[$value]['count'] ?? 0) + 1;
+                    $buckets[$value]['groups'][$groupid] = true;
+                }
+            }
+            $buckets = array_filter($buckets, function (array $bucket): bool {
+                return $bucket['count'] >= 2;
+            });
+            uksort($buckets, function ($a, $b) use ($buckets): int {
+                $bysize = $buckets[$b]['count'] <=> $buckets[$a]['count'];
+                return $bysize !== 0 ? $bysize : strcmp((string) $a, (string) $b);
+            });
+
+            $apart = ($rule['mode'] === options::AFFINITY_APART);
+            $entries = [];
+            foreach (array_slice($buckets, 0, self::REPORT_VALUE_CAP, true) as $value => $bucket) {
+                $names = array_values(array_intersect_key($groupnames, $bucket['groups']));
+                $shown = array_slice($names, 0, self::REPORT_GROUP_CAP);
+                $groupstext = implode(', ', $shown) . (count($names) > count($shown) ? ', …' : '');
+                $flagtext = '';
+                if ($apart && !empty($violations[$i][$value])) {
+                    $flagtext = get_string('rulereportviolations', 'local_groupdist', $violations[$i][$value]);
+                } else if (!$apart && count($names) > 1) {
+                    $flagtext = get_string('rulereportsplit', 'local_groupdist', count($names));
+                }
+                $entries[] = [
+                    'value' => (string) ($valuemaps[$i][$value] ?? $value),
+                    'count' => $bucket['count'],
+                    'groups' => $groupstext,
+                    'flagtext' => $flagtext,
+                ];
+            }
+
+            $report[] = [
+                'index' => $i + 1,
+                'label' => profilefields::get_label($rule['source'], $context),
+                'mode' => $apart
+                    ? get_string('modeapart', 'local_groupdist')
+                    : get_string('modetogether', 'local_groupdist'),
+                'apart' => $apart,
+                'entries' => $entries,
+                'more' => max(0, count($buckets) - self::REPORT_VALUE_CAP),
+                'novalue' => $novalue[$i] ?? 0,
+            ];
+        }
+        return $report;
+    }
+
+    /**
      * Localise the distribution's typed warnings.
      *
      * @param distribution $distribution The distribution.
      * @param \core\context\course $context The course context.
+     * @param array $valuemaps Per-rule display maps from build_value_maps().
      * @return array List of ['type' => ..., 'message' => ...].
      */
-    private static function format_warnings(distribution $distribution, \core\context\course $context): array {
+    private static function format_warnings(
+        distribution $distribution,
+        \core\context\course $context,
+        array $valuemaps
+    ): array {
         $rules = $distribution->options->affinityrules->get_rules();
         $rulelabel = function (array $warning) use ($rules, $context): string {
             $source = $rules[$warning['rule'] ?? -1]['source'] ?? '';
@@ -377,8 +576,10 @@ class get_preview extends external_api {
                     ]);
                     break;
                 case allocator::WARNING_APART:
+                    $rawvalue = (string) $warning['value'];
                     $message = get_string('warningapart', 'local_groupdist', (object) [
-                        'value' => $warning['value'],
+                        'value' => $valuemaps[$warning['rule']][$rawvalue] ?? $rawvalue,
+                        'field' => $rulelabel($warning),
                         'count' => $count,
                     ]);
                     break;

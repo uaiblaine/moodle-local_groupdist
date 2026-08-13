@@ -1,0 +1,53 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_groupdist/rules_builder
+
+    Affinity rule builder mount, embedded in the options form. The AMD module
+    local_groupdist/rules renders the rows, keeps the flattened hidden inputs
+    in sync and handles add/remove/reorder. Rules are summed (implicit AND);
+    list position is the priority.
+
+    Context variables required for this template:
+    * sourcesjson - JSON list of value/label source options
+    * rulesjson - JSON list of initial rules (source and mode keys)
+    * maxrules - guardrail maximum number of rules
+
+    Example context (json):
+    {
+        "sourcesjson": "[{\"value\":\"city\",\"label\":\"City\"}]",
+        "rulesjson": "[{\"source\":\"city\",\"mode\":\"together\"}]",
+        "maxrules": 10
+    }
+}}
+<div class="local-groupdist-rules"
+     data-region="local-groupdist-rules"
+     data-sources="{{sourcesjson}}"
+     data-rules="{{rulesjson}}"
+     data-maxrules="{{maxrules}}">
+    <div class="mb-2" data-region="rows"></div>
+    <div data-region="inputs"></div>
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-action="addrule">
+            {{#str}} addrule, local_groupdist {{/str}}
+        </button>
+    </div>
+    <div class="alert alert-info d-flex gap-2 small mb-0" role="note">
+        <i class="fa fa-info-circle mt-1" aria-hidden="true"></i>
+        <span>{{#str}} rulesprioritynote, local_groupdist {{/str}}</span>
+    </div>
+</div>

@@ -38,6 +38,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   entry point validates cohort sources with `cohort_get_cohort()`, so a
   hidden cohort id cannot become a membership oracle. Cohort membership churn
   between preview and apply shifts the fingerprint like any other rule value.
+- The options form's affinity section is now the rule builder from the
+  approved mockup: repeatable rows summed with an explicit AND connector,
+  list position = priority, reorderable by drag or buttons, mode-coloured
+  accents, guardrail-capped (new AMD module `local_groupdist/rules`). The
+  member section gains the "Include future-start enrolments" checkbox. The
+  preview recap shows one numbered chip per rule; group cards show one badge
+  per rule value (keep-apart values highlighted), a "starts <date>" badge on
+  future-start members and a per-rule status footer; a new collapsible
+  "Rules report" proves each rule globally — value clusters, destination
+  groups, split and repeat notes, capped with explicit remainder counts.
+  Keep-apart warnings now name the rule's source. Explanatory notes moved
+  from the sticky footers into the page content on both the preview and the
+  bulk edit screens — the footer carries action buttons only.
 
 ### Added
 

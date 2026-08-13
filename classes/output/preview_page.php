@@ -78,6 +78,9 @@ class preview_page implements \renderable, \templatable {
         if ($options->onlyactive) {
             $memberchips[] = ['text' => get_string('includeonlyactiveenrol', 'group'), 'on' => true];
         }
+        if ($options->includefuture) {
+            $memberchips[] = ['text' => get_string('includefutureenrol', 'local_groupdist'), 'on' => true];
+        }
         if ($options->ignoregrouped) {
             $memberchips[] = ['text' => get_string('ignoregrouped', 'local_groupdist'), 'on' => true];
         }
@@ -91,13 +94,14 @@ class preview_page implements \renderable, \templatable {
         $allocationchips = [['text' => $allocatestrings[$options->allocateby]]];
 
         $affinitychips = [];
-        foreach ($options->affinityrules->get_rules() as $rule) {
-            $label = profilefields::get_label($rule['source'], $this->context);
-            $modestring = ($rule['mode'] === options::AFFINITY_TOGETHER)
-                ? get_string('affinitymodetogether', 'local_groupdist')
-                : get_string('affinitymodeapart', 'local_groupdist');
-            $affinitychips[] = ['text' => get_string('recapaffinity', 'local_groupdist', $label)];
-            $affinitychips[] = ['text' => $modestring];
+        foreach ($options->affinityrules->get_rules() as $i => $rule) {
+            $affinitychips[] = ['text' => get_string('recaprule', 'local_groupdist', (object) [
+                'index' => $i + 1,
+                'mode' => ($rule['mode'] === options::AFFINITY_TOGETHER)
+                    ? get_string('modetogether', 'local_groupdist')
+                    : get_string('modeapart', 'local_groupdist'),
+                'label' => profilefields::get_label($rule['source'], $this->context),
+            ])];
         }
         if (!$affinitychips) {
             $affinitychips[] = ['text' => get_string('affinitynone', 'local_groupdist')];

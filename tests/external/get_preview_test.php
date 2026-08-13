@@ -184,6 +184,48 @@ final class get_preview_test extends \externallib_advanced_testcase {
     }
 
     /**
+     * Multi-rule payload: per-member badge lists, per-group rule status and
+     * the global rules report all survive the return-structure allowlist.
+     */
+    public function test_preview_multi_rule_payload(): void {
+        $this->resetAfterTest();
+        [$course, , $args] = $this->make_course(2, 0);
+        $generator = $this->getDataGenerator();
+        foreach ([['Ana', 'Lima', 'X'], ['Bia', 'Melo', 'X'], ['Caio', 'Reis', 'Y']] as [$first, $last, $city]) {
+            $user = $generator->create_and_enrol($course);
+            $user->firstname = $first;
+            $user->lastname = $last;
+            $user->city = $city;
+            $user->department = 'D1';
+            user_update_user($user, false);
+        }
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $result = $this->call($args + [
+            'roleid' => (int) current(get_archetype_roles('student'))->id,
+            'affinityrules' => [
+                ['source' => 'city', 'mode' => 'together'],
+                ['source' => 'department', 'mode' => 'apart'],
+            ],
+        ]);
+
+        // Rules report: one section per rule; city X clusters two students.
+        $this->assertCount(2, $result['rulereport']);
+        $this->assertSame(1, $result['rulereport'][0]['index']);
+        $this->assertSame('X', $result['rulereport'][0]['entries'][0]['value']);
+        $this->assertSame(2, $result['rulereport'][0]['entries'][0]['count']);
+
+        // Group cards: per-rule status footer and per-member badge lists.
+        foreach ($result['groups'] as $group) {
+            $this->assertCount(2, $group['rules']);
+            foreach ($group['members'] as $member) {
+                $this->assertArrayHasKey('affinities', $member);
+            }
+        }
+    }
+
+    /**
      * A hidden cohort as a RULE source is rejected — same oracle rule as the
      * cohort member filter. A visible cohort passes (control).
      */

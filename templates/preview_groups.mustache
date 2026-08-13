@@ -24,8 +24,9 @@
     Context variables required for this template:
     * locationlabel - stored display name of the location custom field
     * groups - array of group entries: name, location, seats, current,
-      allocated, total, overflow, hasseats, fillpct, spillpct, hiddencount and
-      a members array (fullname, affinity, isnew)
+      allocated, total, overflow, hasseats, fillpct, spillpct, hiddencount, a
+      members array (fullname, affinities badge list, enrolstart, isnew) and a
+      rules status array (index, label, ok, text)
 
     Example context (json):
     {
@@ -45,7 +46,19 @@
                 "spillpct": 0,
                 "hiddencount": 7,
                 "members": [
-                    {"fullname": "Ana Souza", "affinity": "Fortaleza", "isnew": true}
+                    {
+                        "fullname": "Ana Souza",
+                        "affinities": [
+                            {"value": "Fortaleza", "apart": false},
+                            {"value": "Cohort: Managers", "apart": true}
+                        ],
+                        "enrolstart": "starts 01/09/26",
+                        "isnew": true
+                    }
+                ],
+                "rules": [
+                    {"index": 1, "label": "City", "ok": true, "text": "Fortaleza"},
+                    {"index": 2, "label": "Gender", "ok": false, "text": "2 repeated"}
                 ]
             }
         ]
@@ -82,13 +95,29 @@
                 <i class="fa fa-user-circle-o text-muted" aria-hidden="true"></i>
                 <span class="text-truncate">{{fullname}}</span>
                 {{#isnew}}<span class="badge bg-success text-white">{{#str}} statusnew, local_groupdist {{/str}}</span>{{/isnew}}
-                {{#affinity}}<span class="badge bg-light text-dark border fw-normal ms-auto">{{.}}</span>{{/affinity}}
+                {{#enrolstart}}<span class="badge bg-light text-dark border fw-normal">{{.}}</span>{{/enrolstart}}
+                <span class="ms-auto d-flex flex-wrap gap-1 justify-content-end">
+                    {{#affinities}}
+                    <span class="badge border fw-normal {{#apart}}bg-warning text-dark{{/apart}}{{^apart}}bg-light text-dark{{/apart}}">{{value}}</span>
+                    {{/affinities}}
+                </span>
             </li>
             {{/members}}
             {{#hiddencount}}
             <li class="small text-muted">{{#str}} membersnotshown, local_groupdist, {{.}} {{/str}}</li>
             {{/hiddencount}}
         </ul>
+        {{#rules.0}}
+        <div class="d-flex flex-wrap gap-3 border-top mt-2 pt-2 small text-muted local-groupdist-rulestatus">
+            {{#rules}}
+            <span>
+                {{#ok}}<i class="fa fa-check text-success" aria-hidden="true"></i>{{/ok}}
+                {{^ok}}<i class="fa fa-exclamation-triangle text-warning" aria-hidden="true"></i>{{/ok}}
+                R{{index}} {{label}}{{#text}}: {{.}}{{/text}}
+            </span>
+            {{/rules}}
+        </div>
+        {{/rules.0}}
     </div>
 </div>
 {{/groups}}

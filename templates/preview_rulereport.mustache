@@ -1,0 +1,74 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_groupdist/preview_rulereport
+
+    Global per-rule report (preview): one collapsible section per rule with
+    the value clusters, their destination groups and split/violation notes —
+    the proof that each rule worked. Rendered by the preview AMD module from
+    the web service payload.
+
+    Context variables required for this template:
+    * rules - array of entries: index, label, mode, apart flag, entries
+      (value, count, groups, flagtext), more, novalue
+
+    Example context (json):
+    {
+        "rules": [
+            {
+                "index": 1,
+                "label": "City",
+                "mode": "Keep together",
+                "apart": false,
+                "entries": [
+                    {"value": "Fortaleza", "count": 12, "groups": "Group 01, Group 02", "flagtext": "split across 2 groups"}
+                ],
+                "more": 3,
+                "novalue": 4
+            }
+        ]
+    }
+}}
+<h2 class="h6 text-muted mt-4">{{#str}} rulereportheading, local_groupdist {{/str}}</h2>
+{{#rules}}
+<details class="card mb-2 local-groupdist-rulereport">
+    <summary class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
+        <span class="badge rounded-pill {{#apart}}text-bg-warning{{/apart}}{{^apart}}text-bg-success{{/apart}}">{{index}}</span>
+        <span class="fw-bold">{{mode}}: {{label}}</span>
+        {{#novalue}}
+        <span class="small text-muted ms-auto">{{#str}} rulereportnovalue, local_groupdist, {{.}} {{/str}}</span>
+        {{/novalue}}
+    </summary>
+    <div class="card-body pt-0">
+        {{#entries.0}}
+        <ul class="list-unstyled mb-0 small">
+            {{#entries}}
+            <li class="d-flex flex-wrap align-items-baseline gap-2 py-1 border-top">
+                <span class="fw-bold">{{value}}</span>
+                <span class="text-muted">({{count}})</span>
+                <span class="text-muted">→ {{groups}}</span>
+                {{#flagtext}}<span class="badge bg-warning text-dark fw-normal">{{.}}</span>{{/flagtext}}
+            </li>
+            {{/entries}}
+            {{#more}}
+            <li class="py-1 border-top text-muted">{{#str}} rulereportmore, local_groupdist, {{.}} {{/str}}</li>
+            {{/more}}
+        </ul>
+        {{/entries.0}}
+    </div>
+</details>
+{{/rules}}

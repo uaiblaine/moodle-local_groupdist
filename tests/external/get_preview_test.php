@@ -182,4 +182,33 @@ final class get_preview_test extends \externallib_advanced_testcase {
         );
         $this->assertTrue($response['error']);
     }
+
+    /**
+     * A hidden cohort as a RULE source is rejected — same oracle rule as the
+     * cohort member filter. A visible cohort passes (control).
+     */
+    public function test_preview_rejects_hidden_cohort_rule(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/cohort/lib.php');
+        $this->resetAfterTest();
+        [$course, , $args] = $this->make_course(2, 3);
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+
+        $hidden = $this->getDataGenerator()->create_cohort(['visible' => 0]);
+        $visible = $this->getDataGenerator()->create_cohort(['visible' => 1]);
+
+        $this->setUser($teacher);
+        $_POST['sesskey'] = sesskey();
+        $response = external_api::call_external_function(
+            'local_groupdist_get_preview',
+            $args + ['affinityrules' => [['source' => 'cohort_' . $hidden->id, 'mode' => 'apart']]]
+        );
+        $this->assertTrue($response['error']);
+
+        // Three enrolled users plus the acting teacher (roleid 0 = any role).
+        $control = $this->call(
+            $args + ['affinityrules' => [['source' => 'cohort_' . $visible->id, 'mode' => 'apart']]]
+        );
+        $this->assertSame(4, $control['totals']['candidates']);
+    }
 }

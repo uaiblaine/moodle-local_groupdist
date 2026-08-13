@@ -17,7 +17,12 @@
 namespace local_groupdist\local;
 
 /**
- * Enumeration of the user fields offered as affinity ("group by") fields.
+ * Enumeration and authorization of the affinity rule sources.
+ *
+ * Native user columns are always offered. Custom profile fields follow core's
+ * visibility semantics (profile_field_base::is_visible(), listing case).
+ * Cohorts follow cohort_get_cohort()'s parent-context and visibility rules, so
+ * a hidden cohort id can never become a membership oracle.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -25,22 +30,24 @@ namespace local_groupdist\local;
  */
 class profilefields {
     /**
-     * The affinity fields the acting user may group by, as select options.
+     * The affinity sources the acting user may rule on, as select options.
      *
-     * Native user columns are always offered. Custom profile fields follow
-     * core's visibility semantics (profile_field_base::is_visible(), listing
-     * case): everyone sees PROFILE_VISIBLE_ALL fields; teacher-visible fields
-     * need moodle/site:viewuseridentity at the course; private/hidden fields
-     * need moodle/user:viewalldetails. The preview prints each candidate's
-     * value, so offering a more restricted field would leak it.
+     * Custom profile fields are filtered per core's listing semantics:
+     * everyone sees PROFILE_VISIBLE_ALL fields; teacher-visible fields need
+     * moodle/site:viewuseridentity at the course; private/hidden fields need
+     * moodle/user:viewalldetails. The preview prints each candidate's value,
+     * so offering a more restricted field would leak it. Cohorts come from
+     * cohort_get_available_cohorts() (visible ones only).
      *
      * @param \core\context\course $context The course context.
-     * @return array Option key => label. Keys use the options::affinityfield
-     *   encoding: '' (do not group), a native column name, or profile_<id>.
+     * @return array Option key => label. Keys use the ruleset source
+     *   encoding: '' (do not group), a native column name, profile_<id> or
+     *   cohort_<id>.
      */
     public static function get_available(\core\context\course $context): array {
         global $CFG;
         require_once($CFG->dirroot . '/user/profile/lib.php');
+        require_once($CFG->dirroot . '/cohort/lib.php');
 
         $result = ['' => get_string('affinitynone', 'local_groupdist')];
         foreach (options::NATIVE_AFFINITY_FIELDS as $field) {
@@ -66,30 +73,60 @@ class profilefields {
             }
             $result['profile_' . (int) $field->id] = format_string($field->name);
         }
+
+        foreach (cohort_get_available_cohorts($context) as $cohort) {
+            $result['cohort_' . (int) $cohort->id] = get_string(
+                'cohortsourcelabel',
+                'local_groupdist',
+                format_string($cohort->name, true, [
+                    'context' => \core\context::instance_by_id($cohort->contextid),
+                ])
+            );
+        }
         return $result;
     }
 
     /**
-     * Whether a given affinity field key is offered to the acting user.
+     * Whether a given source key is offered to the acting user.
      *
-     * Used to validate submitted options server-side (form, web service, apply).
+     * Used to validate submitted rules server-side (form, web service, apply).
+     * Cohort sources are checked through cohort_get_cohort() — the same
+     * parent-context and visibility rules the picker menu implied.
      *
-     * @param string $key The affinityfield encoding.
+     * @param string $key The source encoding.
      * @param \core\context\course $context The course context.
      * @return bool True when allowed.
      */
     public static function is_allowed(string $key, \core\context\course $context): bool {
+        global $CFG;
+
+        if ($cohortid = ruleset::source_cohortid($key)) {
+            require_once($CFG->dirroot . '/cohort/lib.php');
+            return (bool) cohort_get_cohort($cohortid, $context);
+        }
         return array_key_exists($key, self::get_available($context));
     }
 
     /**
-     * Human-readable label of an affinity field key.
+     * Human-readable label of a source key.
      *
-     * @param string $key The affinityfield encoding.
+     * @param string $key The source encoding.
      * @param \core\context\course $context The course context.
-     * @return string The label ('' when unknown).
+     * @return string The label ('' when unknown or not visible).
      */
     public static function get_label(string $key, \core\context\course $context): string {
+        global $CFG, $DB;
+
+        if ($cohortid = ruleset::source_cohortid($key)) {
+            require_once($CFG->dirroot . '/cohort/lib.php');
+            // The authorization helper returns a partial record (id, contextid,
+            // visible) — the name needs its own lookup.
+            if (!cohort_get_cohort($cohortid, $context)) {
+                return '';
+            }
+            $name = (string) $DB->get_field('cohort', 'name', ['id' => $cohortid]);
+            return get_string('cohortsourcelabel', 'local_groupdist', format_string($name));
+        }
         return self::get_available($context)[$key] ?? '';
     }
 }

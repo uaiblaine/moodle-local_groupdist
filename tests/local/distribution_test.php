@@ -194,4 +194,32 @@ final class distribution_test extends \advanced_testcase {
         $after = distribution::build($options, $context);
         $this->assertNotSame($before->fingerprint, $after->fingerprint);
     }
+
+    /**
+     * Cohort membership churn between preview and apply is detected: adding a
+     * member to a ruled cohort shifts the fingerprint even though the
+     * candidate id set is unchanged.
+     */
+    public function test_fingerprint_covers_cohort_membership(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/cohort/lib.php');
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        [$course, $context, $group1, $group2] = $this->make_course(3);
+
+        $cohort = $this->getDataGenerator()->create_cohort();
+        $options = options::from_array([
+            'courseid' => $course->id,
+            'groupids' => [(int) $group1->id, (int) $group2->id],
+            'affinityrules' => [['source' => 'cohort_' . $cohort->id, 'mode' => options::AFFINITY_APART]],
+            'seed' => 5,
+        ]);
+        $before = distribution::build($options, $context);
+
+        $victim = current($before->users);
+        cohort_add_member($cohort->id, $victim->id);
+
+        $after = distribution::build($options, $context);
+        $this->assertNotSame($before->fingerprint, $after->fingerprint);
+    }
 }

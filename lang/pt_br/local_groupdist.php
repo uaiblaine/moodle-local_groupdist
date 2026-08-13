@@ -50,6 +50,7 @@ $string['bulkeditgroups'] = 'Editar grupos em lote';
 $string['chosenoptions'] = 'Opções escolhidas';
 $string['cleanupfieldsonuninstall'] = 'Remover campos de grupo ao desinstalar';
 $string['cleanupfieldsonuninstall_desc'] = 'Se habilitado, desinstalar o plugin exclui os campos personalizados de grupo provisionados por ele (vagas e local) junto com os valores armazenados em cada grupo. Se desabilitado, os campos e seus dados são mantidos e podem ser gerenciados nos campos personalizados de grupo.';
+$string['cohortsourcelabel'] = 'Coorte: {$a}';
 $string['columnsbutton'] = 'Colunas';
 $string['columnsmenuhead'] = 'Grupo e "{$a}" ficam sempre visíveis. Outros campos personalizados de grupo entram nesta lista automaticamente.';
 $string['distributeparticipants'] = 'Distribuir participantes';

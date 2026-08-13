@@ -139,13 +139,14 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   `dml_write_exception` is ambiguous (duplicate key vs deadlock/lock timeout —
   same exception type): re-check `groups_is_member()` before counting it as
   added.
-- **Affinity field visibility mirrors core** (`profile_field_base::is_visible`,
+- **Affinity source visibility mirrors core** (`profile_field_base::is_visible`,
   listing case): ALL → everyone; TEACHERS → `moodle/site:viewuseridentity` at
   the course; PRIVATE/NONE → `moodle/user:viewalldetails` (NOT
   viewhiddendetails — teachers hold that by default and it would leak hidden
-  fields). Raw `cohortid` inputs on the WS/apply are validated with
+  fields). Cohort rule sources (`cohort_<id>`, binary '1'/empty membership
+  column) and raw `cohortid` inputs on the WS/apply are both validated with
   `cohort_get_cohort($id, $context)` so hidden cohorts cannot be used as a
-  membership oracle.
+  membership oracle — `profilefields::is_allowed()` owns the dispatch.
 - **"Prevent last small group" is deliberately absent** — core disables it in
   fixed-group-count mode and this allocator balances within one member.
 - **WS return structure is an allowlist**: preview data is rendered client-side

@@ -126,18 +126,19 @@ class candidates {
         // no join fan-out as the rule count grows.
         $affinityselects = [];
         $profilerules = [];
+        $cohortrules = [];
         foreach ($options->affinityrules->get_rules() as $i => $rule) {
             $kind = ruleset::source_kind($rule['source']);
             if ($kind === ruleset::KIND_NATIVE) {
                 // The column name is validated against the native whitelist in the ruleset.
                 $affinityselects[] = 'u.' . $rule['source'] . ' AS affinity' . $i;
-            } else if ($kind === ruleset::KIND_PROFILE) {
-                $affinityselects[] = 'NULL AS affinity' . $i;
-                $profilerules[$i] = ruleset::source_profile_fieldid($rule['source']);
             } else {
-                // Cohort sources are resolved in a later phase; authorization
-                // rejects them at every entry point today.
                 $affinityselects[] = 'NULL AS affinity' . $i;
+                if ($kind === ruleset::KIND_PROFILE) {
+                    $profilerules[$i] = ruleset::source_profile_fieldid($rule['source']);
+                } else {
+                    $cohortrules[$i] = ruleset::source_cohortid($rule['source']);
+                }
             }
         }
         $affinitysql = $affinityselects ? (', ' . implode(', ', $affinityselects)) : '';
@@ -178,6 +179,25 @@ class candidates {
             );
             foreach ($users as $user) {
                 $user->{'affinity' . $i} = $data[$user->id] ?? null;
+            }
+        }
+
+        foreach ($cohortrules as $i => $cohortid) {
+            if (!$users) {
+                break;
+            }
+            // Binary source: '1' for members, empty otherwise. Keep-apart then
+            // separates cohort mates pairwise (clique semantics without ever
+            // materialising edges); keep-together clusters them.
+            [$insql, $inparams] = $DB->get_in_or_equal(array_keys($users), SQL_PARAMS_NAMED, 'cs');
+            $members = $DB->get_records_sql_menu(
+                'SELECT cm.userid, 1 AS member
+                   FROM {cohort_members} cm
+                  WHERE cm.cohortid = :cscohortid AND cm.userid ' . $insql,
+                $inparams + ['cscohortid' => $cohortid]
+            );
+            foreach ($users as $user) {
+                $user->{'affinity' . $i} = isset($members[$user->id]) ? '1' : null;
             }
         }
         return $users;

@@ -50,6 +50,7 @@ $string['bulkeditgroups'] = 'Bulk edit groups';
 $string['chosenoptions'] = 'Chosen options';
 $string['cleanupfieldsonuninstall'] = 'Remove group fields on uninstall';
 $string['cleanupfieldsonuninstall_desc'] = 'If enabled, uninstalling the plugin deletes the group custom fields it provisioned (seats capacity and location) together with the values stored in them for every group. If disabled, the fields and their data are kept and can be managed under group custom fields.';
+$string['cohortsourcelabel'] = 'Cohort: {$a}';
 $string['columnsbutton'] = 'Columns';
 $string['columnsmenuhead'] = 'Group and "{$a}" stay visible. Other group custom fields appear in this list automatically.';
 $string['distributeparticipants'] = 'Distribute participants';

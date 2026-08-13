@@ -189,6 +189,30 @@ final class candidates_test extends \advanced_testcase {
     }
 
     /**
+     * A cohort rule yields the binary membership column: '1' for members,
+     * empty for everyone else.
+     */
+    public function test_cohort_rule_column(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+
+        $member = $generator->create_and_enrol($course);
+        $outsider = $generator->create_and_enrol($course);
+        $cohort = $generator->create_cohort();
+        cohort_add_member($cohort->id, $member->id);
+
+        $this->setAdminUser();
+        $result = candidates::fetch($this->make_options($course->id, [
+            'affinityrules' => [['source' => 'cohort_' . $cohort->id, 'mode' => options::AFFINITY_APART]],
+        ]), $context);
+
+        $this->assertSame('1', $result[(int) $member->id]->affinity0);
+        $this->assertNull($result[(int) $outsider->id]->affinity0);
+    }
+
+    /**
      * "Ignore grouped" excludes members of the SELECTED groups only.
      */
     public function test_ignoregrouped_scoped_to_selected_groups(): void {

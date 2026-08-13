@@ -172,9 +172,14 @@ class get_preview extends external_api {
 
         $existingsamples = self::fetch_existing_samples($distribution, $window);
 
-        $countries = ($options->get_affinity_source() === 'country')
+        // Map raw first-rule values to display text where the raw value would
+        // be opaque: country codes, and the binary cohort membership flag.
+        $valuemap = ($options->get_affinity_source() === 'country')
             ? get_string_manager()->get_list_of_countries(true)
             : [];
+        if (\local_groupdist\local\ruleset::source_cohortid($options->get_affinity_source())) {
+            $valuemap = ['1' => profilefields::get_label($options->get_affinity_source(), $context)];
+        }
 
         $groupspayload = [];
         foreach ($window as $group) {
@@ -187,7 +192,7 @@ class get_preview extends external_api {
                 $affinityvalue = trim((string) ($user->affinity0 ?? ''));
                 $members[] = [
                     'fullname' => fullname($user),
-                    'affinity' => $countries[$affinityvalue] ?? $affinityvalue,
+                    'affinity' => $valuemap[$affinityvalue] ?? $affinityvalue,
                     'isnew' => true,
                 ];
             }

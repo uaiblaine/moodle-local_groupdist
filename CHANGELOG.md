@@ -31,6 +31,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   option is now effective: an own active-or-future enrolment predicate
   (agreeing with `get_enrolled_join()`, SITEID exempt) gated on
   `moodle/course:viewsuspendedusers`.
+- Cohorts are now affinity rule sources (`cohort_<id>`): a binary membership
+  column bulk-fetched per rule — keep-apart separates cohort mates pairwise
+  (clique semantics without materialised edges), keep-together clusters them.
+  Visible cohorts appear in the source picker ("Cohort: ..." entries); every
+  entry point validates cohort sources with `cohort_get_cohort()`, so a
+  hidden cohort id cannot become a membership oracle. Cohort membership churn
+  between preview and apply shifts the fingerprint like any other rule value.
 
 ### Added
 

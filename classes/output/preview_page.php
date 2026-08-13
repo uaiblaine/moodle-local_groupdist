@@ -67,9 +67,12 @@ class preview_page implements \renderable, \templatable {
             ? get_string('recaprole', 'local_groupdist', $this->rolenames[$options->roleid])
             : get_string('all')];
         if ($options->cohortid) {
-            $cohort = cohort_get_cohort($options->cohortid, $this->context);
-            if ($cohort) {
-                $memberchips[] = ['text' => get_string('recapcohort', 'local_groupdist', format_string($cohort->name))];
+            // The authorization helper returns a partial record without the
+            // name — fetch it separately once the cohort passed the check.
+            if (cohort_get_cohort($options->cohortid, $this->context)) {
+                global $DB;
+                $name = (string) $DB->get_field('cohort', 'name', ['id' => $options->cohortid]);
+                $memberchips[] = ['text' => get_string('recapcohort', 'local_groupdist', format_string($name))];
             }
         }
         if ($options->onlyactive) {

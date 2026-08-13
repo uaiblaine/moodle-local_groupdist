@@ -51,6 +51,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Keep-apart warnings now name the rule's source. Explanatory notes moved
   from the sticky footers into the page content on both the preview and the
   bulk edit screens — the footer carries action buttons only.
+- Rule rows scale to large platforms: each row now picks a type first
+  (profile field or cohort) and the second control adapts — a field select,
+  a cohort select while the platform has at most 10 visible cohorts, or a
+  debounced cohort search beyond that (new `local_groupdist_search_cohorts`
+  web service applying the same visibility rules as the submit validation).
+  Cohorts are never enumerated into the page, and rule validation no longer
+  enumerates them either.
 
 ### Added
 

@@ -17,6 +17,11 @@
  * Affinity rule builder: repeatable rows summed with an explicit AND
  * connector, list position = priority, reorderable by drag or buttons.
  *
+ * Each row picks a type first (profile field or cohort). Cohorts are a
+ * bounded menu on small platforms and a debounced search (backed by the
+ * local_groupdist_search_cohorts web service) beyond the menu limit, so
+ * thousands of cohorts are never enumerated into the page.
+ *
  * The builder owns the rows and mirrors them into flattened hidden inputs
  * (affinityrulesources[i] / affinityrulemodes[i]) that the server reads via
  * options::rules_from_post() — no JSON blob travels in the POST.
@@ -26,8 +31,11 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+import Ajax from 'core/ajax';
+import Notification from 'core/notification';
 import Pending from 'core/pending';
 import Templates from 'core/templates';
+import {getString} from 'core/str';
 
 const SELECTORS = {
     REGION: '[data-region="local-groupdist-rules"]',
@@ -35,16 +43,25 @@ const SELECTORS = {
     INPUTS: '[data-region="inputs"]',
     RULE: '[data-region="rule"]',
     ADD: '[data-action="addrule"]',
+    KIND: '[data-action="kind"]',
     SOURCE: '[data-action="source"]',
     MODE: '[data-action="mode"]',
+    COHORTSEARCH: '[data-action="cohortsearch"]',
+    COHORTRESULTS: '[data-region="cohortresults"]',
 };
+
+const SEARCHDELAY = 300;
 
 const state = {
     root: null,
-    sources: [],
+    fields: [],
+    cohorts: [],
+    cohortsearch: false,
+    courseid: 0,
     maxrules: 10,
     rules: [],
     dragindex: null,
+    searchtimer: null,
 };
 
 /**
@@ -89,16 +106,78 @@ const move = (from, to) => {
 };
 
 /**
+ * Render the cohort suggestion list for one search row.
+ *
+ * @param {Element} row The row element.
+ * @param {Number} index The rule index the row represents.
+ * @param {String} query The search text.
+ * @returns {Promise<void>}
+ */
+const searchCohorts = async(row, index, query) => {
+    const results = row.querySelector(SELECTORS.COHORTRESULTS);
+    let matches = [];
+    try {
+        const response = await Ajax.call([{
+            methodname: 'local_groupdist_search_cohorts',
+            args: {courseid: state.courseid, query},
+        }])[0];
+        matches = response.cohorts;
+    } catch (error) {
+        Notification.exception(error);
+        return;
+    }
+
+    results.textContent = '';
+    if (!matches.length) {
+        const empty = document.createElement('span');
+        empty.className = 'list-group-item small text-muted';
+        empty.textContent = await getString('rulesearchnoresults', 'local_groupdist');
+        results.appendChild(empty);
+    }
+    matches.forEach((match) => {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'list-group-item list-group-item-action small';
+        option.setAttribute('role', 'option');
+        option.textContent = match.label;
+        option.addEventListener('click', () => {
+            state.rules[index].source = match.value;
+            state.rules[index].label = match.label;
+            render();
+        });
+        results.appendChild(option);
+    });
+    results.hidden = false;
+};
+
+/**
  * Wire one rendered row's controls to the state.
  *
  * @param {Element} row The row element.
  * @param {Number} index The rule index the row represents.
  */
 const wireRow = (row, index) => {
-    row.querySelector(SELECTORS.SOURCE).addEventListener('change', (event) => {
-        state.rules[index].source = event.target.value;
+    row.querySelector(SELECTORS.KIND).addEventListener('change', (event) => {
+        state.rules[index].kind = event.target.value;
+        state.rules[index].source = '';
+        state.rules[index].label = '';
         render();
     });
+    const source = row.querySelector(SELECTORS.SOURCE);
+    if (source) {
+        source.addEventListener('change', (event) => {
+            state.rules[index].source = event.target.value;
+            render();
+        });
+    }
+    const search = row.querySelector(SELECTORS.COHORTSEARCH);
+    if (search) {
+        search.addEventListener('input', (event) => {
+            const query = event.target.value.trim();
+            window.clearTimeout(state.searchtimer);
+            state.searchtimer = window.setTimeout(() => searchCohorts(row, index, query), SEARCHDELAY);
+        });
+    }
     row.querySelector(SELECTORS.MODE).addEventListener('change', (event) => {
         state.rules[index].mode = event.target.value;
         render();
@@ -149,9 +228,18 @@ const render = async() => {
             notfirst: index > 0,
             isfirst: index === 0,
             islast: index === state.rules.length - 1,
+            iscohort: rule.kind === 'cohort',
+            cohortsearch: state.cohortsearch,
+            cohortlabel: (rule.kind === 'cohort' && rule.source !== '') ? rule.label : '',
+            cohortquery: '',
             together: rule.mode === 'together',
             apart: rule.mode === 'apart',
-            sources: state.sources.map((option) => ({
+            fields: state.fields.map((option) => ({
+                value: option.value,
+                label: option.label,
+                selected: option.value === rule.source,
+            })),
+            cohorts: state.cohorts.map((option) => ({
                 value: option.value,
                 label: option.label,
                 selected: option.value === rule.source,
@@ -171,6 +259,14 @@ const render = async() => {
 };
 
 /**
+ * Derive the row type of an initial rule from its source key.
+ *
+ * @param {String} source The source key.
+ * @returns {String} Either 'cohort' or 'field'.
+ */
+const kindOf = (source) => source.startsWith('cohort_') ? 'cohort' : 'field';
+
+/**
  * Initialise the builder from its mount's data attributes.
  *
  * @returns {Promise<void>}
@@ -180,12 +276,20 @@ export const init = async() => {
     if (!state.root) {
         return;
     }
-    state.sources = JSON.parse(state.root.dataset.sources);
-    state.rules = JSON.parse(state.root.dataset.rules);
+    state.fields = JSON.parse(state.root.dataset.fields);
+    state.cohorts = JSON.parse(state.root.dataset.cohorts);
+    state.cohortsearch = state.root.dataset.cohortsearch === '1';
+    state.courseid = parseInt(state.root.dataset.courseid, 10);
     state.maxrules = parseInt(state.root.dataset.maxrules, 10) || 10;
+    state.rules = JSON.parse(state.root.dataset.rules).map((rule) => ({
+        kind: kindOf(rule.source),
+        source: rule.source,
+        mode: rule.mode,
+        label: rule.label || '',
+    }));
 
     state.root.querySelector(SELECTORS.ADD).addEventListener('click', () => {
-        state.rules.push({source: '', mode: 'together'});
+        state.rules.push({kind: 'field', source: '', mode: 'together', label: ''});
         render();
     });
     await render();

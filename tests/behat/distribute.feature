@@ -26,6 +26,9 @@ Feature: Distribute participants into selected groups
       | name    | course | idnumber |
       | Group A | C1     | GA       |
       | Group B | C1     | GB       |
+    And the following "cohorts" exist:
+      | name    | idnumber |
+      | Mentors | ME       |
 
   Scenario: The injected button enables with a selection and opens the options form
     Given I am on the "Course 1" "groups" page logged in as "teacher1"
@@ -45,16 +48,17 @@ Feature: Distribute participants into selected groups
     And I click on "Apply distribution" "button"
     Then I should see "Distribution applied: 4 memberships across 2 groups."
 
-  Scenario: Build two affinity rules and see them echoed in the preview recap
+  Scenario: Build field and cohort affinity rules and see them echoed in the preview recap
     Given I am on the "Course 1" "groups" page logged in as "teacher1"
     When I set the field "Groups" to "Group A (0),Group B (0)"
     And I click on "Distribute participants" "button"
     And I click on "Add rule" "button"
-    And I set the field "Rule 1 source" to "City"
+    And I set the field "Rule 1 field" to "City"
     And I set the field "Rule 1 strategy" to "Keep apart"
     And I click on "Add rule" "button"
-    And I set the field "Rule 2 source" to "Department"
+    And I set the field "Rule 2 type" to "Cohort"
+    And I set the field "Rule 2 cohort" to "Mentors"
     And I press "Preview distribution"
     Then I should see "1 · Keep apart: City"
-    And I should see "2 · Keep together: Department"
+    And I should see "2 · Keep together: Cohort: Mentors"
     And I should see "Rules report"

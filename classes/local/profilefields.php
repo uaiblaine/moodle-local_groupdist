@@ -30,26 +30,25 @@ namespace local_groupdist\local;
  */
 class profilefields {
     /**
-     * The affinity sources the acting user may rule on, as select options.
+     * The profile-field sources the acting user may rule on, as select options.
      *
      * Custom profile fields are filtered per core's listing semantics:
      * everyone sees PROFILE_VISIBLE_ALL fields; teacher-visible fields need
      * moodle/site:viewuseridentity at the course; private/hidden fields need
      * moodle/user:viewalldetails. The preview prints each candidate's value,
-     * so offering a more restricted field would leak it. Cohorts come from
-     * cohort_get_available_cohorts() (visible ones only).
+     * so offering a more restricted field would leak it. Cohorts are handled
+     * separately (they can number in the thousands and are picked through a
+     * bounded list or a search — never enumerated here).
      *
      * @param \core\context\course $context The course context.
      * @return array Option key => label. Keys use the ruleset source
-     *   encoding: '' (do not group), a native column name, profile_<id> or
-     *   cohort_<id>.
+     *   encoding: a native column name or profile_<id>.
      */
-    public static function get_available(\core\context\course $context): array {
+    public static function get_fields(\core\context\course $context): array {
         global $CFG;
         require_once($CFG->dirroot . '/user/profile/lib.php');
-        require_once($CFG->dirroot . '/cohort/lib.php');
 
-        $result = ['' => get_string('affinitynone', 'local_groupdist')];
+        $result = [];
         foreach (options::NATIVE_AFFINITY_FIELDS as $field) {
             $result[$field] = get_string($field);
         }
@@ -73,16 +72,6 @@ class profilefields {
             }
             $result['profile_' . (int) $field->id] = format_string($field->name);
         }
-
-        foreach (cohort_get_available_cohorts($context) as $cohort) {
-            $result['cohort_' . (int) $cohort->id] = get_string(
-                'cohortsourcelabel',
-                'local_groupdist',
-                format_string($cohort->name, true, [
-                    'context' => \core\context::instance_by_id($cohort->contextid),
-                ])
-            );
-        }
         return $result;
     }
 
@@ -104,7 +93,7 @@ class profilefields {
             require_once($CFG->dirroot . '/cohort/lib.php');
             return (bool) cohort_get_cohort($cohortid, $context);
         }
-        return array_key_exists($key, self::get_available($context));
+        return array_key_exists($key, self::get_fields($context));
     }
 
     /**
@@ -127,6 +116,6 @@ class profilefields {
             $name = (string) $DB->get_field('cohort', 'name', ['id' => $cohortid]);
             return get_string('cohortsourcelabel', 'local_groupdist', format_string($name));
         }
-        return self::get_available($context)[$key] ?? '';
+        return self::get_fields($context)[$key] ?? '';
     }
 }

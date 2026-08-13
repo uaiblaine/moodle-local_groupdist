@@ -19,24 +19,36 @@
 
     Affinity rule builder mount, embedded in the options form. The AMD module
     local_groupdist/rules renders the rows, keeps the flattened hidden inputs
-    in sync and handles add/remove/reorder. Rules are summed (implicit AND);
-    list position is the priority.
+    in sync and handles add/remove/reorder. Each row picks a type first
+    (profile field or cohort); when the platform has more cohorts than the
+    menu limit the cohort picker becomes a search backed by the
+    local_groupdist_search_cohorts web service. Rules are summed (implicit
+    AND); list position is the priority.
 
     Context variables required for this template:
-    * sourcesjson - JSON list of value/label source options
-    * rulesjson - JSON list of initial rules (source and mode keys)
+    * fieldsjson - JSON list of value/label profile-field options
+    * cohortsjson - JSON list of value/label cohort options ([] in search mode)
+    * cohortsearch - whether the cohort picker is a search
+    * courseid - course id for the cohort search web service
+    * rulesjson - JSON list of initial rules (source, mode, label keys)
     * maxrules - guardrail maximum number of rules
 
     Example context (json):
     {
-        "sourcesjson": "[{\"value\":\"city\",\"label\":\"City\"}]",
-        "rulesjson": "[{\"source\":\"city\",\"mode\":\"together\"}]",
+        "fieldsjson": "[{\"value\":\"city\",\"label\":\"City\"}]",
+        "cohortsjson": "[{\"value\":\"cohort_7\",\"label\":\"Managers\"}]",
+        "cohortsearch": false,
+        "courseid": 2,
+        "rulesjson": "[{\"source\":\"city\",\"mode\":\"together\",\"label\":\"City\"}]",
         "maxrules": 10
     }
 }}
 <div class="local-groupdist-rules"
      data-region="local-groupdist-rules"
-     data-sources="{{sourcesjson}}"
+     data-fields="{{fieldsjson}}"
+     data-cohorts="{{cohortsjson}}"
+     data-cohortsearch="{{#cohortsearch}}1{{/cohortsearch}}{{^cohortsearch}}0{{/cohortsearch}}"
+     data-courseid="{{courseid}}"
      data-rules="{{rulesjson}}"
      data-maxrules="{{maxrules}}">
     <div class="mb-2" data-region="rows"></div>

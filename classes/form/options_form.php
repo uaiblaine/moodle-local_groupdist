@@ -39,6 +39,9 @@ require_once($CFG->dirroot . '/cohort/lib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class options_form extends \moodleform {
+    /** @var int Most cohorts shown as a plain menu; beyond it the picker becomes a search. */
+    public const COHORT_MENU_LIMIT = 10;
+
     /**
      * Form definition.
      *
@@ -108,20 +111,47 @@ class options_form extends \moodleform {
 
         // Section: affinity rules. The builder is an AMD-driven widget whose
         // rows post through the flattened affinityrulesources[]/modes[]
-        // hidden inputs (read back via options::rules_from_post()).
-        global $OUTPUT, $PAGE;
-        $sources = [];
-        foreach (profilefields::get_available($context) as $value => $label) {
-            if ($value === '') {
-                continue;
-            }
-            $sources[] = ['value' => $value, 'label' => $label];
+        // hidden inputs (read back via options::rules_from_post()). Each row
+        // picks a type first (profile field or cohort); cohorts are a bounded
+        // list up to COHORT_MENU_LIMIT and a search beyond it — platforms can
+        // carry thousands, so they are never enumerated.
+        global $CFG, $OUTPUT, $PAGE;
+        require_once($CFG->dirroot . '/cohort/lib.php');
+
+        $fields = [];
+        foreach (profilefields::get_fields($context) as $value => $label) {
+            $fields[] = ['value' => $value, 'label' => $label];
         }
+        $cohorts = [];
+        $cohortsearch = false;
+        $sample = cohort_get_available_cohorts($context, 0, 0, self::COHORT_MENU_LIMIT + 1);
+        if (count($sample) > self::COHORT_MENU_LIMIT) {
+            $cohortsearch = true;
+        } else {
+            foreach ($sample as $cohort) {
+                $cohorts[] = [
+                    'value' => 'cohort_' . (int) $cohort->id,
+                    'label' => format_string($cohort->name, true, [
+                        'context' => \core\context::instance_by_id($cohort->contextid),
+                    ]),
+                ];
+            }
+        }
+        $initialrules = [];
+        foreach (($this->_customdata['initialrules'] ?? []) as $rule) {
+            $initialrules[] = $rule + [
+                'label' => profilefields::get_label($rule['source'], $context),
+            ];
+        }
+
         $mform->addElement('header', 'affinityhdr', get_string('affinitysection', 'local_groupdist'));
         $mform->setExpanded('affinityhdr', true);
         $mform->addElement('html', $OUTPUT->render_from_template('local_groupdist/rules_builder', [
-            'sourcesjson' => json_encode($sources),
-            'rulesjson' => json_encode($this->_customdata['initialrules'] ?? []),
+            'fieldsjson' => json_encode($fields),
+            'cohortsjson' => json_encode($cohorts),
+            'cohortsearch' => $cohortsearch,
+            'courseid' => $courseid,
+            'rulesjson' => json_encode($initialrules),
             'maxrules' => \local_groupdist\local\ruleset::DEFAULT_MAX_RULES,
         ]));
         $mform->addElement('static', 'affinityruleserr', '', '');

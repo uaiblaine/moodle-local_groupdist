@@ -32,6 +32,13 @@ $functions = [
         'ajax' => true,
         'capabilities' => 'local/groupdist:distribute',
     ],
+    'local_groupdist_search_cohorts' => [
+        'classname' => 'local_groupdist\external\search_cohorts',
+        'description' => 'Search the cohorts available as affinity rule sources (visibility rules applied).',
+        'type' => 'read',
+        'ajax' => true,
+        'capabilities' => 'local/groupdist:distribute',
+    ],
     'local_groupdist_save_group_fields' => [
         'classname' => 'local_groupdist\external\save_group_fields',
         'description' => 'Save changed group custom field cells from the bulk edit table (chunked, max 200 per call).',

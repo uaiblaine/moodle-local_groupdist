@@ -53,6 +53,8 @@ classes/
   local/fields.php           Group custom field provisioning + bulk readers
   local/profilefields.php    Affinity field enumeration (visibility-filtered)
   external/get_preview.php   Paged preview WS (recomputes per call)
+  external/search_cohorts.php Cohort search for the rule builder (cohorts are
+                             never enumerated; menu <= 10, search beyond)
   external/save_group_fields.php Chunked bulk-edit save (dirty cells only,
                              MAX_CHANGES=200 per call; client chunks at 100)
   output/bulkedit_page.php   Table context builder (also refreshes one row
@@ -147,6 +149,11 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   column) and raw `cohortid` inputs on the WS/apply are both validated with
   `cohort_get_cohort($id, $context)` so hidden cohorts cannot be used as a
   membership oracle — `profilefields::is_allowed()` owns the dispatch.
+  **Never enumerate cohorts** (platforms carry thousands):
+  `profilefields::get_fields()` lists fields only; the builder shows a cohort
+  menu up to `options_form::COHORT_MENU_LIMIT` and switches to the
+  `local_groupdist_search_cohorts` WS beyond it, and per-rule authorization
+  is always the O(1) `cohort_get_cohort()` check.
 - **"Prevent last small group" is deliberately absent** — core disables it in
   fixed-group-count mode and this allocator balances within one member.
 - **WS return structure is an allowlist**: preview data is rendered client-side

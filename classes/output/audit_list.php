@@ -94,6 +94,7 @@ class audit_list implements \renderable, \templatable {
                 'written' => (int) $record->memberswritten,
                 'total' => (int) $record->memberstotal,
                 'status' => self::status_badge((int) $record->status),
+                'restored' => (bool) $record->restored,
                 'detailurl' => (new \moodle_url('/local/groupdist/audit.php', [
                     'id' => $this->courseid,
                     'run' => (int) $record->id,

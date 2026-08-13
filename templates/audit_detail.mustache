@@ -25,6 +25,7 @@
     Context variables required for this template:
     * heading / byname / meta - header texts
     * status - label and class
+    * restored - whether the run was recreated by a course restore
     * hasrules / rules - chips: index, mode, label, apart, masked
     * warnings - array of message entries
     * groups - array: name, nogroup, deleted, seats, membercount, members
@@ -37,6 +38,7 @@
         "byname": "Terry Teacher",
         "meta": "seed 3941 · plugin 2026081305 · 43 participants, 43 written",
         "status": {"label": "Completed", "class": "success"},
+        "restored": true,
         "hasrules": true,
         "rules": [
             {"index": 1, "mode": "Keep together", "label": "City", "apart": false, "masked": false}
@@ -70,6 +72,9 @@
     <div class="d-flex flex-wrap align-items-baseline gap-2 mb-1">
         <h2 class="h4 mb-0">{{heading}}</h2>
         <span class="badge text-bg-{{status.class}}">{{status.label}}</span>
+        {{#restored}}
+        <span class="badge bg-light text-dark border fw-normal">{{#str}} auditrestored, local_groupdist {{/str}}</span>
+        {{/restored}}
     </div>
     <p class="text-muted mb-3">{{#str}} auditby, local_groupdist {{/str}}: {{byname}} · {{meta}}</p>
 

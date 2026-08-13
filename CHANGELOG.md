@@ -61,6 +61,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- The audit log now travels in course backups, behind the standard "Include
+  course logs" root setting (excluded from anonymised backups and from
+  backups without user data, matching core's log handling). On restore the
+  runs are recreated in the target course marked "Restored from backup" (a
+  badge in the audit UI): the applier and every participant are remapped to
+  the restored users, participants missing from the backup become
+  pseudonymised rows (userid zeroed, values blanked), and group references —
+  both the per-participant planned group and the snapshot's group ids — are
+  remapped to the restored groups, keeping the historical id (rendered as a
+  since-deleted group) when a group was not carried over.
 - Audit log foundation: every apply now records a snapshot — who ran it, the
   ruleset with labels resolved at apply time, each participant's per-rule
   values (the allocator's own input matrix), the planned group and the write

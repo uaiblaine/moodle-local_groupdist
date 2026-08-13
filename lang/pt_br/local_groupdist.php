@@ -52,6 +52,7 @@ $string['auditoutcomeskipped'] = 'sem escrita necessária';
 $string['auditoutcomeunassigned'] = 'sem vaga';
 $string['auditoutcomewritten'] = 'gravada';
 $string['auditremoved'] = 'Participante removido';
+$string['auditrestored'] = 'Restaurado de backup';
 $string['auditretentiondays'] = 'Retenção do log de auditoria (dias)';
 $string['auditretentiondays_desc'] = 'Execuções de distribuição mais antigas do que isso são apagadas por uma tarefa agendada diária. 0 mantém o log para sempre.';
 $string['auditrules'] = 'Regras aplicadas (rótulos da época)';

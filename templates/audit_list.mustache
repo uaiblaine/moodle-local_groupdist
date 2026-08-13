@@ -23,7 +23,7 @@
     Context variables required for this template:
     * hasruns - whether any run exists
     * runs - array of rows: when, byname, rules (index, apart), rulecount,
-      written, total, status (label, class), detailurl
+      written, total, status (label, class), restored, detailurl
 
     Example context (json):
     {
@@ -40,6 +40,7 @@
                 "written": 43,
                 "total": 43,
                 "status": {"label": "Completed", "class": "success"},
+                "restored": true,
                 "detailurl": "https://example.com/local/groupdist/audit.php?id=2&run=7"
             }
         ]
@@ -73,7 +74,12 @@
                     {{^rules}}<span class="text-muted">—</span>{{/rules}}
                 </td>
                 <td class="text-nowrap">{{written}} / {{total}}</td>
-                <td><span class="badge text-bg-{{status.class}}">{{status.label}}</span></td>
+                <td>
+                    <span class="badge text-bg-{{status.class}}">{{status.label}}</span>
+                    {{#restored}}
+                    <span class="badge bg-light text-dark border fw-normal">{{#str}} auditrestored, local_groupdist {{/str}}</span>
+                    {{/restored}}
+                </td>
                 <td><a href="{{detailurl}}">{{#str}} view, core {{/str}}</a></td>
             </tr>
             {{/runs}}

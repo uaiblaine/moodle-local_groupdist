@@ -194,6 +194,7 @@ class audit_detail implements \renderable, \templatable {
                 'written' => (int) $run->memberswritten,
             ]),
             'status' => audit_list::status_badge((int) $run->status),
+            'restored' => (bool) $run->restored,
             'rules' => $ruleschips,
             'hasrules' => (bool) $ruleschips,
             'warnings' => $this->export_warnings($ruleinfo, $display),

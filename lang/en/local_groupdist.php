@@ -52,6 +52,7 @@ $string['auditoutcomeskipped'] = 'no write needed';
 $string['auditoutcomeunassigned'] = 'no seat';
 $string['auditoutcomewritten'] = 'written';
 $string['auditremoved'] = 'Removed participant';
+$string['auditrestored'] = 'Restored from backup';
 $string['auditretentiondays'] = 'Audit log retention (days)';
 $string['auditretentiondays_desc'] = 'Distribution audit runs older than this are deleted by a daily scheduled task. 0 keeps the log forever.';
 $string['auditrules'] = 'Rules applied (labels as of apply time)';

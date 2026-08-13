@@ -40,4 +40,19 @@ $capabilities = [
         ],
         'clonepermissionsfrom' => 'moodle/course:managegroups',
     ],
+
+    /*
+     * The audit log shows who was distributed where with rule value
+     * snapshots (masked per the reader's field visibility), hence
+     * RISK_PERSONAL.
+     */
+    'local/groupdist:viewauditlog' => [
+        'riskbitmask' => RISK_PERSONAL,
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_COURSE,
+        'archetypes' => [
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+    ],
 ];

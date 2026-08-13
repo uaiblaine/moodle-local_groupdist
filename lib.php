@@ -23,6 +23,37 @@
  */
 
 /**
+ * Add the distribution audit log to the course Reports section.
+ *
+ * The 'coursereports' settings-navigation container is exactly what the
+ * course Reports page (report/view.php) lists, and it also feeds the
+ * secondary navigation's Reports menu.
+ *
+ * @param settings_navigation $settingsnav The settings navigation.
+ * @param \core\context|null $context The current context.
+ * @return void
+ */
+function local_groupdist_extend_settings_navigation(settings_navigation $settingsnav, ?\core\context $context): void {
+    if (!$context instanceof \core\context\course || $context->instanceid == SITEID) {
+        return;
+    }
+    if (!has_capability('local/groupdist:viewauditlog', $context)) {
+        return;
+    }
+    $reports = $settingsnav->find('coursereports', \navigation_node::TYPE_CONTAINER);
+    if (!$reports) {
+        return;
+    }
+    $reports->add(
+        get_string('auditlog', 'local_groupdist'),
+        new moodle_url('/local/groupdist/audit.php', ['id' => $context->instanceid]),
+        \navigation_node::TYPE_SETTING,
+        null,
+        'localgroupdistaudit'
+    );
+}
+
+/**
  * User preferences this plugin may set through the web service.
  *
  * @return array Preference definitions keyed by name.

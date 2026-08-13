@@ -72,8 +72,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   deletion requests pseudonymise rows (userid zeroed, values blanked) so run
   shapes stay intact. Lifecycle: course deletion purges the course's runs,
   user deletion pseudonymises, and a daily scheduled task enforces the new
-  `auditretentiondays` setting (default 365; 0 keeps forever). The audit UI
-  ships next; the snapshots start accumulating now.
+  `auditretentiondays` setting (default 365; 0 keeps forever).
+- Audit UI: a "Distribution log" course report (new capability
+  `local/groupdist:viewauditlog`, default managers and editing teachers,
+  listed in the course Reports section) with the paged run list and a run
+  detail rendered entirely from the stored snapshot — rules with their
+  apply-time labels, warnings, groups (with a marker when a group was since
+  deleted) and per-participant outcomes with plain-HTML "Why here?"
+  explanations derived from the stored facts: kept-with counts, the
+  separated-from peer list with destinations, and conflict lines. Two
+  reader-side overlays only: rule values the viewer may not see are masked
+  (label shown, values and value-derived facts hidden), and pseudonymised
+  rows appear as removed participants.
 
 - Bulk edit groups: a second action on the group management page opening a
   table of the selected groups — picture, name, ids, member count and every

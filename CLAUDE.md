@@ -41,6 +41,8 @@ distribute.php               Step 1+2 controller: options form POST target and
                              preview renderer (sticky_footer with apply/back)
 apply.php                    Step 3: fingerprint re-check, inline vs adhoc
 status.php                   Background apply progress (core task_indicator)
+audit.php                    Distribution log course report: run list + run
+                             detail from the snapshot (gate: viewauditlog)
 bulkedit.php                 Bulk edit table of the selected groups' custom
                              fields (gate: moodle/course:managegroups)
 lib.php                      local_groupdist_user_preferences() (column prefs)

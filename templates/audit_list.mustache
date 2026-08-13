@@ -1,0 +1,83 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_groupdist/audit_list
+
+    Audit log run list for one course: one row per applied distribution with
+    who ran it, the rule count, the write counts and the outcome status.
+
+    Context variables required for this template:
+    * hasruns - whether any run exists
+    * runs - array of rows: when, byname, rules (index, apart), rulecount,
+      written, total, status (label, class), detailurl
+
+    Example context (json):
+    {
+        "hasruns": true,
+        "runs": [
+            {
+                "when": "13/08/26, 10:42",
+                "byname": "Terry Teacher",
+                "rules": [
+                    {"index": 1, "apart": false},
+                    {"index": 2, "apart": true}
+                ],
+                "rulecount": 2,
+                "written": 43,
+                "total": 43,
+                "status": {"label": "Completed", "class": "success"},
+                "detailurl": "https://example.com/local/groupdist/audit.php?id=2&run=7"
+            }
+        ]
+    }
+}}
+{{^hasruns}}
+<div class="alert alert-info" role="status">{{#str}} auditnoruns, local_groupdist {{/str}}</div>
+{{/hasruns}}
+{{#hasruns}}
+<div class="table-responsive">
+    <table class="table table-sm local-groupdist-auditlist">
+        <thead>
+            <tr>
+                <th scope="col">{{#str}} auditwhen, local_groupdist {{/str}}</th>
+                <th scope="col">{{#str}} auditby, local_groupdist {{/str}}</th>
+                <th scope="col">{{#str}} affinitysection, local_groupdist {{/str}}</th>
+                <th scope="col">{{#str}} auditwritten, local_groupdist {{/str}}</th>
+                <th scope="col">{{#str}} auditstatus, local_groupdist {{/str}}</th>
+                <th scope="col"><span class="visually-hidden">{{#str}} actions, core {{/str}}</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#runs}}
+            <tr>
+                <td class="text-nowrap">{{when}}</td>
+                <td>{{byname}}</td>
+                <td>
+                    {{#rules}}
+                    <span class="badge rounded-pill {{#apart}}text-bg-warning{{/apart}}{{^apart}}text-bg-success{{/apart}}">{{index}}</span>
+                    {{/rules}}
+                    {{^rules}}<span class="text-muted">—</span>{{/rules}}
+                </td>
+                <td class="text-nowrap">{{written}} / {{total}}</td>
+                <td><span class="badge text-bg-{{status.class}}">{{status.label}}</span></td>
+                <td><a href="{{detailurl}}">{{#str}} view, core {{/str}}</a></td>
+            </tr>
+            {{/runs}}
+        </tbody>
+    </table>
+</div>
+{{/hasruns}}

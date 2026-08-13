@@ -1,0 +1,133 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_groupdist/audit_detail
+
+    One audit run rendered from its stored snapshot: header, rules as of
+    apply time, warnings, and the groups with per-participant outcomes and
+    "why here?" explanations (plain details/summary, no JS). Masked rules
+    show their label but never their values.
+
+    Context variables required for this template:
+    * heading / byname / meta - header texts
+    * status - label and class
+    * hasrules / rules - chips: index, mode, label, apart, masked
+    * warnings - array of message entries
+    * groups - array: name, nogroup, deleted, seats, membercount, members
+      (name, removed, outcome {label, class}, why list {text, muted, warn})
+    * backurl - the run list URL
+
+    Example context (json):
+    {
+        "heading": "Run of 13/08/26, 10:42",
+        "byname": "Terry Teacher",
+        "meta": "seed 3941 · plugin 2026081305 · 43 participants, 43 written",
+        "status": {"label": "Completed", "class": "success"},
+        "hasrules": true,
+        "rules": [
+            {"index": 1, "mode": "Keep together", "label": "City", "apart": false, "masked": false}
+        ],
+        "warnings": [
+            {"message": "3 participants have no value in \"City\"."}
+        ],
+        "groups": [
+            {
+                "name": "Group 01",
+                "nogroup": false,
+                "deleted": true,
+                "seats": 12,
+                "membercount": 1,
+                "members": [
+                    {
+                        "name": "Ana Souza",
+                        "removed": false,
+                        "outcome": {"label": "written", "class": "success"},
+                        "why": [
+                            {"text": "Rule 1 · Keep together · City: value \"Fortaleza\" — placed with 3 more.", "muted": false, "warn": false}
+                        ]
+                    }
+                ]
+            }
+        ],
+        "backurl": "https://example.com/local/groupdist/audit.php?id=2"
+    }
+}}
+<div class="local-groupdist-auditdetail">
+    <div class="d-flex flex-wrap align-items-baseline gap-2 mb-1">
+        <h2 class="h4 mb-0">{{heading}}</h2>
+        <span class="badge text-bg-{{status.class}}">{{status.label}}</span>
+    </div>
+    <p class="text-muted mb-3">{{#str}} auditby, local_groupdist {{/str}}: {{byname}} · {{meta}}</p>
+
+    <div class="alert alert-info d-flex gap-2" role="note">
+        <i class="fa fa-camera mt-1" aria-hidden="true"></i>
+        <span>{{#str}} auditsnapshotnote, local_groupdist {{/str}}</span>
+    </div>
+
+    {{#hasrules}}
+    <h3 class="h6 text-muted">{{#str}} auditrules, local_groupdist {{/str}}</h3>
+    <div class="d-flex flex-wrap gap-1 mb-3">
+        {{#rules}}
+        <span class="badge bg-light text-dark border fw-normal">
+            <span class="badge rounded-pill {{#apart}}text-bg-warning{{/apart}}{{^apart}}text-bg-success{{/apart}}">{{index}}</span>
+            {{mode}}: {{label}}
+            {{#masked}}<i class="fa fa-eye-slash text-muted" aria-hidden="true"
+                title="{{#str}} auditmaskedvalue, local_groupdist {{/str}}"></i>{{/masked}}
+        </span>
+        {{/rules}}
+    </div>
+    {{/hasrules}}
+
+    {{#warnings}}
+    <div class="alert alert-warning py-2 small" role="alert">{{message}}</div>
+    {{/warnings}}
+
+    {{#groups}}
+    <div class="card mb-2">
+        <div class="card-body py-3">
+            <div class="d-flex flex-wrap align-items-baseline gap-2 mb-2">
+                <h3 class="h6 mb-0">{{name}}</h3>
+                {{#deleted}}
+                <span class="badge bg-light text-dark border fw-normal">{{#str}} auditgroupdeleted, local_groupdist {{/str}}</span>
+                {{/deleted}}
+                <span class="ms-auto small text-muted">{{membercount}}{{#seats}} / {{.}}{{/seats}}</span>
+            </div>
+            <ul class="list-unstyled mb-0">
+                {{#members}}
+                <li class="border-top py-1">
+                    <details>
+                        <summary class="d-flex align-items-center gap-2 local-groupdist-auditmember">
+                            <i class="fa fa-user-circle-o text-muted" aria-hidden="true"></i>
+                            <span {{#removed}}class="fst-italic text-muted"{{/removed}}>{{name}}</span>
+                            <span class="ms-auto badge text-bg-{{outcome.class}} fw-normal">{{outcome.label}}</span>
+                            <span class="badge bg-light text-dark border fw-normal">{{#str}} auditwhy, local_groupdist {{/str}}</span>
+                        </summary>
+                        <ul class="small mb-1 mt-1 local-groupdist-auditwhy">
+                            {{#why}}
+                            <li class="{{#muted}}text-muted{{/muted}}{{#warn}}text-danger{{/warn}}">{{text}}</li>
+                            {{/why}}
+                        </ul>
+                    </details>
+                </li>
+                {{/members}}
+            </ul>
+        </div>
+    </div>
+    {{/groups}}
+
+    <a class="btn btn-secondary mt-2" href="{{backurl}}">{{#str}} back, core {{/str}}</a>
+</div>

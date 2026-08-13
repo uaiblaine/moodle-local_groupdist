@@ -52,7 +52,7 @@ class allocator {
      * @param array $userids Candidate user ids, already in the requested order
      *   (the seeded shuffle for the random order happens here).
      * @param array $affinity Map of userid => affinity value (null/'' = no value);
-     *   ignored when the options carry no affinity field.
+     *   ignored when the options carry no affinity rule.
      * @param array $groups Ordered list of arrays with keys: 'id' (int),
      *   'capacity' (int|null, null = unlimited), 'current' (int),
      *   'existing' (map of userid => true for current members).
@@ -84,9 +84,9 @@ class allocator {
             return $result;
         }
 
-        if ($options->affinityfield === '') {
+        if ($options->get_affinity_source() === '') {
             self::fill_balanced($state, $userids, $result);
-        } else if ($options->affinitymode === options::AFFINITY_TOGETHER) {
+        } else if ($options->get_affinity_mode() === options::AFFINITY_TOGETHER) {
             self::fill_together($state, $userids, $affinity, $result);
         } else {
             self::fill_apart($state, $userids, $affinity, $result);

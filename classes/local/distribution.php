@@ -146,7 +146,7 @@ class distribution {
         $distribution->users = candidates::fetch($options, $context);
 
         $affinity = [];
-        if ($options->affinityfield !== '') {
+        if (!$options->affinityrules->is_empty()) {
             foreach ($distribution->users as $user) {
                 $affinity[(int) $user->id] = $user->affinity;
             }

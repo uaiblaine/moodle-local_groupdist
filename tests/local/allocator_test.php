@@ -128,8 +128,7 @@ final class allocator_test extends \basic_testcase {
         $groups = [$this->make_group(1, null), $this->make_group(2, null)];
         $affinity = [1 => 'A', 2 => 'A', 3 => 'A', 4 => 'B', 5 => 'B', 6 => 'B'];
         $options = $this->make_options([
-            'affinityfield' => 'city',
-            'affinitymode' => options::AFFINITY_TOGETHER,
+            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
         ]);
         $result = allocator::allocate([1, 2, 3, 4, 5, 6], $affinity, $groups, $options);
 
@@ -148,8 +147,7 @@ final class allocator_test extends \basic_testcase {
         $groups = [$this->make_group(1, 2), $this->make_group(2, 2)];
         $affinity = [1 => 'A', 2 => 'A', 3 => 'A'];
         $options = $this->make_options([
-            'affinityfield' => 'city',
-            'affinitymode' => options::AFFINITY_TOGETHER,
+            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
         ]);
         $result = allocator::allocate([1, 2, 3], $affinity, $groups, $options);
 
@@ -165,8 +163,7 @@ final class allocator_test extends \basic_testcase {
         $groups = [$this->make_group(1, null), $this->make_group(2, null)];
         $affinity = [1 => 'A', 2 => '', 3 => null];
         $options = $this->make_options([
-            'affinityfield' => 'city',
-            'affinitymode' => options::AFFINITY_TOGETHER,
+            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
         ]);
         $result = allocator::allocate([1, 2, 3], $affinity, $groups, $options);
 
@@ -185,8 +182,7 @@ final class allocator_test extends \basic_testcase {
         $groups = [$this->make_group(1, null), $this->make_group(2, null), $this->make_group(3, null)];
         $affinity = [1 => 'A', 2 => 'A', 3 => 'A', 4 => 'B', 5 => 'B', 6 => 'C'];
         $options = $this->make_options([
-            'affinityfield' => 'city',
-            'affinitymode' => options::AFFINITY_APART,
+            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_APART]],
         ]);
         $result = allocator::allocate([1, 2, 3, 4, 5, 6], $affinity, $groups, $options);
 
@@ -205,8 +201,7 @@ final class allocator_test extends \basic_testcase {
         $groups = [$this->make_group(1, null), $this->make_group(2, null)];
         $affinity = [1 => 'A', 2 => 'A', 3 => 'A'];
         $options = $this->make_options([
-            'affinityfield' => 'city',
-            'affinitymode' => options::AFFINITY_APART,
+            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_APART]],
         ]);
         $result = allocator::allocate([1, 2, 3], $affinity, $groups, $options);
 
@@ -229,8 +224,7 @@ final class allocator_test extends \basic_testcase {
         ];
         $affinity = [1 => 'A', 2 => 'A'];
         $options = $this->make_options([
-            'affinityfield' => 'city',
-            'affinitymode' => options::AFFINITY_TOGETHER,
+            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
         ]);
         $result = allocator::allocate([1, 2], $affinity, $groups, $options);
 

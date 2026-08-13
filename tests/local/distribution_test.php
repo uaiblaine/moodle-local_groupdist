@@ -154,8 +154,7 @@ final class distribution_test extends \advanced_testcase {
         $options = options::from_array([
             'courseid' => $course->id,
             'groupids' => [(int) $group1->id, (int) $group2->id],
-            'affinityfield' => 'city',
-            'affinitymode' => options::AFFINITY_TOGETHER,
+            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
             'seed' => 5,
         ]);
         $before = distribution::build($options, $context);

@@ -178,7 +178,7 @@ final class get_preview_test extends \externallib_advanced_testcase {
         $_POST['sesskey'] = sesskey();
         $response = external_api::call_external_function(
             'local_groupdist_get_preview',
-            $args + ['affinityfield' => 'profile_999999']
+            $args + ['affinityrules' => [['source' => 'profile_999999', 'mode' => 'together']]]
         );
         $this->assertTrue($response['error']);
     }

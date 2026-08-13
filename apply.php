@@ -47,8 +47,8 @@ $options = \local_groupdist\local\options::from_array([
     'allocateby' => optional_param('allocateby', 'random', PARAM_ALPHA),
     'ignoregrouped' => optional_param('ignoregrouped', 0, PARAM_BOOL),
     'onlyactive' => optional_param('onlyactive', 0, PARAM_BOOL),
-    'affinityfield' => optional_param('affinityfield', '', PARAM_ALPHANUMEXT),
-    'affinitymode' => optional_param('affinitymode', 'together', PARAM_ALPHA),
+    'includefuture' => optional_param('includefuture', 0, PARAM_BOOL),
+    'affinityrules' => \local_groupdist\local\options::rules_from_post(),
     'useseats' => optional_param('useseats', 0, PARAM_BOOL),
     'overbook' => optional_param('overbook', 0, PARAM_INT),
     'seed' => optional_param('seed', 0, PARAM_INT),
@@ -60,8 +60,10 @@ $options->groupids = array_values(array_intersect($options->groupids, array_map(
 if (!$options->groupids) {
     redirect($returnurl, get_string('errornogroups', 'local_groupdist'), null, \core\output\notification::NOTIFY_ERROR);
 }
-if (!\local_groupdist\local\profilefields::is_allowed($options->affinityfield, $context)) {
-    throw new moodle_exception('invaliddata', 'error');
+foreach ($options->affinityrules->get_rules() as $rule) {
+    if (!\local_groupdist\local\profilefields::is_allowed($rule['source'], $context)) {
+        throw new moodle_exception('invaliddata', 'error');
+    }
 }
 if ($options->cohortid) {
     require_once($CFG->dirroot . '/cohort/lib.php');

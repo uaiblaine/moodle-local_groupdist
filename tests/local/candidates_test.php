@@ -185,11 +185,18 @@ final class candidates_test extends \advanced_testcase {
 
         $this->setAdminUser();
 
-        $bycity = candidates::fetch($this->make_options($course->id, ['affinityfield' => 'city']), $context);
+        $bycity = candidates::fetch(
+            $this->make_options($course->id, [
+                'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
+            ]),
+            $context
+        );
         $this->assertSame('Fortaleza', $bycity[(int) $user->id]->affinity);
 
         $bycustom = candidates::fetch(
-            $this->make_options($course->id, ['affinityfield' => 'profile_' . $field->id]),
+            $this->make_options($course->id, [
+                'affinityrules' => [['source' => 'profile_' . $field->id, 'mode' => options::AFFINITY_TOGETHER]],
+            ]),
             $context
         );
         $this->assertSame('Sobral', $bycustom[(int) $user->id]->affinity);

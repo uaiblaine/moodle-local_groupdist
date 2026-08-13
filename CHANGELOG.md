@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Changed
+
+- Affinity now travels as an ordered ruleset (`\local_groupdist\local\ruleset`,
+  new value object) instead of the `affinityfield`/`affinitymode` scalar pair,
+  across the options object, the preview web service (typed `affinityrules`
+  parameter), the preview/apply POST round trip (parallel
+  `affinityrulesources[]`/`affinityrulemodes[]` hidden inputs) and the adhoc
+  task customdata. No backward compatibility is kept — the plugin has no
+  installed base. Rules are validated structurally (source pattern, mode enum,
+  no duplicate sources, entries carrying operator keys rejected) with a
+  configurable count guardrail (`maxaffinityrules` setting, default 10).
+  Transitional: options accept a single rule until the multi-rule allocator
+  lands; extra rules are rejected rather than silently ignored. The options
+  shape also gains `includefuture` (future-start enrolments), plumbed but
+  inert until the candidates predicate lands.
+
 ### Added
 
 - Bulk edit groups: a second action on the group management page opening a

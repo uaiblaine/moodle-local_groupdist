@@ -93,8 +93,8 @@ class candidates {
 
         $affinityselect = 'NULL AS affinity';
         if ($options->is_native_affinity()) {
-            // The field name is validated against the native whitelist in options.
-            $affinityselect = 'u.' . $options->affinityfield . ' AS affinity';
+            // The column name is validated against the native whitelist in the ruleset.
+            $affinityselect = 'u.' . $options->get_affinity_source() . ' AS affinity';
         } else if ($fieldid = $options->get_custom_affinity_fieldid()) {
             $joins[] = 'LEFT JOIN {user_info_data} uid ON uid.userid = u.id AND uid.fieldid = :affinityfieldid';
             $params['affinityfieldid'] = $fieldid;

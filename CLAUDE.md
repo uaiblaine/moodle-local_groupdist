@@ -43,6 +43,8 @@ lib.php                      local_groupdist_user_preferences() (column prefs)
 classes/
   hook_callbacks.php         before_footer_html_generation → injects the button
   local/options.php          Canonical option value object (form/WS/task shape)
+  local/ruleset.php          Ordered affinity ruleset value object (pure; the
+                             POST transport is affinityrulesources[]/modes[])
   local/candidates.php       One-query candidate fetch (enrol+role+cohort+affinity)
   local/allocator.php        Pure deterministic engine (no DB) + typed warnings
   local/allocation.php       Allocator result value object
@@ -66,6 +68,17 @@ docs/                        Approved HTML mockups + design decisions (export-ig
 ```
 
 ## Architecture gotchas
+
+- **Affinity is an ordered ruleset, not a field+mode pair.** Rules are
+  `(source, mode)` entries summed with implicit AND; list position = priority.
+  `options` exposes `get_affinity_source()`/`get_affinity_mode()` (first rule)
+  for the engine. Transport: WS `affinityrules` is a typed multiple structure;
+  the POST round trip flattens to parallel `affinityrulesources[]` /
+  `affinityrulemodes[]` scalar arrays (nested arrays are not
+  `optional_param_array`-able). `ruleset` stays pure — the `maxaffinityrules`
+  guardrail is resolved by the caller, and the site-setting lookup is skipped
+  for single-rule input so `basic_testcase` suites stay DB-free. Entries
+  carrying operator keys are rejected by design (modes never inside a tree).
 
 - **The injected button must stay a `type="submit"` with `formaction` and NO
   `name` attribute.** group/index.php throws `moodle_exception('unknowaction')`

@@ -61,8 +61,16 @@ class get_preview extends external_api {
             'allocateby' => new external_value(PARAM_ALPHA, 'Allocation order', VALUE_DEFAULT, 'random'),
             'ignoregrouped' => new external_value(PARAM_BOOL, 'Skip users already in a selected group', VALUE_DEFAULT, true),
             'onlyactive' => new external_value(PARAM_BOOL, 'Only active enrolments', VALUE_DEFAULT, true),
-            'affinityfield' => new external_value(PARAM_ALPHANUMEXT, 'Affinity field key', VALUE_DEFAULT, ''),
-            'affinitymode' => new external_value(PARAM_ALPHA, 'Affinity strategy', VALUE_DEFAULT, 'together'),
+            'includefuture' => new external_value(PARAM_BOOL, 'Also include future-start enrolments', VALUE_DEFAULT, false),
+            'affinityrules' => new external_multiple_structure(
+                new external_single_structure([
+                    'source' => new external_value(PARAM_ALPHANUMEXT, 'Rule source key'),
+                    'mode' => new external_value(PARAM_ALPHA, 'Rule strategy (together/apart)'),
+                ]),
+                'Affinity rules in priority order',
+                VALUE_DEFAULT,
+                []
+            ),
             'useseats' => new external_value(PARAM_BOOL, 'Respect the seats field', VALUE_DEFAULT, true),
             'overbook' => new external_value(PARAM_INT, 'Overbooking per group', VALUE_DEFAULT, 0),
             'seed' => new external_value(PARAM_INT, 'Deterministic seed'),
@@ -81,8 +89,8 @@ class get_preview extends external_api {
      * @param string $allocateby Allocation order.
      * @param bool $ignoregrouped Skip users already in a selected group.
      * @param bool $onlyactive Only active enrolments.
-     * @param string $affinityfield Affinity field key.
-     * @param string $affinitymode Affinity strategy.
+     * @param bool $includefuture Also include future-start enrolments.
+     * @param array $affinityrules Affinity rules in priority order.
      * @param bool $useseats Respect the seats field.
      * @param int $overbook Overbooking per group.
      * @param int $seed Deterministic seed.
@@ -98,8 +106,8 @@ class get_preview extends external_api {
         string $allocateby,
         bool $ignoregrouped,
         bool $onlyactive,
-        string $affinityfield,
-        string $affinitymode,
+        bool $includefuture,
+        array $affinityrules,
         bool $useseats,
         int $overbook,
         int $seed,
@@ -117,8 +125,8 @@ class get_preview extends external_api {
             'allocateby' => $allocateby,
             'ignoregrouped' => $ignoregrouped,
             'onlyactive' => $onlyactive,
-            'affinityfield' => $affinityfield,
-            'affinitymode' => $affinitymode,
+            'includefuture' => $includefuture,
+            'affinityrules' => $affinityrules,
             'useseats' => $useseats,
             'overbook' => $overbook,
             'seed' => $seed,
@@ -135,8 +143,10 @@ class get_preview extends external_api {
         require_capability('local/groupdist:distribute', $context);
 
         $options = options::from_array($params);
-        if (!profilefields::is_allowed($options->affinityfield, $context)) {
-            throw new \invalid_parameter_exception('affinityfield');
+        foreach ($options->affinityrules->get_rules() as $rule) {
+            if (!profilefields::is_allowed($rule['source'], $context)) {
+                throw new \invalid_parameter_exception('affinityrules');
+            }
         }
         if ($options->cohortid) {
             // Visibility check: a raw cohort id must not become a membership
@@ -162,7 +172,7 @@ class get_preview extends external_api {
 
         $existingsamples = self::fetch_existing_samples($distribution, $window);
 
-        $countries = ($options->affinityfield === 'country')
+        $countries = ($options->get_affinity_source() === 'country')
             ? get_string_manager()->get_list_of_countries(true)
             : [];
 
@@ -334,7 +344,7 @@ class get_preview extends external_api {
      * @return array List of ['type' => ..., 'message' => ...].
      */
     private static function format_warnings(distribution $distribution, \core\context\course $context): array {
-        $fieldlabel = profilefields::get_label($distribution->options->affinityfield, $context);
+        $fieldlabel = profilefields::get_label($distribution->options->get_affinity_source(), $context);
         $formatted = [];
         foreach ($distribution->warnings as $warning) {
             $count = $warning['count'] ?? 0;

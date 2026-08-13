@@ -88,14 +88,15 @@ class preview_page implements \renderable, \templatable {
         $allocationchips = [['text' => $allocatestrings[$options->allocateby]]];
 
         $affinitychips = [];
-        if ($options->affinityfield !== '') {
-            $label = profilefields::get_label($options->affinityfield, $this->context);
-            $modestring = ($options->affinitymode === options::AFFINITY_TOGETHER)
+        foreach ($options->affinityrules->get_rules() as $rule) {
+            $label = profilefields::get_label($rule['source'], $this->context);
+            $modestring = ($rule['mode'] === options::AFFINITY_TOGETHER)
                 ? get_string('affinitymodetogether', 'local_groupdist')
                 : get_string('affinitymodeapart', 'local_groupdist');
             $affinitychips[] = ['text' => get_string('recapaffinity', 'local_groupdist', $label)];
             $affinitychips[] = ['text' => $modestring];
-        } else {
+        }
+        if (!$affinitychips) {
             $affinitychips[] = ['text' => get_string('affinitynone', 'local_groupdist')];
         }
 

@@ -106,8 +106,12 @@ if ($data && !empty($data->previewbutton)) {
         'allocateby' => $data->allocateby,
         'ignoregrouped' => !empty($data->ignoregrouped),
         'onlyactive' => !empty($data->includeonlyactiveenrol),
-        'affinityfield' => $data->affinityfield ?? '',
-        'affinitymode' => $data->affinitymode ?? \local_groupdist\local\options::AFFINITY_TOGETHER,
+        'affinityrules' => (($data->affinityfield ?? '') !== '')
+            ? [[
+                'source' => $data->affinityfield,
+                'mode' => $data->affinitymode ?? \local_groupdist\local\options::AFFINITY_TOGETHER,
+            ]]
+            : [],
         'useseats' => !empty($data->useseats),
         'overbook' => $data->overbook ?? 0,
         'seed' => $data->seed,
@@ -127,13 +131,22 @@ if ($data && !empty($data->previewbutton)) {
         'backurl' => $PAGE->url->out(false),
         'cancelurl' => $returnurl->out(false),
         'sesskey' => sesskey(),
-        'fields' => array_map(
-            function ($name, $value) {
-                return ['name' => $name, 'value' => $value];
-            },
-            array_keys($options->to_array()),
-            array_values($options->to_array())
-        ),
+        'fields' => call_user_func(function () use ($options): array {
+            // Flatten the canonical shape into scalar hidden inputs; the
+            // ruleset becomes the two parallel arrays rules_from_post() reads.
+            $fields = [];
+            foreach ($options->to_array() as $name => $value) {
+                if ($name === 'affinityrules') {
+                    foreach ($value as $i => $rule) {
+                        $fields[] = ['name' => "affinityrulesources[{$i}]", 'value' => $rule['source']];
+                        $fields[] = ['name' => "affinityrulemodes[{$i}]", 'value' => $rule['mode']];
+                    }
+                    continue;
+                }
+                $fields[] = ['name' => $name, 'value' => $value];
+            }
+            return $fields;
+        }),
     ];
     $stickycontent = $OUTPUT->render_from_template('local_groupdist/footer_actions', $footercontext);
     $stickyfooter = new \core\output\sticky_footer($stickycontent);
@@ -156,8 +169,8 @@ if (!$form->is_submitted()) {
             'allocateby' => optional_param('allocateby', 'random', PARAM_ALPHA),
             'ignoregrouped' => optional_param('ignoregrouped', 0, PARAM_BOOL),
             'onlyactive' => optional_param('onlyactive', 0, PARAM_BOOL),
-            'affinityfield' => optional_param('affinityfield', '', PARAM_ALPHANUMEXT),
-            'affinitymode' => optional_param('affinitymode', 'together', PARAM_ALPHA),
+            'includefuture' => optional_param('includefuture', 0, PARAM_BOOL),
+            'affinityrules' => \local_groupdist\local\options::rules_from_post(),
             'useseats' => optional_param('useseats', 0, PARAM_BOOL),
             'overbook' => optional_param('overbook', 0, PARAM_INT),
             'seed' => optional_param('seed', 0, PARAM_INT),
@@ -168,8 +181,8 @@ if (!$form->is_submitted()) {
             'allocateby' => $posted->allocateby,
             'ignoregrouped' => (int) $posted->ignoregrouped,
             'includeonlyactiveenrol' => (int) $posted->onlyactive,
-            'affinityfield' => $posted->affinityfield,
-            'affinitymode' => $posted->affinitymode,
+            'affinityfield' => $posted->get_affinity_source(),
+            'affinitymode' => $posted->get_affinity_mode(),
             'useseats' => (int) $posted->useseats,
             'overbook' => $posted->overbook,
             'seed' => $posted->seed,

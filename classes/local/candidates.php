@@ -19,8 +19,9 @@ namespace local_groupdist\local;
 /**
  * Candidate selection: who takes part in a distribution.
  *
- * One query fetches ids, name fields and the affinity column for every
- * candidate. groups_get_potential_members() is not reusable here: it cannot
+ * One query fetches ids, name fields and the native affinity columns for
+ * every candidate; custom profile field rules add one bulk lookup each.
+ * groups_get_potential_members() is not reusable here: it cannot
  * carry a custom profile field as an extra column (MDL-70456 — mixed parameter
  * types) and it materialises full user records.
  *
@@ -40,23 +41,51 @@ class candidates {
      * @param options $options The distribution options.
      * @param \core\context\course $context The course context.
      * @return array Ordered map of userid => user record (id, name fields,
-     *   idnumber, affinity).
+     *   idnumber, one affinityN column per rule).
      */
     public static function fetch(options $options, \core\context\course $context): array {
         global $DB;
 
-        // Without the capability, suspended enrolments must never leak
-        // (core precedent: group/autogroup.php).
-        $onlyactive = $options->onlyactive
-            || !has_capability('moodle/course:viewsuspendedusers', $context);
+        /* Without the capability, non-current enrolments must never leak
+           (core precedent: group/autogroup.php) — which also forces the
+           future-start option off: future enrolments are not current. The
+           option is likewise inert when the only-active filter is off, since
+           future enrolments are already included then. */
+        $canviewsuspended = has_capability('moodle/course:viewsuspendedusers', $context);
+        $onlyactive = $options->onlyactive || !$canviewsuspended;
+        $includefuture = $options->includefuture && $onlyactive && $canviewsuspended;
 
-        $enrolledjoin = get_enrolled_join($context, 'u.id', $onlyactive);
+        $enrolledjoin = get_enrolled_join($context, 'u.id', $onlyactive && !$includefuture);
         $joins = [$enrolledjoin->joins];
         $wheres = ['u.deleted = 0'];
         if ($enrolledjoin->wheres) {
             $wheres[] = $enrolledjoin->wheres;
         }
         $params = $enrolledjoin->params;
+
+        if ($includefuture && $options->courseid != SITEID) {
+            /* Active-or-future filter over the plain enrolment join. This
+               inlines (and must stay in agreement with) the only-active
+               predicate of get_enrolled_join(), relaxing only the timestart
+               half; suspended and expired enrolments stay excluded. SITEID is
+               exempt like in the helper — on the frontpage everyone counts as
+               enrolled and nobody holds a {user_enrolments} row. */
+            $now = round(time(), -2); // Same rounding core uses (helps DB caching).
+            $wheres[] = "EXISTS (
+                             SELECT 1
+                               FROM {user_enrolments} fue
+                               JOIN {enrol} fe ON fe.id = fue.enrolid AND fe.courseid = :fcourseid
+                              WHERE fue.userid = u.id
+                                    AND fue.status = :fueactive AND fe.status = :feenabled
+                                    AND ((fue.timestart < :fnow1 AND (fue.timeend = 0 OR fue.timeend > :fnow2))
+                                         OR fue.timestart >= :fnow3))";
+            $params['fcourseid'] = $options->courseid;
+            $params['fueactive'] = ENROL_USER_ACTIVE;
+            $params['feenabled'] = ENROL_INSTANCE_ENABLED;
+            $params['fnow1'] = $now;
+            $params['fnow2'] = $now;
+            $params['fnow3'] = $now;
+        }
 
         if ($options->roleid) {
             // Role assignments count at the course context and every parent
@@ -91,16 +120,27 @@ class candidates {
             $params['ownseed'] = $options->seed;
         }
 
-        $affinityselect = 'NULL AS affinity';
-        if ($options->is_native_affinity()) {
-            // The column name is validated against the native whitelist in the ruleset.
-            $affinityselect = 'u.' . $options->get_affinity_source() . ' AS affinity';
-        } else if ($fieldid = $options->get_custom_affinity_fieldid()) {
-            $joins[] = 'LEFT JOIN {user_info_data} uid ON uid.userid = u.id AND uid.fieldid = :affinityfieldid';
-            $params['affinityfieldid'] = $fieldid;
-            // Cast for cross-DB comparability; 255 chars are plenty for grouping.
-            $affinityselect = $DB->sql_compare_text('uid.data', 255) . ' AS affinity';
+        // One value column per rule (affinity0, affinity1, ...). Native sources
+        // are free columns on {user}; custom profile fields are bulk-fetched
+        // per rule after the base query — one indexed lookup each, so there is
+        // no join fan-out as the rule count grows.
+        $affinityselects = [];
+        $profilerules = [];
+        foreach ($options->affinityrules->get_rules() as $i => $rule) {
+            $kind = ruleset::source_kind($rule['source']);
+            if ($kind === ruleset::KIND_NATIVE) {
+                // The column name is validated against the native whitelist in the ruleset.
+                $affinityselects[] = 'u.' . $rule['source'] . ' AS affinity' . $i;
+            } else if ($kind === ruleset::KIND_PROFILE) {
+                $affinityselects[] = 'NULL AS affinity' . $i;
+                $profilerules[$i] = ruleset::source_profile_fieldid($rule['source']);
+            } else {
+                // Cohort sources are resolved in a later phase; authorization
+                // rejects them at every entry point today.
+                $affinityselects[] = 'NULL AS affinity' . $i;
+            }
         }
+        $affinitysql = $affinityselects ? (', ' . implode(', ', $affinityselects)) : '';
 
         $namefields = implode(', ', array_map(
             function (string $field): string {
@@ -115,14 +155,32 @@ class candidates {
 
         // The deleted flag rides along so groups_add_member() can take the
         // record as-is without re-fetching each user.
-        return $DB->get_records_sql(
-            "SELECT DISTINCT u.id, {$namefields}, u.idnumber, u.deleted, {$affinityselect}
+        $users = $DB->get_records_sql(
+            "SELECT DISTINCT u.id, {$namefields}, u.idnumber, u.deleted{$affinitysql}
                FROM {user} u
                     {$joinsql}
               WHERE {$wheresql}
            ORDER BY {$orderby}",
             $params
         );
+
+        foreach ($profilerules as $i => $fieldid) {
+            if (!$users) {
+                break;
+            }
+            [$insql, $inparams] = $DB->get_in_or_equal(array_keys($users), SQL_PARAMS_NAMED, 'pf');
+            // Cast for cross-DB comparability; 255 chars are plenty for grouping.
+            $data = $DB->get_records_sql_menu(
+                'SELECT uid.userid, ' . $DB->sql_compare_text('uid.data', 255) . ' AS data
+                   FROM {user_info_data} uid
+                  WHERE uid.fieldid = :pffieldid AND uid.userid ' . $insql,
+                $inparams + ['pffieldid' => $fieldid]
+            );
+            foreach ($users as $user) {
+                $user->{'affinity' . $i} = $data[$user->id] ?? null;
+            }
+        }
+        return $users;
     }
 
     /**

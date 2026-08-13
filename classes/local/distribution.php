@@ -146,9 +146,10 @@ class distribution {
         $distribution->users = candidates::fetch($options, $context);
 
         $affinity = [];
-        if (!$options->affinityrules->is_empty()) {
+        foreach (array_keys($options->affinityrules->get_rules()) as $i) {
+            $affinity[$i] = [];
             foreach ($distribution->users as $user) {
-                $affinity[(int) $user->id] = $user->affinity;
+                $affinity[$i][(int) $user->id] = $user->{'affinity' . $i} ?? null;
             }
         }
 
@@ -200,24 +201,28 @@ class distribution {
      *
      * Covers, in fetch order, every input the allocator's output is a function
      * of: each candidate's id, sort keys (name, idnumber — they drive the
-     * ordering, including the seeded shuffle's input permutation) and affinity
-     * value, plus each group's id, declared seats, current member count and
-     * existing-member set. Any concurrent change to one of these shifts the
-     * fingerprint and the apply step refuses to write a plan the teacher never
-     * saw.
+     * ordering, including the seeded shuffle's input permutation) and one
+     * affinity value per rule in rule order, plus each group's id, declared
+     * seats, current member count and existing-member set. Any concurrent
+     * change to one of these shifts the fingerprint and the apply step refuses
+     * to write a plan the teacher never saw.
      *
      * @return string The sha256 fingerprint.
      */
     private function compute_fingerprint(): string {
+        $rulecount = $this->options->affinityrules->count();
         $userparts = [];
         foreach ($this->users as $user) {
-            $userparts[] = [
+            $part = [
                 (int) $user->id,
                 (string) ($user->lastname ?? ''),
                 (string) ($user->firstname ?? ''),
                 (string) ($user->idnumber ?? ''),
-                trim((string) ($user->affinity ?? '')),
             ];
+            for ($i = 0; $i < $rulecount; $i++) {
+                $part[] = trim((string) ($user->{'affinity' . $i} ?? ''));
+            }
+            $userparts[] = $part;
         }
         $groupparts = [];
         foreach ($this->groups as $group) {

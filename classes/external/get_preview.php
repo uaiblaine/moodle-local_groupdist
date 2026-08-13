@@ -184,7 +184,7 @@ class get_preview extends external_api {
             $members = [];
             foreach (array_slice($allocated, 0, self::MEMBER_SAMPLE) as $userid) {
                 $user = $distribution->users[$userid];
-                $affinityvalue = trim((string) ($user->affinity ?? ''));
+                $affinityvalue = trim((string) ($user->affinity0 ?? ''));
                 $members[] = [
                     'fullname' => fullname($user),
                     'affinity' => $countries[$affinityvalue] ?? $affinityvalue,
@@ -344,7 +344,11 @@ class get_preview extends external_api {
      * @return array List of ['type' => ..., 'message' => ...].
      */
     private static function format_warnings(distribution $distribution, \core\context\course $context): array {
-        $fieldlabel = profilefields::get_label($distribution->options->get_affinity_source(), $context);
+        $rules = $distribution->options->affinityrules->get_rules();
+        $rulelabel = function (array $warning) use ($rules, $context): string {
+            $source = $rules[$warning['rule'] ?? -1]['source'] ?? '';
+            return profilefields::get_label($source, $context);
+        };
         $formatted = [];
         foreach ($distribution->warnings as $warning) {
             $count = $warning['count'] ?? 0;
@@ -376,7 +380,13 @@ class get_preview extends external_api {
                 case allocator::WARNING_NOVALUE:
                     $message = get_string('warningnovalue', 'local_groupdist', (object) [
                         'count' => $count,
-                        'field' => $fieldlabel,
+                        'field' => $rulelabel($warning),
+                    ]);
+                    break;
+                case allocator::WARNING_CONTRADICTION:
+                    $message = get_string('warningcontradiction', 'local_groupdist', (object) [
+                        'count' => $count,
+                        'field' => $rulelabel($warning),
                     ]);
                     break;
                 default:

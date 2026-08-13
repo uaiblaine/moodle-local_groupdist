@@ -116,6 +116,7 @@ $string['useseats'] = 'Respeitar o campo "{$a}" dos grupos';
 $string['useseats_help'] = 'Cada grupo recebe no máximo o número de participantes declarado no seu campo personalizado "{$a}" (descontando membros atuais, somando o overbooking). Grupos sem valor são tratados como sem limite.';
 $string['warningapart'] = '"{$a->value}" tem mais participantes do que grupos disponíveis; {$a->count} alocações repetem o valor dentro de um grupo.';
 $string['warningcommslow'] = 'O subsistema de comunicação está ativo: cada participação dispara uma sincronização de sala, então a aplicação pode demorar bem mais.';
+$string['warningcontradiction'] = 'Regras de manter juntos e manter separados atingiram os mesmos participantes; a regra mais prioritária, sobre "{$a->field}", prevaleceu em {$a->count} caso(s).';
 $string['warningnoseats'] = '{$a->count} grupos selecionados não declaram valor em "{$a->field}" e são tratados como sem limite.';
 $string['warningnovalue'] = '{$a->count} participantes não têm valor em "{$a->field}" e foram alocados sem a regra de afinidade.';
 $string['warningsplit'] = 'Participantes com "{$a->value}" não couberam em um único grupo e foram divididos entre {$a->count} grupos.';

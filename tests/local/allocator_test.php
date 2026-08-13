@@ -130,7 +130,7 @@ final class allocator_test extends \basic_testcase {
         $options = $this->make_options([
             'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
         ]);
-        $result = allocator::allocate([1, 2, 3, 4, 5, 6], $affinity, $groups, $options);
+        $result = allocator::allocate([1, 2, 3, 4, 5, 6], [$affinity], $groups, $options);
 
         foreach (['A' => [1, 2, 3], 'B' => [4, 5, 6]] as $members) {
             $ingroup1 = array_intersect($result->assignments[1], $members);
@@ -149,7 +149,7 @@ final class allocator_test extends \basic_testcase {
         $options = $this->make_options([
             'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
         ]);
-        $result = allocator::allocate([1, 2, 3], $affinity, $groups, $options);
+        $result = allocator::allocate([1, 2, 3], [$affinity], $groups, $options);
 
         $this->assertSame(3, count($result->assignments[1]) + count($result->assignments[2]));
         $types = array_column($result->warnings, 'type');
@@ -165,7 +165,7 @@ final class allocator_test extends \basic_testcase {
         $options = $this->make_options([
             'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
         ]);
-        $result = allocator::allocate([1, 2, 3], $affinity, $groups, $options);
+        $result = allocator::allocate([1, 2, 3], [$affinity], $groups, $options);
 
         $this->assertSame(3, $result->count_memberships());
         $novalue = array_values(array_filter($result->warnings, function (array $warning): bool {
@@ -184,7 +184,7 @@ final class allocator_test extends \basic_testcase {
         $options = $this->make_options([
             'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_APART]],
         ]);
-        $result = allocator::allocate([1, 2, 3, 4, 5, 6], $affinity, $groups, $options);
+        $result = allocator::allocate([1, 2, 3, 4, 5, 6], [$affinity], $groups, $options);
 
         // Each of A's three holders sits in a different group.
         foreach ($result->assignments as $userids) {
@@ -203,7 +203,7 @@ final class allocator_test extends \basic_testcase {
         $options = $this->make_options([
             'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_APART]],
         ]);
-        $result = allocator::allocate([1, 2, 3], $affinity, $groups, $options);
+        $result = allocator::allocate([1, 2, 3], [$affinity], $groups, $options);
 
         $this->assertSame(3, $result->count_memberships());
         $apart = array_values(array_filter($result->warnings, function (array $warning): bool {
@@ -226,7 +226,7 @@ final class allocator_test extends \basic_testcase {
         $options = $this->make_options([
             'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
         ]);
-        $result = allocator::allocate([1, 2], $affinity, $groups, $options);
+        $result = allocator::allocate([1, 2], [$affinity], $groups, $options);
 
         // User 1 already sits in group 1 (the emptiest-by-final choice is group 2,
         // but bucket packing prefers max remaining; either way user 1 must not be
@@ -251,6 +251,218 @@ final class allocator_test extends \basic_testcase {
         $this->assertNotContains(4, $result->assignments[2]);
         // Everyone still gets placed — in the other group.
         $this->assertSame(4, $result->count_memberships());
+    }
+
+    /**
+     * Two together rules AND-combine into composite keys: users cluster only
+     * when they match on every together rule.
+     */
+    public function test_composite_key_and(): void {
+        $groups = [$this->make_group(1, null), $this->make_group(2, null)];
+        $city = [1 => 'A', 2 => 'A', 3 => 'A', 4 => 'A'];
+        $dept = [1 => 'P', 2 => 'P', 3 => 'Q', 4 => 'Q'];
+        $options = $this->make_options([
+            'affinityrules' => [
+                ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
+                ['source' => 'department', 'mode' => options::AFFINITY_TOGETHER],
+            ],
+        ]);
+        $result = allocator::allocate([1, 2, 3, 4], [$city, $dept], $groups, $options);
+
+        // Same city alone is not enough: the department split separates them.
+        $this->assertSame([1, 2], $result->assignments[1]);
+        $this->assertSame([3, 4], $result->assignments[2]);
+        $this->assertSame([], $result->warnings);
+    }
+
+    /**
+     * Two apart rules are enforced simultaneously (conflict-edge union): no
+     * two users sharing either value land in one group.
+     */
+    public function test_two_apart_rules_enforced_simultaneously(): void {
+        $groups = [
+            $this->make_group(1, null),
+            $this->make_group(2, null),
+            $this->make_group(3, null),
+            $this->make_group(4, null),
+        ];
+        $city = [1 => 'A', 2 => 'A', 3 => 'B', 4 => 'B'];
+        $dept = [1 => 'P', 2 => 'Q', 3 => 'P', 4 => 'Q'];
+        $options = $this->make_options([
+            'affinityrules' => [
+                ['source' => 'city', 'mode' => options::AFFINITY_APART],
+                ['source' => 'department', 'mode' => options::AFFINITY_APART],
+            ],
+        ]);
+        $result = allocator::allocate([1, 2, 3, 4], [$city, $dept], $groups, $options);
+
+        foreach ($result->assignments as $userids) {
+            foreach ($userids as $a) {
+                foreach ($userids as $b) {
+                    if ($a >= $b) {
+                        continue;
+                    }
+                    $this->assertNotSame($city[$a], $city[$b]);
+                    $this->assertNotSame($dept[$a], $dept[$b]);
+                }
+            }
+        }
+        $this->assertSame([], $result->warnings);
+    }
+
+    /**
+     * Contradiction, apart rule on top: the pair is separated and the
+     * contradiction is charged to the winning (apart) rule.
+     */
+    public function test_contradiction_apart_priority_wins(): void {
+        $groups = [$this->make_group(1, null), $this->make_group(2, null)];
+        $dept = [1 => 'D', 2 => 'D'];
+        $city = [1 => 'X', 2 => 'X'];
+        $options = $this->make_options([
+            'affinityrules' => [
+                ['source' => 'department', 'mode' => options::AFFINITY_APART],
+                ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
+            ],
+        ]);
+        $result = allocator::allocate([1, 2], [$dept, $city], $groups, $options);
+
+        $this->assertContains(1, $result->assignments[1]);
+        $this->assertContains(2, $result->assignments[2]);
+        $contradictions = array_values(array_filter($result->warnings, function (array $warning): bool {
+            return $warning['type'] === allocator::WARNING_CONTRADICTION;
+        }));
+        $this->assertCount(1, $contradictions);
+        $this->assertSame(0, $contradictions[0]['rule']);
+        $this->assertSame(1, $contradictions[0]['count']);
+        // The apart rule was honoured, so no apart violation is counted.
+        $this->assertSame([], array_filter($result->warnings, function (array $warning): bool {
+            return $warning['type'] === allocator::WARNING_APART;
+        }));
+    }
+
+    /**
+     * Contradiction, together rule on top: the pair stays together and the
+     * inevitable apart violation is counted against the losing rule. Together
+     * with the previous test this proves list position decides the winner.
+     */
+    public function test_contradiction_together_priority_wins(): void {
+        $groups = [$this->make_group(1, null), $this->make_group(2, null)];
+        $city = [1 => 'X', 2 => 'X'];
+        $dept = [1 => 'D', 2 => 'D'];
+        $options = $this->make_options([
+            'affinityrules' => [
+                ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
+                ['source' => 'department', 'mode' => options::AFFINITY_APART],
+            ],
+        ]);
+        $result = allocator::allocate([1, 2], [$city, $dept], $groups, $options);
+
+        $this->assertSame([1, 2], $result->assignments[1]);
+        $contradictions = array_values(array_filter($result->warnings, function (array $warning): bool {
+            return $warning['type'] === allocator::WARNING_CONTRADICTION;
+        }));
+        $this->assertCount(1, $contradictions);
+        $this->assertSame(0, $contradictions[0]['rule']);
+        $apart = array_values(array_filter($result->warnings, function (array $warning): bool {
+            return $warning['type'] === allocator::WARNING_APART;
+        }));
+        $this->assertCount(1, $apart);
+        $this->assertSame(1, $apart[0]['rule']);
+        $this->assertSame('D', $apart[0]['value']);
+        $this->assertSame(1, $apart[0]['count']);
+    }
+
+    /**
+     * When a violation is unavoidable it lands so that other rules stay
+     * clean: three holders of one city into two groups violates the city rule
+     * exactly once and the department rule never.
+     */
+    public function test_violation_spares_other_rules(): void {
+        $groups = [$this->make_group(1, null), $this->make_group(2, null)];
+        $city = [1 => 'A', 2 => 'A', 3 => 'A'];
+        $dept = [1 => 'P', 2 => 'Q', 3 => 'R'];
+        $options = $this->make_options([
+            'affinityrules' => [
+                ['source' => 'city', 'mode' => options::AFFINITY_APART],
+                ['source' => 'department', 'mode' => options::AFFINITY_APART],
+            ],
+        ]);
+        $result = allocator::allocate([1, 2, 3], [$city, $dept], $groups, $options);
+
+        $apart = array_values(array_filter($result->warnings, function (array $warning): bool {
+            return $warning['type'] === allocator::WARNING_APART;
+        }));
+        $this->assertCount(1, $apart);
+        $this->assertSame(0, $apart[0]['rule']);
+        $this->assertSame('A', $apart[0]['value']);
+        $this->assertSame(1, $apart[0]['count']);
+    }
+
+    /**
+     * Partial values keep users clustered on the composite (empty component
+     * included); only users empty on every together rule fall to the pool.
+     */
+    public function test_partial_empty_composite(): void {
+        $groups = [$this->make_group(1, null), $this->make_group(2, null)];
+        $city = [1 => 'A', 2 => 'A', 3 => 'A', 4 => 'A', 5 => ''];
+        $dept = [1 => 'P', 2 => 'P', 3 => '', 4 => '', 5 => ''];
+        $options = $this->make_options([
+            'affinityrules' => [
+                ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
+                ['source' => 'department', 'mode' => options::AFFINITY_TOGETHER],
+            ],
+        ]);
+        $result = allocator::allocate([1, 2, 3, 4, 5], [$city, $dept], $groups, $options);
+
+        // Tuples (A, P) and (A, '') are distinct composites; user 5 is unconstrained.
+        $this->assertSame(5, $result->count_memberships());
+        $together = function (array $assignments, array $pair): bool {
+            foreach ($assignments as $userids) {
+                if (count(array_intersect($userids, $pair)) === count($pair)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        $this->assertTrue($together($result->assignments, [1, 2]));
+        $this->assertTrue($together($result->assignments, [3, 4]));
+        $this->assertFalse($together($result->assignments, [1, 3]));
+
+        $novalue = array_values(array_filter($result->warnings, function (array $warning): bool {
+            return $warning['type'] === allocator::WARNING_NOVALUE;
+        }));
+        $this->assertCount(2, $novalue);
+        $this->assertSame(0, $novalue[0]['rule']);
+        $this->assertSame(1, $novalue[0]['count']);
+        $this->assertSame(1, $novalue[1]['rule']);
+        $this->assertSame(3, $novalue[1]['count']);
+    }
+
+    /**
+     * Multi-rule runs replay bit-identically for the same seed.
+     */
+    public function test_multi_rule_deterministic_replay(): void {
+        $groups = [$this->make_group(1, 5), $this->make_group(2, 5), $this->make_group(3, 5)];
+        $userids = range(1, 12);
+        $city = [];
+        $dept = [];
+        foreach ($userids as $userid) {
+            $city[$userid] = 'C' . ($userid % 3);
+            $dept[$userid] = 'D' . ($userid % 2);
+        }
+        $options = $this->make_options([
+            'allocateby' => options::ALLOCATE_RANDOM,
+            'seed' => 314,
+            'affinityrules' => [
+                ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
+                ['source' => 'department', 'mode' => options::AFFINITY_APART],
+            ],
+        ]);
+
+        $first = allocator::allocate($userids, [$city, $dept], $groups, $options);
+        $second = allocator::allocate($userids, [$city, $dept], $groups, $options);
+        $this->assertSame($first->assignments, $second->assignments);
+        $this->assertSame($first->warnings, $second->warnings);
     }
 
     /**

@@ -70,9 +70,14 @@ docs/                        Approved HTML mockups + design decisions (export-ig
 ## Architecture gotchas
 
 - **Affinity is an ordered ruleset, not a field+mode pair.** Rules are
-  `(source, mode)` entries summed with implicit AND; list position = priority.
-  `options` exposes `get_affinity_source()`/`get_affinity_mode()` (first rule)
-  for the engine. Transport: WS `affinityrules` is a typed multiple structure;
+  `(source, mode)` entries summed with implicit AND; list position = priority:
+  together rules cluster by the composite value tuple, apart rules share
+  per-group held-value sets keyed `(rule, value)`, group choice minimises the
+  lexicographic violation vector in priority order, and together/apart
+  contradictions are decided by list position (warning `affinitycontradiction`
+  names the winner). `options` exposes `get_affinity_source()`/`_mode()`
+  (first rule) only for the single-rule form UI and first-rule display.
+  Transport: WS `affinityrules` is a typed multiple structure;
   the POST round trip flattens to parallel `affinityrulesources[]` /
   `affinityrulemodes[]` scalar arrays (nested arrays are not
   `optional_param_array`-able). `ruleset` stays pure — the `maxaffinityrules`

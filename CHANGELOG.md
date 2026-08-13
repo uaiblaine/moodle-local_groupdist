@@ -17,10 +17,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   installed base. Rules are validated structurally (source pattern, mode enum,
   no duplicate sources, entries carrying operator keys rejected) with a
   configurable count guardrail (`maxaffinityrules` setting, default 10).
-  Transitional: options accept a single rule until the multi-rule allocator
-  lands; extra rules are rejected rather than silently ignored. The options
-  shape also gains `includefuture` (future-start enrolments), plumbed but
-  inert until the candidates predicate lands.
+  The options shape also gains `includefuture` (future-start enrolments).
+- The allocator is now genuinely multi-rule: keep-together rules AND-combine
+  into composite tuple clusters, keep-apart rules are enforced simultaneously
+  through per-group held-value sets keyed by (rule, value), groups are chosen
+  by a lexicographic violation vector ordered by rule priority, and
+  together/apart contradictions are resolved by list position (the winner is
+  reported via the new `affinitycontradiction` warning; `novalue` and
+  `apartinfeasible` warnings became per-rule). Single-rule behaviour is
+  unchanged. Candidates carry one value column per rule (custom profile
+  fields are bulk-fetched per rule — no join fan-out) and the fingerprint
+  covers every rule's per-user values. The "include future-start enrolments"
+  option is now effective: an own active-or-future enrolment predicate
+  (agreeing with `get_enrolled_join()`, SITEID exempt) gated on
+  `moodle/course:viewsuspendedusers`.
 
 ### Added
 

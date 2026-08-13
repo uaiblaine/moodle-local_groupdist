@@ -138,12 +138,6 @@ class options {
         if (!in_array($options->allocateby, $allocations, true)) {
             throw new \moodle_exception('invalidparameter', 'debug', '', null, 'allocateby');
         }
-        if ($options->affinityrules->count() > 1) {
-            /* Transitional: the deterministic engine still consumes a single
-               rule; rejecting extra rules is honest, silently ignoring them is
-               not. The multi-rule allocator lifts this in the next phase. */
-            throw new \moodle_exception('invalidparameter', 'debug', '', null, 'affinityrules: engine limit');
-        }
         return $options;
     }
 
@@ -194,7 +188,8 @@ class options {
     /**
      * The source key of the highest-priority rule.
      *
-     * The engine consumes one rule until the multi-rule allocator lands.
+     * For the paths that surface a single rule: the (still single-rule) form
+     * repopulation and first-rule display decisions.
      *
      * @return string The source key, or '' when no rule is set.
      */
@@ -211,24 +206,6 @@ class options {
     public function get_affinity_mode(): string {
         $first = $this->affinityrules->first();
         return $first['mode'] ?? self::AFFINITY_TOGETHER;
-    }
-
-    /**
-     * The custom profile field id when the first rule's source is a custom field.
-     *
-     * @return int The field id, or 0 for none/native/cohort.
-     */
-    public function get_custom_affinity_fieldid(): int {
-        return ruleset::source_profile_fieldid($this->get_affinity_source());
-    }
-
-    /**
-     * Whether the first rule's source is a native user table column.
-     *
-     * @return bool True for a native column.
-     */
-    public function is_native_affinity(): bool {
-        return in_array($this->get_affinity_source(), self::NATIVE_AFFINITY_FIELDS, true);
     }
 
     /**

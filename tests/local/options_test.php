@@ -48,14 +48,12 @@ final class options_test extends \advanced_testcase {
     }
 
     /**
-     * The first rule feeds the engine helpers; no rule means the balanced path.
+     * The first-rule helpers feed the single-rule form and display paths.
      */
     public function test_affinity_helpers(): void {
         $none = options::from_array(['seed' => 1]);
         $this->assertSame('', $none->get_affinity_source());
         $this->assertSame(options::AFFINITY_TOGETHER, $none->get_affinity_mode());
-        $this->assertFalse($none->is_native_affinity());
-        $this->assertSame(0, $none->get_custom_affinity_fieldid());
 
         $custom = options::from_array([
             'seed' => 1,
@@ -63,22 +61,31 @@ final class options_test extends \advanced_testcase {
         ]);
         $this->assertSame('profile_12', $custom->get_affinity_source());
         $this->assertSame(options::AFFINITY_APART, $custom->get_affinity_mode());
-        $this->assertFalse($custom->is_native_affinity());
-        $this->assertSame(12, $custom->get_custom_affinity_fieldid());
     }
 
     /**
-     * Transitional engine limit: more than one rule is rejected, never
-     * silently truncated. Drops out when the multi-rule allocator lands.
+     * Multiple rules round-trip; the guardrail still rejects a flood.
      */
-    public function test_rejects_multiple_rules_for_now(): void {
+    public function test_multiple_rules_accepted(): void {
         $this->resetAfterTest();
+        $options = options::from_array([
+            'seed' => 1,
+            'affinityrules' => [
+                ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
+                ['source' => 'department', 'mode' => options::AFFINITY_APART],
+            ],
+        ]);
+        $this->assertSame(2, $options->affinityrules->count());
+
+        // Guardrail: a site setting below the request's rule count rejects it.
+        set_config('maxaffinityrules', 2, 'local_groupdist');
         $this->expectException(\moodle_exception::class);
         options::from_array([
             'seed' => 1,
             'affinityrules' => [
                 ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
                 ['source' => 'department', 'mode' => options::AFFINITY_APART],
+                ['source' => 'country', 'mode' => options::AFFINITY_APART],
             ],
         ]);
     }

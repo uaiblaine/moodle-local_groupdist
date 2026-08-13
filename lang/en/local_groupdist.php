@@ -116,6 +116,7 @@ $string['useseats'] = 'Respect the groups\' "{$a}" field';
 $string['useseats_help'] = 'Each group receives at most the number of participants declared in its "{$a}" custom field (minus current members, plus overbooking). Groups without a value are treated as unlimited.';
 $string['warningapart'] = '"{$a->value}" has more participants than available groups; {$a->count} placements repeat the value inside a group.';
 $string['warningcommslow'] = 'The communication subsystem is enabled: every membership triggers a room sync, so applying may take considerably longer.';
+$string['warningcontradiction'] = 'Keep-together and keep-apart rules bound the same participants; the higher-priority rule, on "{$a->field}", prevailed in {$a->count} case(s).';
 $string['warningnoseats'] = '{$a->count} selected groups declare no "{$a->field}" value and are treated as unlimited.';
 $string['warningnovalue'] = '{$a->count} participants have no value in "{$a->field}" and were allocated without the affinity rule.';
 $string['warningsplit'] = 'Participants with "{$a->value}" did not fit one group and were split across {$a->count} groups.';

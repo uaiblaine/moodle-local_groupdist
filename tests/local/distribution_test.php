@@ -166,4 +166,32 @@ final class distribution_test extends \advanced_testcase {
         $after = distribution::build($options, $context);
         $this->assertNotSame($before->fingerprint, $after->fingerprint);
     }
+
+    /**
+     * With several rules, EVERY rule's values are fingerprinted: an edit to
+     * the second rule's source shifts the print too.
+     */
+    public function test_fingerprint_covers_every_rules_values(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        [$course, $context, $group1, $group2] = $this->make_course(3);
+
+        $options = options::from_array([
+            'courseid' => $course->id,
+            'groupids' => [(int) $group1->id, (int) $group2->id],
+            'affinityrules' => [
+                ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
+                ['source' => 'department', 'mode' => options::AFFINITY_APART],
+            ],
+            'seed' => 5,
+        ]);
+        $before = distribution::build($options, $context);
+
+        $victim = current($before->users);
+        $update = (object) ['id' => $victim->id, 'department' => 'Elsewhere'];
+        user_update_user($update, false);
+
+        $after = distribution::build($options, $context);
+        $this->assertNotSame($before->fingerprint, $after->fingerprint);
+    }
 }

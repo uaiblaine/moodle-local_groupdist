@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Plugin version and other metadata.
+ * Event observers.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -24,9 +24,13 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_groupdist';
-$plugin->version = 2026081305;
-$plugin->requires = 2025100600;
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->release = 'v0.1.0';
-$plugin->supported = [501, 502];
+$observers = [
+    [
+        'eventname' => '\core\event\course_deleted',
+        'callback' => '\local_groupdist\observer::course_deleted',
+    ],
+    [
+        'eventname' => '\core\event\user_deleted',
+        'callback' => '\local_groupdist\observer::user_deleted',
+    ],
+];

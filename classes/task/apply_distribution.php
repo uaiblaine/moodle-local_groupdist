@@ -19,6 +19,7 @@ namespace local_groupdist\task;
 use local_groupdist\local\applier;
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
+use local_groupdist\local\runlog;
 
 /**
  * Adhoc task applying a large distribution in the background.
@@ -39,13 +40,16 @@ class apply_distribution extends \core\task\adhoc_task {
      *
      * @param options $options The validated distribution options.
      * @param string $fingerprint The fingerprint the teacher previewed.
+     * @param int $runid The audit run created at queue time; a retried task
+     *   keeps writing into the same snapshot.
      * @return self The task, ready to queue.
      */
-    public static function create(options $options, string $fingerprint): self {
+    public static function create(options $options, string $fingerprint, int $runid): self {
         $task = new self();
         $task->set_custom_data([
             'options' => $options->to_array(),
             'fingerprint' => $fingerprint,
+            'runid' => $runid,
         ]);
         return $task;
     }
@@ -73,12 +77,14 @@ class apply_distribution extends \core\task\adhoc_task {
 
         $data = (array) $this->get_custom_data();
         $options = options::from_array((array) $data['options']);
+        $runid = (int) ($data['runid'] ?? 0);
         $context = \core\context\course::instance($options->courseid);
 
         $distribution = distribution::build($options, $context);
         if ($distribution->fingerprint !== $data['fingerprint']) {
             mtrace('local_groupdist: fingerprint mismatch — enrolments or groups changed since the preview. '
                 . 'Nothing was written; the distribution must be previewed again.');
+            runlog::abort($runid);
             $this->notify_owner(
                 $options->courseid,
                 get_string('applymessagestale', 'local_groupdist'),
@@ -87,7 +93,8 @@ class apply_distribution extends \core\task\adhoc_task {
             return;
         }
 
-        $summary = applier::apply($distribution, $this->get_progress());
+        $summary = applier::apply($distribution, $this->get_progress(), $runid);
+        runlog::complete($runid, $summary);
         mtrace("local_groupdist: applied distribution to course {$options->courseid}: "
             . "{$summary['added']} memberships written, {$summary['failed']} rejected.");
         $this->notify_owner(

@@ -92,8 +92,13 @@ if ($memberships === 0) {
     redirect($returnurl, get_string('nothingtoapply', 'local_groupdist'), null, \core\output\notification::NOTIFY_INFO);
 }
 
+// Every apply is recorded: the snapshot (who, rules with labels, per-user
+// values, planned groups) is written before the first membership.
+$runid = \local_groupdist\local\runlog::create($distribution, (int) $USER->id, $context);
+
 if ($memberships <= \local_groupdist\local\applier::INLINE_LIMIT) {
-    $summary = \local_groupdist\local\applier::apply($distribution);
+    $summary = \local_groupdist\local\applier::apply($distribution, null, $runid);
+    \local_groupdist\local\runlog::complete($runid, $summary);
     redirect(
         $returnurl,
         get_string('appliedsummary', 'local_groupdist', (object) [
@@ -106,7 +111,7 @@ if ($memberships <= \local_groupdist\local\applier::INLINE_LIMIT) {
 }
 
 // Large run: hand off to an adhoc task with stored progress.
-$task = \local_groupdist\task\apply_distribution::create($options, $distribution->fingerprint);
+$task = \local_groupdist\task\apply_distribution::create($options, $distribution->fingerprint, $runid);
 $task->set_userid($USER->id);
 $taskid = \core\task\manager::queue_adhoc_task($task, true);
 if ($taskid) {

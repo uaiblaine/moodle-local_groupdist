@@ -50,13 +50,16 @@ final class applier_test extends \advanced_testcase {
         ]);
         $distribution = distribution::build($options, $context);
 
+        $runid = runlog::create($distribution, (int) get_admin()->id, $context);
+
         $sink = $this->redirectEvents();
-        $summary = applier::apply($distribution);
+        $summary = applier::apply($distribution, null, $runid);
         $events = $sink->get_events();
         $sink->close();
 
         $this->assertSame(6, $summary['added']);
         $this->assertSame(0, $summary['failed']);
+        $this->assertSame([], $summary['failedpairs']);
         $this->assertSame(3, $DB->count_records('groups_members', ['groupid' => $group1->id]));
         $this->assertSame(3, $DB->count_records('groups_members', ['groupid' => $group2->id]));
 
@@ -72,6 +75,8 @@ final class applier_test extends \advanced_testcase {
         }));
         $this->assertCount(1, $runevents);
         $this->assertSame(6, $runevents[0]->other['memberships']);
+        // The event points at the audit snapshot row.
+        $this->assertSame($runid, (int) $runevents[0]->objectid);
         $memberevents = array_filter($events, function (\core\event\base $event): bool {
             return $event instanceof \core\event\group_member_added;
         });
@@ -100,8 +105,10 @@ final class applier_test extends \advanced_testcase {
             'ignoregrouped' => 0,
         ]);
 
-        applier::apply(distribution::build($options, $context));
-        applier::apply(distribution::build($options, $context));
+        $first = distribution::build($options, $context);
+        applier::apply($first, null, runlog::create($first, (int) get_admin()->id, $context));
+        $second = distribution::build($options, $context);
+        applier::apply($second, null, runlog::create($second, (int) get_admin()->id, $context));
 
         $this->assertSame(1, $DB->count_records('groups_members', ['groupid' => $group->id]));
     }

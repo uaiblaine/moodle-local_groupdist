@@ -43,10 +43,13 @@ class applier {
      * @param distribution $distribution The computed distribution.
      * @param \core\progress\base|null $progress Optional progress consumer
      *   (one tick per chunk).
+     * @param int $runid The audit run id (created by runlog::create() before
+     *   applying); rides on the distribution_applied event.
      * @return array Summary: 'added' (memberships written or already present),
-     *   'failed' (rejected by core — deleted/unenrolled meanwhile).
+     *   'failed' (rejected by core — deleted/unenrolled meanwhile) and
+     *   'failedpairs' (list of [groupid, userid] for the audit log).
      */
-    public static function apply(distribution $distribution, ?\core\progress\base $progress = null): array {
+    public static function apply(distribution $distribution, ?\core\progress\base $progress, int $runid): array {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/group/lib.php');
 
@@ -68,6 +71,7 @@ class applier {
 
         $added = 0;
         $failed = 0;
+        $failedpairs = [];
         $chunks = array_chunk($pairs, self::CHUNK_SIZE);
         if ($progress) {
             $progress->start_progress(get_string('applyprogress', 'local_groupdist'), count($chunks));
@@ -88,6 +92,7 @@ class applier {
                         $chunkadded++;
                     } else {
                         $chunkfailed++;
+                        $failedpairs[] = [(int) $group->id, (int) $user->id];
                     }
                 }
                 $transaction->allow_commit();
@@ -106,6 +111,7 @@ class applier {
                             $chunkadded++;
                         } else {
                             $chunkfailed++;
+                            $failedpairs[] = [(int) $group->id, (int) $user->id];
                         }
                     } catch (\dml_write_exception $memberexception) {
                         /* dml_write_exception covers duplicate keys AND genuine
@@ -115,6 +121,7 @@ class applier {
                             $chunkadded++;
                         } else {
                             $chunkfailed++;
+                            $failedpairs[] = [(int) $group->id, (int) $user->id];
                         }
                     }
                 }
@@ -132,6 +139,7 @@ class applier {
         $context = \core\context\course::instance($distribution->options->courseid);
         \local_groupdist\event\distribution_applied::create([
             'context' => $context,
+            'objectid' => $runid,
             'other' => [
                 'seed' => $distribution->options->seed,
                 'groupcount' => count($groupids),
@@ -139,6 +147,6 @@ class applier {
             ],
         ])->trigger();
 
-        return ['added' => $added, 'failed' => $failed];
+        return ['added' => $added, 'failed' => $failed, 'failedpairs' => $failedpairs];
     }
 }

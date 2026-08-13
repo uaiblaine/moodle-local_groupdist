@@ -36,6 +36,14 @@ if ($hassiteconfig) {
     ));
 
     $settings->add(new admin_setting_configtext(
+        'local_groupdist/auditretentiondays',
+        new lang_string('auditretentiondays', 'local_groupdist'),
+        new lang_string('auditretentiondays_desc', 'local_groupdist'),
+        365,
+        PARAM_INT
+    ));
+
+    $settings->add(new admin_setting_configtext(
         'local_groupdist/maxaffinityrules',
         new lang_string('maxaffinityrules', 'local_groupdist'),
         new lang_string('maxaffinityrules_desc', 'local_groupdist'),

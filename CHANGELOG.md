@@ -61,6 +61,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Audit log foundation: every apply now records a snapshot — who ran it, the
+  ruleset with labels resolved at apply time, each participant's per-rule
+  values (the allocator's own input matrix), the planned group and the write
+  outcome per member — in the plugin's first two database tables
+  (`local_groupdist_run`, `local_groupdist_run_user`). The
+  `distribution_applied` event now points at the run row (objectid). The
+  privacy provider grew from preference-only to a full metadata + request +
+  userlist provider: exports cover applied runs and participations, and
+  deletion requests pseudonymise rows (userid zeroed, values blanked) so run
+  shapes stay intact. Lifecycle: course deletion purges the course's runs,
+  user deletion pseudonymises, and a daily scheduled task enforces the new
+  `auditretentiondays` setting (default 365; 0 keeps forever). The audit UI
+  ships next; the snapshots start accumulating now.
+
 - Bulk edit groups: a second action on the group management page opening a
   table of the selected groups — picture, name, ids, member count and every
   group custom field — with inline editing (number/text/select/checkbox),

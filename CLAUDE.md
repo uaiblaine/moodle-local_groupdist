@@ -10,10 +10,14 @@ Plugin context: a Moodle **local** plugin ("Group distribution") that adds a
 distributing enrolled users into the SELECTED existing groups with role/cohort
 filters, autogroup-style allocation orders, profile-field affinity
 (keep-together / keep-apart) and per-group seat capacity + overbooking. It
-owns **no database tables**: "Seats"/"Location" are core *group custom
-fields* it provisions, memberships live in core `{groups_members}`, and
-previews are recomputed deterministically (seed + fingerprint) instead of
-stored — hence privacy `null_provider`. Supports Moodle **5.1 through 5.2**
+owns **two database tables** — the audit log (`local_groupdist_run` +
+`local_groupdist_run_user`), a per-apply snapshot of who ran it, the rules
+with labels resolved at the time and each participant's rule values and
+write outcome. Everything else lives in core: "Seats"/"Location" are core
+*group custom fields* it provisions, memberships live in `{groups_members}`,
+and previews are recomputed deterministically (seed + fingerprint), never
+stored. Privacy is a full provider (export + pseudonymising deletes) plus
+the bulk-edit column preference. Supports Moodle **5.1 through 5.2**
 (`$plugin->requires = 2025100600`, `$plugin->supported = [501, 502]`).
 CI is the moodle-an-hochschulen reusable workflow, one job per supported
 branch in `.github/workflows/ci.yml` — **update those jobs when `supported`
@@ -165,8 +169,17 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   customfield data controllers early-return on absent `customfield_<shortname>`
   properties (`data_controller::instance_form_save`, property_exists check) —
   never "helpfully" fill in the other fields' properties, that would wipe them.
-- **The privacy provider is preference-based, not null**: the collapsible
-  columns store `local_groupdist_bulkedit_hiddencols` (declared in
+- **The audit log is a snapshot, never a reference**: `runlog` stores rule
+  labels, per-user values and group names as they were at apply time; the
+  audit UI derives explanations from these stored facts, never by replaying
+  the engine. Deletion pseudonymises (userid 0, values blanked) instead of
+  removing rows; course deletion purges via observer (the recycle bin keeps
+  a backup file, not the course). Retention = `auditretentiondays` setting +
+  daily `cleanup_audit` task. `applier::apply()` requires the runid — the
+  `distribution_applied` event carries it as objectid.
+- **The privacy provider is a full provider**: the audit tables (metadata +
+  export + pseudonymising deletes + userlist) plus the collapsible-columns
+  preference `local_groupdist_bulkedit_hiddencols` (declared in
   `lib.php:local_groupdist_user_preferences()` so the WS may set it). A new
   user preference means extending BOTH lib.php and the privacy provider.
 

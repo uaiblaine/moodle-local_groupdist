@@ -46,8 +46,9 @@ final class apply_distribution_test extends \advanced_testcase {
             'groupids' => [(int) $group->id],
             'seed' => 11,
         ]);
-        $fingerprint = distribution::build($options, $context)->fingerprint;
-        return [$course, $context, $group, $options, $fingerprint];
+        $distribution = distribution::build($options, $context);
+        $runid = \local_groupdist\local\runlog::create($distribution, (int) get_admin()->id, $context);
+        return [$course, $context, $group, $options, $distribution->fingerprint, $runid];
     }
 
     /**
@@ -57,9 +58,9 @@ final class apply_distribution_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->setAdminUser();
-        [, , $group, $options, $fingerprint] = $this->make_plan();
+        [, , $group, $options, $fingerprint, $runid] = $this->make_plan();
 
-        $task = apply_distribution::create($options, $fingerprint);
+        $task = apply_distribution::create($options, $fingerprint, $runid);
         $task->set_userid(get_admin()->id);
         $taskid = \core\task\manager::queue_adhoc_task($task);
         $task->set_id($taskid);
@@ -85,12 +86,12 @@ final class apply_distribution_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->setAdminUser();
-        [$course, , $group, $options, $fingerprint] = $this->make_plan();
+        [$course, , $group, $options, $fingerprint, $runid] = $this->make_plan();
 
         // The world changes after the preview: a new enrolment.
         $this->getDataGenerator()->create_and_enrol($course);
 
-        $task = apply_distribution::create($options, $fingerprint);
+        $task = apply_distribution::create($options, $fingerprint, $runid);
         $task->set_userid(get_admin()->id);
         $taskid = \core\task\manager::queue_adhoc_task($task);
         $task->set_id($taskid);
@@ -117,14 +118,14 @@ final class apply_distribution_test extends \advanced_testcase {
         require_once($CFG->dirroot . '/group/lib.php');
         $this->resetAfterTest();
         $this->setAdminUser();
-        [, $context, $group, $options, $fingerprint] = $this->make_plan();
+        [, $context, $group, $options, $fingerprint, $runid] = $this->make_plan();
 
         // Simulate the first attempt dying after one membership.
         $plan = distribution::build($options, $context);
         $firstuser = $plan->allocation->assignments[(int) $group->id][0];
         groups_add_member((int) $group->id, $firstuser, 'local_groupdist', $options->seed);
 
-        $task = apply_distribution::create($options, $fingerprint);
+        $task = apply_distribution::create($options, $fingerprint, $runid);
         $task->set_userid(get_admin()->id);
         $taskid = \core\task\manager::queue_adhoc_task($task);
         $task->set_id($taskid);
@@ -144,12 +145,12 @@ final class apply_distribution_test extends \advanced_testcase {
     public function test_get_taskid_for_course(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
-        [$course, , , $options, $fingerprint] = $this->make_plan();
+        [$course, , , $options, $fingerprint, $runid] = $this->make_plan();
         $othercourse = $this->getDataGenerator()->create_course();
 
         $this->assertSame(0, apply_distribution::get_taskid_for_course((int) $course->id));
 
-        $task = apply_distribution::create($options, $fingerprint);
+        $task = apply_distribution::create($options, $fingerprint, $runid);
         $taskid = \core\task\manager::queue_adhoc_task($task);
 
         $this->assertSame($taskid, apply_distribution::get_taskid_for_course((int) $course->id));

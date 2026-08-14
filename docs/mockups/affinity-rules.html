@@ -1,0 +1,940 @@
+<title>Protótipo — Afinidade multi-regra (construtor + preview)</title>
+<style>
+  /* ── Tokens: same system as the approved step1/step2 prototypes ────── */
+  :root {
+    --brand: #0f6cbf;
+    --brand-ink: #0a4a84;
+    --bg: #f8f9fa;
+    --surface: #ffffff;
+    --surface-2: #f1f3f5;
+    --ink: #1d2125;
+    --ink-2: #5b6470;
+    --line: #dee2e6;
+    --ok: #357a32;
+    --ok-bg: #e9f2e9;
+    --apart: #a4511e;
+    --apart-bg: #f9ede4;
+    --warn-bg: #fcefdc;
+    --warn-ink: #7a5a1e;
+    --info-bg: #e7f1fa;
+    --info-ink: #0a4a84;
+    --chip-bg: #eef2f6;
+    --shadow: 0 1px 2px rgba(29, 33, 37, .06);
+    --radius: .5rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --brand: #4da3e8; --brand-ink: #8ec4f0; --bg: #14171a; --surface: #1f2429;
+      --surface-2: #262c33; --ink: #e8eaed; --ink-2: #9aa4b0; --line: #343b43;
+      --ok: #6fbf6b; --ok-bg: #223122; --apart: #dd9663; --apart-bg: #362a20;
+      --warn-bg: #3a3120; --warn-ink: #ecc879;
+      --info-bg: #1d2f40; --info-ink: #9ec9ee; --chip-bg: #2b323a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --brand: #4da3e8; --brand-ink: #8ec4f0; --bg: #14171a; --surface: #1f2429;
+    --surface-2: #262c33; --ink: #e8eaed; --ink-2: #9aa4b0; --line: #343b43;
+    --ok: #6fbf6b; --ok-bg: #223122; --apart: #dd9663; --apart-bg: #362a20;
+    --warn-bg: #3a3120; --warn-ink: #ecc879;
+    --info-bg: #1d2f40; --info-ink: #9ec9ee; --chip-bg: #2b323a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 400 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+
+  .crumbs { font-size: .82rem; color: var(--ink-2); margin-bottom: .35rem; }
+  .crumbs a { color: var(--brand); text-decoration: none; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 .2rem; text-wrap: balance; }
+  .lede { color: var(--ink-2); margin: 0 0 1.25rem; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .proto-banner {
+    display: flex; gap: .6rem; align-items: baseline;
+    background: var(--info-bg); color: var(--info-ink);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: .6rem .9rem; margin-bottom: 1.75rem; font-size: .85rem;
+  }
+  .proto-banner .tag {
+    flex: none; font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; border: 1px solid currentColor;
+    border-radius: 999px; padding: .1rem .5rem;
+  }
+
+  section { margin-bottom: 2.25rem; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  h2 { font-size: .78rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 .6rem; }
+  .sec-head { display: flex; align-items: baseline; gap: .75rem; margin-bottom: .75rem; }
+  .sec-head .sub { font-size: .85rem; color: var(--ink-2); }
+
+  /* ── mform fieldset look ───────────────────────────────────────────── */
+  fieldset { border: none; border-top: 1px solid var(--line); margin: 0; padding: 0 0 .75rem; }
+  legend { width: 100%; padding: 0; margin: 0; float: left; }
+  legend + * { clear: both; }
+  legend .fslabel {
+    width: 100%; display: flex; align-items: center; gap: .5rem;
+    font-size: 1.02rem; font-weight: 600; color: var(--ink);
+    padding: .85rem .25rem;
+  }
+  legend .badge {
+    margin-left: auto; font-size: .72rem; font-weight: 600; color: var(--ok);
+    background: var(--chip-bg); border-radius: 999px; padding: .1rem .6rem;
+  }
+
+  /* ── Rule builder ──────────────────────────────────────────────────── */
+  .rules { list-style: none; margin: .25rem 0 0; padding: 0; }
+  .rule {
+    display: flex; align-items: center; gap: .55rem;
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 4px solid var(--ok);
+    border-radius: .45rem; padding: .5rem .6rem;
+  }
+  .rule.apart { border-left-color: var(--apart); }
+  .rule.empty { border-left-color: var(--line); }
+  .rule.dragging { opacity: .45; }
+  .rule.dragover { outline: 2px dashed var(--brand); outline-offset: 2px; }
+  .grip {
+    flex: none; cursor: grab; color: var(--ink-2); font-size: 1rem;
+    letter-spacing: -.1em; padding: .15rem .2rem; border: none; background: none;
+    touch-action: none;
+  }
+  .grip:active { cursor: grabbing; }
+  .prio {
+    flex: none; width: 1.55rem; height: 1.55rem; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--ok-bg); color: var(--ok); font-size: .82rem; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .rule.apart .prio { background: var(--apart-bg); color: var(--apart); }
+  .rule.empty .prio { background: var(--surface-2); color: var(--ink-2); }
+  .rule select {
+    font: inherit; font-size: .9rem; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: .4rem; padding: .35rem .5rem; min-width: 0;
+  }
+  .rule select:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+  .rule .src { flex: 1 1 15rem; }
+  .rule .mode { flex: 0 1 13rem; }
+  .rowbtns { flex: none; display: flex; gap: .15rem; margin-left: .1rem; }
+  .rowbtns button {
+    font: inherit; width: 1.7rem; height: 1.7rem; display: grid; place-items: center;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+    border-radius: .35rem; cursor: pointer; font-size: .78rem; padding: 0;
+  }
+  .rowbtns button:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+  .rowbtns button:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+  .rowbtns button:disabled { opacity: .35; cursor: default; }
+  .rowbtns .del:hover:not(:disabled) { color: var(--apart); }
+
+  .connector {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .1rem 0 .1rem 2.35rem; height: 1.5rem;
+  }
+  .connector::before { content: ""; width: 1px; align-self: stretch; background: var(--line); margin-left: .75rem; }
+  .connector .e {
+    font-size: .68rem; font-weight: 700; letter-spacing: .05em; color: var(--ink-2);
+    background: var(--chip-bg); border-radius: 999px; padding: .05rem .55rem;
+    margin-left: -1.55rem;
+  }
+  .connector .etxt { font-size: .74rem; color: var(--ink-2); }
+
+  .builder-tools { display: flex; align-items: center; gap: .9rem; margin-top: .8rem; flex-wrap: wrap; }
+  .btn {
+    font: inherit; font-size: .9rem; border-radius: var(--radius); cursor: pointer;
+    padding: .45rem 1.1rem; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); text-decoration: none; display: inline-block;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+  .builder-tools .hint { font-size: .8rem; color: var(--ink-2); }
+
+  .prio-note {
+    display: flex; gap: .5rem; font-size: .84rem; margin-top: .9rem;
+    background: var(--info-bg); color: var(--info-ink);
+    border: 1px solid var(--line); border-radius: .4rem; padding: .55rem .75rem;
+  }
+
+  .summary { margin-top: .9rem; }
+  .summary h3 { font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 .4rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .chip {
+    display: inline-flex; align-items: center; gap: .35rem;
+    background: var(--chip-bg); border-radius: 999px;
+    padding: .12rem .65rem; font-size: .82rem; white-space: nowrap;
+  }
+  .chip .dot { width: .45rem; height: .45rem; border-radius: 50%; background: var(--ok); flex: none; }
+  .chip.apart .dot { background: var(--apart); }
+  .chip b { font-weight: 600; }
+
+  /* ── Preview alternatives: tabs ────────────────────────────────────── */
+  .tabs { display: flex; gap: .35rem; flex-wrap: wrap; margin-bottom: -1px; position: relative; z-index: 1; }
+  .tab {
+    font: inherit; font-size: .88rem; cursor: pointer;
+    border: 1px solid var(--line); border-bottom: none;
+    border-radius: .45rem .45rem 0 0; padding: .5rem .95rem;
+    background: var(--surface-2); color: var(--ink-2);
+  }
+  .tab[aria-selected="true"] { background: var(--surface); color: var(--ink); font-weight: 600; border-bottom: 1px solid var(--surface); margin-bottom: -1px; }
+  .tab:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+  .panel { padding: 1.1rem 1.25rem; border-top-left-radius: 0; }
+  .panel[hidden] { display: none; }
+  .panel .desc { font-size: .88rem; color: var(--ink-2); margin: 0 0 1rem; max-width: 62ch; }
+  .panel .desc b { color: var(--ink); }
+
+  /* Group cards (as in the approved preview) */
+  .group { border: 1px solid var(--line); border-radius: var(--radius); padding: .85rem 1rem; background: var(--surface); }
+  .group + .group { margin-top: .75rem; }
+  .g-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .9rem; margin-bottom: .5rem; }
+  .g-name { font-size: 1rem; font-weight: 600; margin: 0; }
+  .g-cap { margin-left: auto; font-size: .82rem; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+  .members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+  .members li { min-width: 0; }
+  .mrow { display: flex; align-items: center; gap: .55rem; font-size: .88rem; }
+  .avatar {
+    flex: none; width: 1.7rem; height: 1.7rem; border-radius: 50%;
+    background: var(--surface-2); color: var(--ink-2);
+    display: grid; place-items: center; font-size: .68rem; font-weight: 700;
+  }
+  .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mbadges { margin-left: auto; display: flex; gap: .3rem; flex-wrap: wrap; justify-content: flex-end; }
+  .fv {
+    flex: none; font-size: .72rem; border-radius: 999px; padding: .05rem .5rem;
+    background: var(--ok-bg); color: var(--ok);
+  }
+  .fv.apart { background: var(--apart-bg); color: var(--apart); }
+  .fv.neutral { background: var(--chip-bg); color: var(--ink-2); }
+  .rulestatus {
+    display: flex; flex-wrap: wrap; gap: .3rem .9rem;
+    border-top: 1px dashed var(--line); margin-top: .65rem; padding-top: .55rem;
+    font-size: .78rem; color: var(--ink-2);
+  }
+  .rulestatus .okmark { color: var(--ok); font-weight: 700; }
+  .rulestatus .warnmark { color: var(--warn-ink); font-weight: 700; }
+
+  /* Alternative B: clickable members + explanation */
+  button.mrow {
+    width: 100%; text-align: left; font: inherit; color: var(--ink); background: none;
+    border: 1px solid transparent; border-radius: .4rem; padding: .25rem .4rem; cursor: pointer;
+  }
+  button.mrow:hover { background: var(--surface-2); }
+  button.mrow:focus-visible { outline: 2px solid var(--brand); }
+  button.mrow[aria-expanded="true"] { background: var(--surface-2); }
+  .whybox {
+    margin: .3rem 0 .5rem 2.45rem;
+    background: var(--info-bg); color: var(--info-ink);
+    border: 1px solid var(--line); border-radius: .45rem;
+    padding: .6rem .8rem; font-size: .84rem;
+  }
+  .whybox ul { margin: 0; padding-left: 1.1rem; }
+  .whybox li { margin: .25rem 0; }
+  .whybox .r { font-weight: 700; }
+  .whybox li.na { color: var(--ink-2); }
+  :root:not([data-theme="light"]) .whybox li.na { color: var(--ink-2); }
+
+  /* Alternative C: per-rule report */
+  details.rrule { border: 1px solid var(--line); border-radius: .45rem; background: var(--surface); }
+  details.rrule + details.rrule { margin-top: .6rem; }
+  details.rrule summary {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    cursor: pointer; list-style: none; padding: .65rem .9rem; font-size: .9rem;
+  }
+  details.rrule summary::-webkit-details-marker { display: none; }
+  details.rrule summary:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: .45rem; }
+  details.rrule summary .chev { flex: none; color: var(--ink-2); font-size: .75rem; transition: transform .15s ease; }
+  @media (prefers-reduced-motion: reduce) { details.rrule summary .chev { transition: none; } }
+  details[open].rrule summary .chev { transform: rotate(90deg); }
+  .rsum { margin-left: auto; font-size: .78rem; color: var(--ink-2); }
+  .rsum .okmark { color: var(--ok); font-weight: 700; }
+  .rsum .warnmark { color: var(--warn-ink); font-weight: 700; }
+  .rbody { padding: 0 .9rem .8rem; font-size: .86rem; }
+  .rbody table { border-collapse: collapse; width: 100%; }
+  .rbody th, .rbody td { text-align: left; padding: .35rem .5rem; border-top: 1px solid var(--line); font-size: .84rem; }
+  .rbody th { color: var(--ink-2); font-weight: 600; font-size: .76rem; text-transform: uppercase; letter-spacing: .04em; border-top: none; }
+  .rbody .num { font-variant-numeric: tabular-nums; }
+  .rbody .foot { margin: .5rem 0 0; font-size: .8rem; color: var(--ink-2); }
+  .pairarrow { color: var(--ink-2); padding: 0 .25rem; }
+  .tablewrap { overflow-x: auto; }
+
+  .procon { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1rem; }
+  .procon div {
+    flex: 1 1 200px; font-size: .8rem; border: 1px solid var(--line);
+    border-radius: .45rem; padding: .5rem .7rem; background: var(--surface-2); color: var(--ink-2);
+  }
+  .procon b { color: var(--ink); display: block; margin-bottom: .15rem; font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; }
+
+  .rec {
+    display: flex; gap: .6rem; align-items: baseline;
+    background: var(--warn-bg); color: var(--warn-ink);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: .7rem 1rem; font-size: .88rem;
+  }
+  .rec .tag {
+    flex: none; font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; border: 1px solid currentColor;
+    border-radius: 999px; padding: .1rem .5rem;
+  }
+  .visually-hidden-note { font-size: .8rem; color: var(--ink-2); margin-top: .5rem; }
+
+  /* Audit log */
+  .audittable { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  .audittable th, .audittable td { text-align: left; padding: .45rem .6rem; border-top: 1px solid var(--line); white-space: nowrap; }
+  .audittable th { color: var(--ink-2); font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; border-top: none; }
+  .audittable .num { font-variant-numeric: tabular-nums; }
+  .audittable a { color: var(--brand); }
+  .status {
+    display: inline-block; font-size: .74rem; font-weight: 600;
+    border-radius: 999px; padding: .08rem .55rem;
+  }
+  .status.ok { background: var(--ok-bg); color: var(--ok); }
+  .status.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .minichips { display: inline-flex; gap: .15rem; margin-right: .3rem; vertical-align: middle; }
+  .mini {
+    width: 1.05rem; height: 1.05rem; border-radius: 50%; display: inline-grid; place-items: center;
+    font-size: .6rem; font-weight: 700;
+  }
+  .mini.together { background: var(--ok-bg); color: var(--ok); }
+  .mini.apart { background: var(--apart-bg); color: var(--apart); }
+</style>
+
+<div class="wrap">
+  <nav class="crumbs" aria-label="Localização">
+    <a href="#">Engenharia de Software — 2026.2</a> ›
+    <a href="#">Participantes</a> ›
+    <a href="#">Grupos</a> ›
+    <span>Distribuir participantes</span>
+  </nav>
+  <h1>Afinidade multi-regra — protótipo</h1>
+  <p class="lede">Quatro explorações: o <strong>construtor de regras</strong> (etapa 1, substitui a seção "Afinidade por campo de perfil"), as <strong>opções de inscrição dos membros</strong> (com a nova opção de início futuro e a regra "rodapé fixo só para ações"), <strong>três alternativas de explicabilidade no preview</strong> (etapa 2) e o <strong>log de auditoria</strong> com fotografia dos dados (feature nova — é onde a alternativa B vive).</p>
+
+  <div class="proto-banner">
+    <span class="tag">Protótipo</span>
+    <span>Tudo é interativo: reordene as regras arrastando pela alça ⠿ ou pelos botões ▲▼, troque campo/estratégia, adicione e remova linhas. Nas alternativas de preview, a aba B tem participantes clicáveis. Segue o sistema visual dos mockups aprovados (<code>docs/mockups/</code>).</span>
+  </div>
+
+  <!-- ══════════════ 1 · RULE BUILDER ══════════════ -->
+  <section aria-labelledby="builder-h">
+    <div class="sec-head">
+      <h2 id="builder-h">1 · Construtor de regras (etapa 1)</h2>
+      <span class="sub">tipo primeiro · soma ("E") · ordem = prioridade · coorte pesquisável acima de 10</span>
+    </div>
+    <div class="card" style="padding: .25rem 1.25rem .5rem;">
+      <fieldset>
+        <legend><span class="fslabel"><span aria-hidden="true">▼</span> Afinidade <span class="badge" id="rulecount">4 regras ativas</span></span></legend>
+        <div>
+          <ul class="rules" id="rulelist" aria-label="Regras de afinidade, em ordem de prioridade"></ul>
+          <div class="builder-tools">
+            <button class="btn" type="button" id="addrule">+ Adicionar regra</button>
+            <span class="hint" id="addhint">Cada linha soma uma restrição — todas valem ao mesmo tempo.</span>
+            <label class="hint" style="margin-left:auto; display:flex; align-items:center; gap:.35rem; cursor:pointer;">
+              <input type="checkbox" id="simulatemany" style="accent-color: var(--brand);">
+              Simular plataforma com mais de 10 coortes (o seletor vira pesquisa)
+            </label>
+          </div>
+          <div class="prio-note">
+            <span aria-hidden="true">i</span>
+            <span><b>Todas as regras se aplicam em conjunto (E).</b> A ordem define a <b>prioridade</b>: quando duas regras entram em conflito, ou quando um agrupamento precisa ser dividido por falta de vagas, a regra mais acima prevalece e a violação é contada na regra mais abaixo — sempre com aviso no preview.</span>
+          </div>
+          <div class="summary">
+            <h3>Resumo (aparece no recap do preview)</h3>
+            <div class="chips" id="rulechips"></div>
+          </div>
+        </div>
+      </fieldset>
+    </div>
+  </section>
+
+  <!-- ══════════════ 1b · MEMBERS / ENROLMENTS ══════════════ -->
+  <section aria-labelledby="members-h">
+    <div class="sec-head">
+      <h2 id="members-h">1b · Membros — inscrições (etapa 1)</h2>
+      <span class="sub">nova opção: inscrições com início futuro · notas no conteúdo, não no rodapé</span>
+    </div>
+    <div class="card" style="padding: .25rem 1.25rem .9rem;">
+      <fieldset>
+        <legend><span class="fslabel"><span aria-hidden="true">▼</span> Membros <span class="badge" id="enrbadge" style="color:var(--ok)">ativas + futuras</span></span></legend>
+        <div>
+          <label style="display:flex; gap:.55rem; align-items:baseline; padding:.25rem 0; font-size:.92rem;">
+            <input type="checkbox" id="onlyactive" checked style="accent-color:var(--brand); flex:none; transform:translateY(2px);">
+            <span>Incluir apenas inscrições ativas
+              <span style="display:block; font-size:.8rem; color:var(--ink-2);">Inscrições suspensas ou expiradas ficam de fora.</span></span>
+          </label>
+          <label id="futurerow" style="display:flex; gap:.55rem; align-items:baseline; padding:.25rem 0 .25rem 1.6rem; font-size:.92rem;">
+            <input type="checkbox" id="includefuture" checked style="accent-color:var(--brand); flex:none; transform:translateY(2px);">
+            <span>Incluir inscrições com início futuro
+              <span style="display:block; font-size:.8rem; color:var(--ink-2);" id="futurehint">Inscrições ativas ainda não iniciadas (data de início no futuro) entram na distribuição — diferente de suspensas, que continuam de fora. Disponível para quem pode ver participantes não ativos.</span></span>
+          </label>
+          <div class="prio-note" style="margin-top:.7rem;">
+            <span aria-hidden="true">i</span>
+            <span>Nada é gravado até você aplicar. Volumes grandes são aplicados em segundo plano, com barra de progresso. <b>Esta nota vive na área de conteúdo</b> — regra de UI: o rodapé fixo carrega só ações.</span>
+          </div>
+          <div style="margin-top:.8rem; border:1px dashed var(--line); border-radius:.45rem; padding:.55rem .9rem; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;">
+            <button class="btn primary" type="button">Pré-visualizar distribuição</button>
+            <button class="btn" type="button">Cancelar</button>
+            <span style="font-size:.74rem; color:var(--ink-2); margin-left:auto;">mock do <code>sticky_footer</code>: apenas botões de ação, sem textos</span>
+          </div>
+        </div>
+      </fieldset>
+    </div>
+  </section>
+
+  <!-- ══════════════ 2 · PREVIEW ALTERNATIVES ══════════════ -->
+  <section aria-labelledby="prev-h">
+    <div class="sec-head">
+      <h2 id="prev-h">2 · Preview — alternativas de explicabilidade</h2>
+      <span class="sub">as três se compõem; veja a recomendação ao final</span>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Alternativas de preview">
+      <button class="tab" role="tab" id="tab-a" aria-controls="panel-a" aria-selected="true">A · Selos no cartão</button>
+      <button class="tab" role="tab" id="tab-b" aria-controls="panel-b" aria-selected="false">B · "Por que aqui?"</button>
+      <button class="tab" role="tab" id="tab-c" aria-controls="panel-c" aria-selected="false">C · Relatório por regra</button>
+    </div>
+
+    <!-- ── A: badges ── -->
+    <div class="card panel" role="tabpanel" id="panel-a" aria-labelledby="tab-a">
+      <p class="desc"><b>Evolução direta do preview atual.</b> Cada participante exibe um selo por regra "manter juntos" (o valor que o agrupou) e um selo de alerta quando pertence a uma coorte/valor de regra "manter separados". O rodapé do cartão dá o status de cada regra <em>naquele grupo</em>.</p>
+
+      <div class="prio-note" style="margin:0 0 .9rem;">
+        <span aria-hidden="true">i</span>
+        <span><b>2 participantes com inscrição de início futuro</b> foram incluídos (opção "Incluir inscrições com início futuro"); o selo cinza indica a data de início.</span>
+      </div>
+
+      <article class="group">
+        <div class="g-head">
+          <h3 class="g-name">Grupo 01</h3>
+          <span class="g-cap"><b>12</b> / 12 vagas</span>
+        </div>
+        <ul class="members">
+          <li><span class="mrow"><span class="avatar" aria-hidden="true">AS</span><span class="nm">Ana Souza Lima</span>
+            <span class="mbadges"><span class="fv">Engenharia</span></span></span></li>
+          <li><span class="mrow"><span class="avatar" aria-hidden="true">BS</span><span class="nm">Bruno Santos Rocha</span>
+            <span class="mbadges"><span class="fv">Engenharia</span></span></span></li>
+          <li><span class="mrow"><span class="avatar" aria-hidden="true">CA</span><span class="nm">Carla Almeida Braga</span>
+            <span class="mbadges"><span class="fv">Engenharia</span></span></span></li>
+          <li><span class="mrow"><span class="avatar" aria-hidden="true">FR</span><span class="nm">Fátima Rocha Dias</span>
+            <span class="mbadges"><span class="fv">Engenharia</span><span class="fv apart">coorte Gestores</span></span></span></li>
+          <li><span class="mrow"><span class="avatar" aria-hidden="true">FL</span><span class="nm">Fábio Lima Prado</span>
+            <span class="mbadges"><span class="fv">Engenharia</span></span></span></li>
+          <li><span class="mrow"><span class="avatar" aria-hidden="true">LP</span><span class="nm">Larissa Prado Dias</span>
+            <span class="mbadges"><span class="fv">Engenharia</span><span class="fv neutral">início 01 set</span></span></span></li>
+          <li class="mrow" style="color:var(--ink-2); font-size:.82rem; padding-left:2.25rem;">+ 6 participantes não exibidos na amostra</li>
+        </ul>
+        <div class="rulestatus" aria-label="Status das regras neste grupo">
+          <span><span class="okmark">✓</span> R1 Departamento: Engenharia</span>
+          <span><span class="warnmark">⚠</span> R2 Gênero: repetições inevitáveis (2 valores, 12 membros)</span>
+          <span><span class="okmark">✓</span> R3 Nome da mãe: sem irmãos juntos</span>
+          <span><span class="okmark">✓</span> R4 Gestores: 1 no grupo</span>
+        </div>
+      </article>
+
+      <article class="group">
+        <div class="g-head">
+          <h3 class="g-name">Grupo 03</h3>
+          <span class="g-cap"><b>11</b> / 12 vagas</span>
+        </div>
+        <ul class="members">
+          <li><span class="mrow"><span class="avatar" aria-hidden="true">CS</span><span class="nm">Caio Souza Lima</span>
+            <span class="mbadges"><span class="fv">Engenharia</span></span></span></li>
+          <li><span class="mrow"><span class="avatar" aria-hidden="true">DR</span><span class="nm">Débora Rocha Melo</span>
+            <span class="mbadges"><span class="fv">Direito</span></span></span></li>
+          <li class="mrow" style="color:var(--ink-2); font-size:.82rem; padding-left:2.25rem;">+ 9 participantes não exibidos na amostra</li>
+        </ul>
+        <div class="rulestatus">
+          <span><span class="warnmark">⚠</span> R1 Departamento: 2 valores (cluster "Engenharia" dividido — não coube em um grupo)</span>
+          <span><span class="okmark">✓</span> R3 · <span class="okmark">✓</span> R4</span>
+        </div>
+      </article>
+
+      <div class="procon">
+        <div><b>Força</b>Visão geral instantânea; quase nenhum dado novo no WS (valores por regra já viajam para o preview).</div>
+        <div><b>Limite</b>Mostra "o quê", não "por quê" — não conta que Ana e Caio foram separados de propósito.</div>
+        <div><b>Custo</b>Baixo. Extensão do template atual + 1 campo por regra no payload.</div>
+      </div>
+    </div>
+
+    <!-- ── B: why here ── -->
+    <div class="card panel" role="tabpanel" id="panel-b" aria-labelledby="tab-b" hidden>
+      <p class="desc"><b>Auditoria individual.</b> Clique em um participante para ver o raciocínio da alocação: com quem ficou (e por qual regra), de quem foi separado, e que grupo foi evitado. <b>Experimente Ana e Fátima.</b></p>
+
+      <article class="group">
+        <div class="g-head">
+          <h3 class="g-name">Grupo 01</h3>
+          <span class="g-cap"><b>12</b> / 12 vagas</span>
+        </div>
+        <ul class="members" id="whymembers">
+          <li>
+            <button class="mrow" type="button" aria-expanded="false" data-why="ana">
+              <span class="avatar" aria-hidden="true">AS</span><span class="nm">Ana Souza Lima</span>
+              <span class="mbadges"><span class="fv neutral">por quê?</span></span>
+            </button>
+            <div class="whybox" data-whybox="ana" hidden>
+              <ul>
+                <li><span class="r">R1 · Manter juntos · Departamento:</span> entrou no Grupo 01 com mais 11 participantes de <b>Engenharia</b>.</li>
+                <li><span class="r">R3 · Manter separados · Nome da mãe:</span> separada de <b>Caio Souza Lima</b> (mesmo valor) — Caio foi para o <b>Grupo 03</b>. ✓ regra cumprida.</li>
+                <li class="na">R2 (Gênero) e R4 (coorte Gestores): sem efeito sobre Ana neste grupo.</li>
+              </ul>
+            </div>
+          </li>
+          <li>
+            <button class="mrow" type="button" aria-expanded="false" data-why="bruno">
+              <span class="avatar" aria-hidden="true">BS</span><span class="nm">Bruno Santos Rocha</span>
+              <span class="mbadges"><span class="fv neutral">por quê?</span></span>
+            </button>
+            <div class="whybox" data-whybox="bruno" hidden>
+              <ul>
+                <li><span class="r">R1 · Manter juntos · Departamento:</span> alocado com o cluster <b>Engenharia</b>.</li>
+                <li class="na">Nenhuma outra regra restringiu Bruno.</li>
+              </ul>
+            </div>
+          </li>
+          <li>
+            <button class="mrow" type="button" aria-expanded="false" data-why="fatima">
+              <span class="avatar" aria-hidden="true">FR</span><span class="nm">Fátima Rocha Dias</span>
+              <span class="mbadges"><span class="fv apart">coorte Gestores</span><span class="fv neutral">por quê?</span></span>
+            </button>
+            <div class="whybox" data-whybox="fatima" hidden>
+              <ul>
+                <li><span class="r">R4 · Manter separados · coorte Gestores:</span> única gestora do Grupo 01. O <b>Grupo 02 foi evitado</b> — já tinha 1 membro da coorte. ✓ regra cumprida.</li>
+                <li><span class="r">R1 · Manter juntos · Departamento:</span> alocada com o cluster <b>Engenharia</b>.</li>
+              </ul>
+            </div>
+          </li>
+        </ul>
+      </article>
+
+      <div class="procon">
+        <div><b>Força</b>Responde exatamente "o que levou / o que bloqueou" — o caso dos irmãos fica verificável em 1 clique.</div>
+        <div><b>Limite</b>Um participante por vez; não prova que a regra valeu para a turma toda.</div>
+        <div><b>Custo</b>Médio. Exige payload por membro no WS (decidir os campos antes de congelar <code>execute_returns()</code>).</div>
+      </div>
+    </div>
+
+    <!-- ── C: per-rule report ── -->
+    <div class="card panel" role="tabpanel" id="panel-c" aria-labelledby="tab-c" hidden>
+      <p class="desc"><b>Auditoria global, uma seção por regra.</b> Prova que cada regra funcionou (ou avisa onde foi impossível): clusters e destinos para "manter juntos"; pares detectados e como ficaram para "manter separados". Os dados são agregados que o allocator já computa.</p>
+
+      <details class="rrule" open>
+        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip"><span class="dot"></span><b>R1</b> Manter juntos · Departamento</span><span class="rsum"><span class="warnmark">⚠</span> 1 cluster dividido</span></summary>
+        <div class="rbody tablewrap">
+          <table>
+            <tr><th>Valor</th><th class="num">Participantes</th><th>Destino</th></tr>
+            <tr><td>Engenharia</td><td class="num">19</td><td>Grupo 01 (12) + Grupo 03 (7) <span class="fv apart" style="margin-left:.3rem">⚠ dividido — não coube em um grupo</span></td></tr>
+            <tr><td>Administração</td><td class="num">11</td><td>Grupo 02</td></tr>
+            <tr><td>Direito</td><td class="num">9</td><td>Grupo 04</td></tr>
+            <tr><td><i>sem valor</i></td><td class="num">4</td><td>distribuídos para equilibrar (aviso "sem valor")</td></tr>
+          </table>
+          <p class="foot">A divisão de "Engenharia" preservou as regras mais prioritárias — a fronteira do corte foi escolhida pela regra menos prioritária.</p>
+        </div>
+      </details>
+
+      <details class="rrule">
+        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip apart"><span class="dot"></span><b>R2</b> Manter separados · Gênero</span><span class="rsum"><span class="warnmark">⚠</span> repetição inevitável</span></summary>
+        <div class="rbody">
+          <p style="margin:.2rem 0 0">São <b>2 valores para 43 participantes em 4 grupos</b> — repetir é matematicamente inevitável (princípio do pombal). A regra vira <b>balanceamento</b>: os valores foram espalhados por igual e as repetições são contadas como aviso, nunca escondidas.</p>
+          <p class="foot">Quando os titulares de um valor excedem o número de grupos, o preview avisa em vez de fingir que separou.</p>
+        </div>
+      </details>
+
+      <details class="rrule" open>
+        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip apart"><span class="dot"></span><b>R3</b> Manter separados · Nome da mãe</span><span class="rsum"><span class="okmark">✓</span> 3 conjuntos · 0 violações</span></summary>
+        <div class="rbody tablewrap">
+          <table>
+            <tr><th>Participantes com o mesmo valor</th><th>Como ficaram</th><th></th></tr>
+            <tr><td>Ana Souza Lima <span class="pairarrow">↔</span> Caio Souza Lima</td><td>Grupo 01 / Grupo 03</td><td><span class="rsum"><span class="okmark">✓</span> separados</span></td></tr>
+            <tr><td>Débora Rocha Melo <span class="pairarrow">↔</span> Elisa Rocha Melo</td><td>Grupo 03 / Grupo 02</td><td><span class="rsum"><span class="okmark">✓</span> separados</span></td></tr>
+            <tr><td>Fábio Lima Prado <span class="pairarrow">↔</span> Gil Lima Prado <span class="pairarrow">↔</span> Hugo Lima Prado</td><td>Grupo 01 / Grupo 02 / Grupo 04</td><td><span class="rsum"><span class="okmark">✓</span> separados</span></td></tr>
+          </table>
+          <p class="foot">É a resposta direta a "a regra funcionou?": cada conjunto de irmãos detectado, e o destino de cada um.</p>
+        </div>
+      </details>
+
+      <details class="rrule">
+        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip apart"><span class="dot"></span><b>R4</b> Manter separados · coorte Gestores</span><span class="rsum"><span class="okmark">✓</span> 4 gestores · 4 grupos distintos</span></summary>
+        <div class="rbody">
+          <p style="margin:.2rem 0 0">Fátima R. → Grupo 01 · Marcos T. → Grupo 02 · Paula V. → Grupo 03 · Renato B. → Grupo 04. Máximo de 1 por grupo. <span class="okmark">✓</span></p>
+        </div>
+      </details>
+
+      <div class="procon">
+        <div><b>Força</b>Prova global de cada regra; é onde os avisos (divisão, pombal, contradição) ganham contexto.</div>
+        <div><b>Limite</b>Listas de pares podem crescer — exigem paginação/limite por regra.</div>
+        <div><b>Custo</b>Baixo-médio. Agregados já computados pelo allocator; payload pequeno e paginável.</div>
+      </div>
+    </div>
+
+    <div class="rec" style="margin-top:1rem">
+      <span class="tag">Aprovado</span>
+      <span><b>Composição fechada:</b> A no cartão do grupo + C como painel "Regras" formam o preview. B vive na <b>auditoria</b> (seção 3, abaixo), lendo a fotografia gravada de cada execução — sem payload extra no web service do preview.</span>
+    </div>
+  </section>
+
+  <!-- ══════════════ 3 · AUDIT LOG ══════════════ -->
+  <section aria-labelledby="audit-h">
+    <div class="sec-head">
+      <h2 id="audit-h">3 · Auditoria — log de execuções (feature nova)</h2>
+      <span class="sub">fotografia dos dados do dia · "por que aqui?" por participante</span>
+    </div>
+
+    <div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1rem;">
+      <nav class="crumbs" aria-label="Localização do log" style="margin-bottom:.5rem;">
+        <a href="#">Engenharia de Software — 2026.2</a> ›
+        <a href="#">Relatórios</a> ›
+        <span>Log de distribuições</span>
+      </nav>
+      <h3 style="font-size:.74rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); margin:0 0 .6rem;">Log de distribuições — Engenharia de Software 2026.2</h3>
+      <div class="tablewrap">
+        <table class="audittable">
+          <tr><th>Quando</th><th>Aplicada por</th><th>Regras</th><th class="num">Gravados</th><th>Status</th><th></th></tr>
+          <tr>
+            <td class="num">13 ago 2026 · 10:42</td><td>Anderson Blaine</td>
+            <td><span class="minichips"><span class="mini together">J</span><span class="mini apart">S</span><span class="mini apart">S</span><span class="mini apart">S</span></span> 4 regras</td>
+            <td class="num">43 / 43</td><td><span class="status ok">Concluída</span></td>
+            <td><a href="#run-detail">Ver detalhe</a></td>
+          </tr>
+          <tr>
+            <td class="num">6 ago 2026 · 09:15</td><td>Anderson Blaine</td>
+            <td><span class="minichips"><span class="mini together">J</span><span class="mini apart">S</span></span> 2 regras</td>
+            <td class="num">118 / 120</td><td><span class="status warn">Parcial</span></td>
+            <td><a href="#">Ver detalhe</a></td>
+          </tr>
+          <tr>
+            <td class="num">28 jul 2026 · 14:03</td><td>Márcia Torres</td>
+            <td><span class="minichips"><span class="mini together">J</span></span> 1 regra</td>
+            <td class="num">87 / 87</td><td><span class="status ok">Concluída</span></td>
+            <td><a href="#">Ver detalhe</a></td>
+          </tr>
+        </table>
+      </div>
+      <p style="font-size:.8rem; color:var(--ink-2); margin:.6rem 0 0;">Entrada na seção <b>Relatórios</b> do curso (Curso › Relatórios), como os relatórios padrão · capability própria de leitura · retenção configurável (padrão sugerido: 365 dias) · viaja no backup do curso quando "Incluir os logs do curso" está marcado.</p>
+    </div>
+
+    <div class="card" style="padding: 1rem 1.25rem;" id="run-detail">
+      <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:.4rem .9rem; margin-bottom:.5rem;">
+        <h3 style="font-size:1.02rem; font-weight:600; margin:0;">Execução de 13 ago 2026, 10:42</h3>
+        <span style="font-size:.82rem; color:var(--ink-2);">por Anderson Blaine · seed 3941 · plugin v1.2.0 · 43 participantes · <span class="status ok">Concluída</span></span>
+      </div>
+
+      <div class="prio-note" style="margin-top:.2rem;">
+        <span aria-hidden="true">📷</span>
+        <span><b>Fotografia.</b> Os valores abaixo são os do momento da aplicação. Mudanças posteriores em perfis, coortes ou grupos <b>não alteram</b> este registro — os rótulos das regras também são os da época.</span>
+      </div>
+
+      <div class="summary" style="margin-top:.9rem;">
+        <h3>Regras aplicadas (rótulos da época)</h3>
+        <div class="chips">
+          <span class="chip"><span class="dot"></span>1 · Manter juntos: <b>Departamento</b></span>
+          <span class="chip apart"><span class="dot"></span>2 · Manter separados: <b>Gênero</b></span>
+          <span class="chip apart"><span class="dot"></span>3 · Manter separados: <b>Nome da mãe</b></span>
+          <span class="chip apart"><span class="dot"></span>4 · Manter separados: <b>coorte Gestores</b></span>
+        </div>
+      </div>
+
+      <article class="group" style="margin-top:1rem;">
+        <div class="g-head">
+          <h3 class="g-name">Grupo 01</h3>
+          <span class="g-cap"><b>12</b> gravados</span>
+        </div>
+        <ul class="members">
+          <li>
+            <button class="mrow" type="button" aria-expanded="true" data-why="audit-ana">
+              <span class="avatar" aria-hidden="true">AS</span><span class="nm">Ana Souza Lima</span>
+              <span class="mbadges"><span class="fv neutral">gravado ✓</span><span class="fv neutral">por quê?</span></span>
+            </button>
+            <div class="whybox" data-whybox="audit-ana">
+              <ul>
+                <li><span class="r">R1 · Manter juntos · Departamento:</span> valor na época: <b>Engenharia</b> — alocada com mais 11 do mesmo valor.</li>
+                <li><span class="r">R2 · Manter separados · Gênero:</span> valor <b>oculto para você</b> — o campo era privado e você não tem permissão para vê-lo; o dado está registrado, apenas mascarado na exibição.</li>
+                <li><span class="r">R3 · Manter separados · Nome da mãe:</span> separada de <b>Caio Souza Lima</b> (mesmo valor na época) — Caio foi gravado no <b>Grupo 03</b>. ✓</li>
+                <li class="na">R4 (coorte Gestores): Ana não pertencia à coorte na época.</li>
+              </ul>
+            </div>
+          </li>
+          <li>
+            <button class="mrow" type="button" aria-expanded="false" data-why="audit-bruno">
+              <span class="avatar" aria-hidden="true">BS</span><span class="nm">Bruno Santos Rocha</span>
+              <span class="mbadges"><span class="fv neutral">já era membro</span><span class="fv neutral">por quê?</span></span>
+            </button>
+            <div class="whybox" data-whybox="audit-bruno" hidden>
+              <ul>
+                <li><span class="r">R1 · Manter juntos · Departamento:</span> valor na época: <b>Engenharia</b>. Já era membro do Grupo 01 — nenhuma escrita foi necessária.</li>
+              </ul>
+            </div>
+          </li>
+          <li>
+            <span class="mrow" style="opacity:.6;">
+              <span class="avatar" aria-hidden="true">—</span><span class="nm"><i>Participante removido</i></span>
+              <span class="mbadges"><span class="fv neutral">dados excluídos (privacidade)</span></span>
+            </span>
+          </li>
+        </ul>
+      </article>
+
+      <article class="group" style="margin-top:.75rem;">
+        <div class="g-head">
+          <h3 class="g-name">Grupo 03</h3>
+          <span class="fv neutral">grupo excluído do curso em 2 set 2026</span>
+          <span class="g-cap"><b>11</b> gravados</span>
+        </div>
+        <p style="font-size:.82rem; color:var(--ink-2); margin:.2rem 0 0;">O grupo não existe mais; nome, vagas e composição vêm da fotografia — o registro permanece íntegro até a retenção expirar.</p>
+      </article>
+
+      <div class="procon">
+        <div><b>Fonte dos dados</b>Tabelas próprias do plugin (as primeiras): cabeçalho da execução + fotografia por participante. Nada é lido das tabelas vivas.</div>
+        <div><b>Explicações</b>Derivadas dos fatos gravados (valores + alocações), não de replay do algoritmo — imunes a upgrades do engine.</div>
+        <div><b>Privacidade</b>Provider completo (export/delete); exclusão pseudonimiza a linha; leitura mascara campos que o leitor não pode ver.</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ══════════ Rule builder ══════════ */
+  /* Faithful to the implementation: each row picks a TYPE first (profile
+     field or cohort); the cohort picker is a menu while the platform has at
+     most 10 visible cohorts and a debounced search beyond that. */
+  const FIELDS = [
+    { v: 'city', l: 'Cidade' },
+    { v: 'department', l: 'Departamento' },
+    { v: 'institution', l: 'Instituição' },
+    { v: 'country', l: 'País' },
+    { v: 'profile_7', l: 'Gênero' },
+    { v: 'profile_9', l: 'Nome da mãe' },
+    { v: 'profile_3', l: 'Polo' },
+    { v: 'profile_4', l: 'Turno' },
+  ];
+  const COHORTS = [
+    { v: 'cohort_31', l: 'Gestores' },
+    { v: 'cohort_12', l: 'Ingressantes 2026' },
+    { v: 'cohort_18', l: 'Monitores' },
+  ];
+  const MANYCOHORTS = COHORTS.concat([
+    'Ingressantes 2025', 'Polo Sobral', 'Polo Crato', 'Bolsistas PIBIC', 'Atletas', 'Repetentes',
+    'Tutores EAD', 'Estagiários', 'Intercâmbio',
+  ].map((l, i) => ({ v: 'cohort_' + (100 + i), l })));
+
+  const fieldlabel = v => (FIELDS.find(i => i.v === v) || { l: '' }).l;
+  const cohortlist = () => (document.getElementById('simulatemany').checked ? MANYCOHORTS : COHORTS);
+  const cohortlabel = v => (MANYCOHORTS.find(i => i.v === v) || { l: '' }).l;
+  const searchmode = () => cohortlist().length > 10;
+
+  let rules = [
+    { kind: 'field', source: 'department', mode: 'together' },
+    { kind: 'field', source: 'profile_7', mode: 'apart' },
+    { kind: 'field', source: 'profile_9', mode: 'apart' },
+    { kind: 'cohort', source: 'cohort_31', mode: 'apart' },
+  ];
+
+  const list = document.getElementById('rulelist');
+  const chips = document.getElementById('rulechips');
+  const count = document.getElementById('rulecount');
+  const addbtn = document.getElementById('addrule');
+  let dragindex = null;
+
+  function optionsFor(items, selected, placeholder) {
+    let html = '<option value=""' + (selected === '' ? ' selected' : '') + '>' + placeholder + '</option>';
+    for (const i of items) {
+      const used = rules.some(r => r.source === i.v) && selected !== i.v;
+      html += '<option value="' + i.v + '"' + (selected === i.v ? ' selected' : '') + (used ? ' disabled' : '') + '>'
+        + i.l + '</option>';
+    }
+    return html;
+  }
+
+  function secondControl(r, idx) {
+    if (r.kind === 'field') {
+      return '<select class="src" aria-label="Campo da regra ' + (idx + 1) + '">'
+        + optionsFor(FIELDS, r.source, 'Escolha o campo…') + '</select>';
+    }
+    if (!searchmode()) {
+      return '<select class="src" aria-label="Coorte da regra ' + (idx + 1) + '">'
+        + optionsFor(cohortlist(), r.source, 'Escolha a coorte…') + '</select>';
+    }
+    const chosen = r.source !== ''
+      ? '<span class="chip" style="flex:none;">' + cohortlabel(r.source) + '</span>'
+      : '';
+    return '<span class="cohortpick" style="position:relative; flex:1 1 12rem; display:flex; gap:.4rem; align-items:center;">'
+      + chosen
+      + '<input type="text" class="srch" aria-label="Pesquisa de coorte da regra ' + (idx + 1) + '"'
+      + ' placeholder="Escolha a coorte…" autocomplete="off"'
+      + ' style="font:inherit; font-size:.9rem; color:var(--ink); background:var(--surface);'
+      + ' border:1px solid var(--line); border-radius:.4rem; padding:.35rem .5rem; min-width:0; flex:1;">'
+      + '<span class="sug" role="listbox" hidden style="position:absolute; top:100%; left:0; right:0; z-index:5;'
+      + ' background:var(--surface); border:1px solid var(--line); border-radius:.4rem;'
+      + ' box-shadow:var(--shadow); max-height:11rem; overflow:auto;"></span>'
+      + '</span>';
+  }
+
+  function render() {
+    list.textContent = '';
+    rules.forEach((r, idx) => {
+      if (idx > 0) {
+        const con = document.createElement('li');
+        con.className = 'connector';
+        con.setAttribute('aria-hidden', 'true');
+        con.innerHTML = '<span class="e">E</span><span class="etxt">também</span>';
+        list.appendChild(con);
+      }
+      const li = document.createElement('li');
+      li.className = 'rule ' + (r.source === '' ? 'empty' : (r.mode === 'apart' ? 'apart' : ''));
+      li.draggable = true;
+      li.dataset.index = String(idx);
+      li.innerHTML =
+        '<span class="grip" title="Arraste para reordenar" aria-hidden="true">⠿</span>' +
+        '<span class="prio" title="Prioridade ' + (idx + 1) + '">' + (idx + 1) + '</span>' +
+        '<select class="kind" aria-label="Tipo da regra ' + (idx + 1) + '" style="flex:0 1 10rem;">' +
+          '<option value="field"' + (r.kind === 'field' ? ' selected' : '') + '>Campo de perfil</option>' +
+          '<option value="cohort"' + (r.kind === 'cohort' ? ' selected' : '') + '>Coorte</option>' +
+        '</select>' +
+        secondControl(r, idx) +
+        '<select class="mode" aria-label="Estratégia da regra ' + (idx + 1) + '">' +
+          '<option value="together"' + (r.mode === 'together' ? ' selected' : '') + '>Manter juntos</option>' +
+          '<option value="apart"' + (r.mode === 'apart' ? ' selected' : '') + '>Manter separados</option>' +
+        '</select>' +
+        '<span class="rowbtns">' +
+          '<button type="button" class="up" aria-label="Subir prioridade da regra ' + (idx + 1) + '"' + (idx === 0 ? ' disabled' : '') + '>▲</button>' +
+          '<button type="button" class="down" aria-label="Descer prioridade da regra ' + (idx + 1) + '"' + (idx === rules.length - 1 ? ' disabled' : '') + '>▼</button>' +
+          '<button type="button" class="del" aria-label="Remover regra ' + (idx + 1) + '">✕</button>' +
+        '</span>';
+
+      li.querySelector('.kind').addEventListener('change', e => {
+        rules[idx].kind = e.target.value;
+        rules[idx].source = '';
+        render();
+      });
+      const src = li.querySelector('.src');
+      if (src) { src.addEventListener('change', e => { rules[idx].source = e.target.value; render(); }); }
+      const srch = li.querySelector('.srch');
+      if (srch) {
+        const sug = li.querySelector('.sug');
+        srch.addEventListener('input', () => {
+          const q = srch.value.trim().toLowerCase();
+          const hits = cohortlist().filter(c => c.l.toLowerCase().includes(q)).slice(0, 8);
+          sug.textContent = '';
+          if (!hits.length) {
+            const none = document.createElement('span');
+            none.style.cssText = 'display:block; padding:.4rem .6rem; font-size:.82rem; color:var(--ink-2);';
+            none.textContent = 'Nenhuma coorte encontrada';
+            sug.appendChild(none);
+          }
+          hits.forEach(c => {
+            const opt = document.createElement('button');
+            opt.type = 'button';
+            opt.setAttribute('role', 'option');
+            opt.style.cssText = 'display:block; width:100%; text-align:left; font:inherit; font-size:.86rem;'
+              + ' color:var(--ink); background:none; border:none; border-top:1px solid var(--line);'
+              + ' padding:.4rem .6rem; cursor:pointer;';
+            opt.textContent = c.l;
+            opt.addEventListener('click', () => { rules[idx].source = c.v; render(); });
+            sug.appendChild(opt);
+          });
+          sug.hidden = false;
+        });
+      }
+      li.querySelector('.mode').addEventListener('change', e => { rules[idx].mode = e.target.value; render(); });
+      li.querySelector('.up').addEventListener('click', () => { move(idx, idx - 1); });
+      li.querySelector('.down').addEventListener('click', () => { move(idx, idx + 1); });
+      li.querySelector('.del').addEventListener('click', () => { rules.splice(idx, 1); render(); });
+
+      li.addEventListener('dragstart', () => { dragindex = idx; li.classList.add('dragging'); });
+      li.addEventListener('dragend', () => { dragindex = null; render(); });
+      li.addEventListener('dragover', e => { e.preventDefault(); li.classList.add('dragover'); });
+      li.addEventListener('dragleave', () => { li.classList.remove('dragover'); });
+      li.addEventListener('drop', e => {
+        e.preventDefault();
+        if (dragindex !== null && dragindex !== idx) { move(dragindex, idx); }
+      });
+
+      list.appendChild(li);
+    });
+
+    const active = rules.filter(r => r.source !== '').length;
+    count.textContent = active === 0 ? 'inativo' : active + (active === 1 ? ' regra ativa' : ' regras ativas');
+    count.style.color = active === 0 ? 'var(--ink-2)' : 'var(--ok)';
+    addbtn.disabled = rules.length >= 10;
+
+    chips.textContent = '';
+    rules.forEach((r, idx) => {
+      if (r.source === '') { return; }
+      const chip = document.createElement('span');
+      chip.className = 'chip' + (r.mode === 'apart' ? ' apart' : '');
+      chip.innerHTML = '<span class="dot"></span>' + (idx + 1) + ' · ' +
+        (r.mode === 'apart' ? 'Manter separados' : 'Manter juntos') + ': <b>' +
+        (r.kind === 'cohort' ? 'coorte ' + cohortlabel(r.source) : fieldlabel(r.source)) + '</b>';
+      chips.appendChild(chip);
+    });
+    if (!chips.textContent) {
+      chips.innerHTML = '<span class="chip">Sem afinidade — distribuição apenas balanceada</span>';
+    }
+  }
+
+  function move(from, to) {
+    if (to < 0 || to >= rules.length) { return; }
+    const [r] = rules.splice(from, 1);
+    rules.splice(to, 0, r);
+    render();
+  }
+
+  addbtn.addEventListener('click', () => { rules.push({ kind: 'field', source: '', mode: 'together' }); render(); });
+  document.getElementById('simulatemany').addEventListener('change', render);
+  render();
+
+  /* ══════════ Enrolment options (section 1b) ══════════ */
+  const onlyactive = document.getElementById('onlyactive');
+  const includefuture = document.getElementById('includefuture');
+  const futurerow = document.getElementById('futurerow');
+  const futurehint = document.getElementById('futurehint');
+  const enrbadge = document.getElementById('enrbadge');
+  const FUTUREHINT = futurehint.textContent;
+  function syncEnrol() {
+    const active = onlyactive.checked;
+    includefuture.disabled = !active;
+    futurerow.style.opacity = active ? '' : '.5';
+    if (!active) {
+      futurehint.textContent = 'Sem o filtro de ativas, inscrições futuras (e suspensas) já entram — a opção não se aplica.';
+      enrbadge.textContent = 'todas as inscrições';
+      enrbadge.style.color = 'var(--ink-2)';
+    } else {
+      futurehint.textContent = FUTUREHINT;
+      enrbadge.textContent = includefuture.checked ? 'ativas + futuras' : 'apenas ativas';
+      enrbadge.style.color = 'var(--ok)';
+    }
+  }
+  onlyactive.addEventListener('change', syncEnrol);
+  includefuture.addEventListener('change', syncEnrol);
+  syncEnrol();
+
+  /* ══════════ Tabs ══════════ */
+  const tabs = Array.from(document.querySelectorAll('.tab'));
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => {
+        const on = t === tab;
+        t.setAttribute('aria-selected', String(on));
+        document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+      });
+    });
+  });
+
+  /* ══════════ Alternative B: why-boxes ══════════ */
+  document.querySelectorAll('button.mrow[data-why]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const box = document.querySelector('[data-whybox="' + btn.dataset.why + '"]');
+      const open = box.hidden;
+      btn.setAttribute('aria-expanded', String(open));
+      box.hidden = !open;
+    });
+  });
+})();
+</script>

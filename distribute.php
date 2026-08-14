@@ -34,7 +34,10 @@ $course = get_course($courseid);
 require_login($course);
 $context = \core\context\course::instance($course->id);
 require_capability('local/groupdist:distribute', $context);
-require_sesskey();
+/* No page-level require_sesskey() here: the language menu re-requests this URL
+   as a plain GET without a sesskey and must not explode. Nothing on this page
+   mutates state — form submissions are sesskey-checked by formslib, and the
+   mutating endpoint (apply.php) keeps its own require_sesskey(). */
 
 \local_groupdist\local\fields::ensure_fields_exist();
 
@@ -52,7 +55,12 @@ $groupids = array_values(array_unique(array_intersect(
 
 $returnurl = new moodle_url('/group/index.php', ['id' => $course->id]);
 if (!$groupids) {
-    redirect($returnurl, get_string('errornogroups', 'local_groupdist'), null, \core\output\notification::NOTIFY_ERROR);
+    if (data_submitted()) {
+        redirect($returnurl, get_string('errornogroups', 'local_groupdist'), null, \core\output\notification::NOTIFY_ERROR);
+    }
+    // Plain GET without a selection (e.g. a language switch): back to the
+    // groups page quietly — the new language is already set for the session.
+    redirect($returnurl);
 }
 
 $PAGE->set_url(new moodle_url('/local/groupdist/distribute.php', ['id' => $course->id]));
@@ -78,6 +86,10 @@ $form = new \local_groupdist\form\options_form(null, [
     'groupids' => $groupids,
     'roles' => $rolenames,
     'noseats' => $noseats,
+    'seatslabel' => \local_groupdist\local\fields::get_seats_label(),
+    // Fresh entry: empty. Redisplays (validation error, back from preview)
+    // repopulate the builder from the flattened POST arrays.
+    'initialrules' => \local_groupdist\local\options::rules_from_post(),
 ]);
 
 if ($form->is_cancelled()) {
@@ -97,8 +109,8 @@ if ($data && !empty($data->previewbutton)) {
         'allocateby' => $data->allocateby,
         'ignoregrouped' => !empty($data->ignoregrouped),
         'onlyactive' => !empty($data->includeonlyactiveenrol),
-        'affinityfield' => $data->affinityfield ?? '',
-        'affinitymode' => $data->affinitymode ?? \local_groupdist\local\options::AFFINITY_TOGETHER,
+        'includefuture' => !empty($data->includefuture),
+        'affinityrules' => \local_groupdist\local\options::rules_from_post(),
         'useseats' => !empty($data->useseats),
         'overbook' => $data->overbook ?? 0,
         'seed' => $data->seed,
@@ -118,13 +130,22 @@ if ($data && !empty($data->previewbutton)) {
         'backurl' => $PAGE->url->out(false),
         'cancelurl' => $returnurl->out(false),
         'sesskey' => sesskey(),
-        'fields' => array_map(
-            function ($name, $value) {
-                return ['name' => $name, 'value' => $value];
-            },
-            array_keys($options->to_array()),
-            array_values($options->to_array())
-        ),
+        'fields' => call_user_func(function () use ($options): array {
+            // Flatten the canonical shape into scalar hidden inputs; the
+            // ruleset becomes the two parallel arrays rules_from_post() reads.
+            $fields = [];
+            foreach ($options->to_array() as $name => $value) {
+                if ($name === 'affinityrules') {
+                    foreach ($value as $i => $rule) {
+                        $fields[] = ['name' => "affinityrulesources[{$i}]", 'value' => $rule['source']];
+                        $fields[] = ['name' => "affinityrulemodes[{$i}]", 'value' => $rule['mode']];
+                    }
+                    continue;
+                }
+                $fields[] = ['name' => $name, 'value' => $value];
+            }
+            return $fields;
+        }),
     ];
     $stickycontent = $OUTPUT->render_from_template('local_groupdist/footer_actions', $footercontext);
     $stickyfooter = new \core\output\sticky_footer($stickycontent);
@@ -147,8 +168,8 @@ if (!$form->is_submitted()) {
             'allocateby' => optional_param('allocateby', 'random', PARAM_ALPHA),
             'ignoregrouped' => optional_param('ignoregrouped', 0, PARAM_BOOL),
             'onlyactive' => optional_param('onlyactive', 0, PARAM_BOOL),
-            'affinityfield' => optional_param('affinityfield', '', PARAM_ALPHANUMEXT),
-            'affinitymode' => optional_param('affinitymode', 'together', PARAM_ALPHA),
+            'includefuture' => optional_param('includefuture', 0, PARAM_BOOL),
+            'affinityrules' => \local_groupdist\local\options::rules_from_post(),
             'useseats' => optional_param('useseats', 0, PARAM_BOOL),
             'overbook' => optional_param('overbook', 0, PARAM_INT),
             'seed' => optional_param('seed', 0, PARAM_INT),
@@ -159,8 +180,7 @@ if (!$form->is_submitted()) {
             'allocateby' => $posted->allocateby,
             'ignoregrouped' => (int) $posted->ignoregrouped,
             'includeonlyactiveenrol' => (int) $posted->onlyactive,
-            'affinityfield' => $posted->affinityfield,
-            'affinitymode' => $posted->affinitymode,
+            'includefuture' => (int) $posted->includefuture,
             'useseats' => (int) $posted->useseats,
             'overbook' => $posted->overbook,
             'seed' => $posted->seed,

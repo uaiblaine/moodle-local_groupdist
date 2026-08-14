@@ -67,13 +67,19 @@ class preview_page implements \renderable, \templatable {
             ? get_string('recaprole', 'local_groupdist', $this->rolenames[$options->roleid])
             : get_string('all')];
         if ($options->cohortid) {
-            $cohort = cohort_get_cohort($options->cohortid, $this->context);
-            if ($cohort) {
-                $memberchips[] = ['text' => get_string('recapcohort', 'local_groupdist', format_string($cohort->name))];
+            // The authorization helper returns a partial record without the
+            // name — fetch it separately once the cohort passed the check.
+            if (cohort_get_cohort($options->cohortid, $this->context)) {
+                global $DB;
+                $name = (string) $DB->get_field('cohort', 'name', ['id' => $options->cohortid]);
+                $memberchips[] = ['text' => get_string('recapcohort', 'local_groupdist', format_string($name))];
             }
         }
         if ($options->onlyactive) {
             $memberchips[] = ['text' => get_string('includeonlyactiveenrol', 'group'), 'on' => true];
+        }
+        if ($options->includefuture) {
+            $memberchips[] = ['text' => get_string('includefutureenrol', 'local_groupdist'), 'on' => true];
         }
         if ($options->ignoregrouped) {
             $memberchips[] = ['text' => get_string('ignoregrouped', 'local_groupdist'), 'on' => true];
@@ -88,20 +94,23 @@ class preview_page implements \renderable, \templatable {
         $allocationchips = [['text' => $allocatestrings[$options->allocateby]]];
 
         $affinitychips = [];
-        if ($options->affinityfield !== '') {
-            $label = profilefields::get_label($options->affinityfield, $this->context);
-            $modestring = ($options->affinitymode === options::AFFINITY_TOGETHER)
-                ? get_string('affinitymodetogether', 'local_groupdist')
-                : get_string('affinitymodeapart', 'local_groupdist');
-            $affinitychips[] = ['text' => get_string('recapaffinity', 'local_groupdist', $label)];
-            $affinitychips[] = ['text' => $modestring];
-        } else {
+        foreach ($options->affinityrules->get_rules() as $i => $rule) {
+            $affinitychips[] = ['text' => get_string('recaprule', 'local_groupdist', (object) [
+                'index' => $i + 1,
+                'mode' => ($rule['mode'] === options::AFFINITY_TOGETHER)
+                    ? get_string('modetogether', 'local_groupdist')
+                    : get_string('modeapart', 'local_groupdist'),
+                'label' => profilefields::get_label($rule['source'], $this->context),
+            ])];
+        }
+        if (!$affinitychips) {
             $affinitychips[] = ['text' => get_string('affinitynone', 'local_groupdist')];
         }
 
         $seatschips = [];
         if ($options->useseats) {
-            $seatschips[] = ['text' => get_string('useseats', 'local_groupdist'), 'on' => true];
+            $seatslabel = \local_groupdist\local\fields::get_seats_label();
+            $seatschips[] = ['text' => get_string('useseats', 'local_groupdist', $seatslabel), 'on' => true];
             if ($options->overbook > 0) {
                 $seatschips[] = ['text' => get_string('recapoverbook', 'local_groupdist', $options->overbook)];
             }

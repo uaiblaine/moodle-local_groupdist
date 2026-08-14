@@ -1,0 +1,708 @@
+<title>Protótipo — Editar grupos em lote</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* ── Tokens: same system as the other prototypes ──────────────────── */
+  :root {
+    --brand: #0f6cbf;
+    --brand-ink: #0a4a84;
+    --bg: #f8f9fa;
+    --surface: #ffffff;
+    --surface-2: #f1f3f5;
+    --ink: #1d2125;
+    --ink-2: #5b6470;
+    --line: #dee2e6;
+    --ok: #357a32;
+    --warn-bg: #fff7e0;
+    --warn-ink: #7a5a1e;
+    --warn-line: #f0d48a;
+    --info-bg: #e7f1fa;
+    --info-ink: #0a4a84;
+    --chip-bg: #eef2f6;
+    --dirty: #b25e09;
+    --over-bg: #fdecea;
+    --over-ink: #a4322a;
+    --over-line: #f2c1bc;
+    --shadow: 0 1px 2px rgba(29, 33, 37, .06);
+    --radius: .5rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --brand: #4da3e8; --brand-ink: #8ec4f0; --bg: #14171a; --surface: #1f2429;
+      --surface-2: #262c33; --ink: #e8eaed; --ink-2: #9aa4b0; --line: #343b43;
+      --ok: #6fbf6b; --warn-bg: #33301f; --warn-ink: #ecc879; --warn-line: #5c512d;
+      --info-bg: #1d2f40; --info-ink: #9ec9ee; --chip-bg: #2b323a; --dirty: #e9a25c;
+      --over-bg: #3a2523; --over-ink: #f0a49c; --over-line: #5c3733;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --brand: #4da3e8; --brand-ink: #8ec4f0; --bg: #14171a; --surface: #1f2429;
+    --surface-2: #262c33; --ink: #e8eaed; --ink-2: #9aa4b0; --line: #343b43;
+    --ok: #6fbf6b; --warn-bg: #33301f; --warn-ink: #ecc879; --warn-line: #5c512d;
+    --info-bg: #1d2f40; --info-ink: #9ec9ee; --chip-bg: #2b323a; --dirty: #e9a25c;
+    --over-bg: #3a2523; --over-ink: #f0a49c; --over-line: #5c3733;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .35);
+  }
+  :root[data-theme="light"] {
+    --brand: #0f6cbf; --brand-ink: #0a4a84; --bg: #f8f9fa; --surface: #ffffff;
+    --surface-2: #f1f3f5; --ink: #1d2125; --ink-2: #5b6470; --line: #dee2e6;
+    --ok: #357a32; --warn-bg: #fff7e0; --warn-ink: #7a5a1e; --warn-line: #f0d48a;
+    --info-bg: #e7f1fa; --info-ink: #0a4a84; --chip-bg: #eef2f6; --dirty: #b25e09;
+    --over-bg: #fdecea; --over-ink: #a4322a; --over-line: #f2c1bc;
+    --shadow: 0 1px 2px rgba(29, 33, 37, .06);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 400 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 1.5rem 1.25rem 7rem; }
+
+  .crumbs { font-size: .82rem; color: var(--ink-2); margin-bottom: .35rem; }
+  .crumbs a { color: var(--brand); text-decoration: none; }
+  .crumbs a:hover, .crumbs a:focus { text-decoration: underline; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 .2rem; text-wrap: balance; }
+  .lede { color: var(--ink-2); margin: 0 0 1.25rem; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .proto-banner {
+    display: flex; gap: .6rem; align-items: baseline;
+    background: var(--info-bg); color: var(--info-ink);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: .6rem .9rem; margin-bottom: 1.25rem; font-size: .85rem;
+  }
+  .proto-banner .tag {
+    flex: none; font-size: .72rem; font-weight: 700;
+    border: 1px solid currentColor; border-radius: 999px; padding: .1rem .55rem;
+  }
+
+  /* ── Mass actions bar (header stays clean; room for future actions) ── */
+  .massbar {
+    display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: .55rem .9rem; margin-bottom: .6rem; font-size: .9rem;
+  }
+  .massbar .masslabel { font-weight: 600; }
+  .massbar .massgroup { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+  .massbar input[type="number"] {
+    width: 5rem; font: inherit; font-size: .9rem; padding: .3rem .5rem;
+    border: 1px solid var(--line); border-radius: .4rem; background: var(--surface); color: var(--ink);
+  }
+  .massbar .hintsmall { font-size: .78rem; color: var(--ink-2); }
+
+  /* ── Toolbar: count, filter, columns menu, legend ──────────────────── */
+  .toolbar { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; align-items: center; margin-bottom: .6rem; }
+  .toolbar .count { font-size: .9rem; color: var(--ink-2); }
+  .toolbar .count b { color: var(--ink); }
+  .toolbar label.filter { display: flex; gap: .45rem; align-items: center; font-size: .88rem; cursor: pointer; }
+  .toolbar label.filter input { accent-color: var(--brand); width: 1rem; height: 1rem; }
+  .legend { margin-left: auto; display: flex; gap: 1rem; font-size: .78rem; color: var(--ink-2); align-items: center; }
+  .legend .swatch { display: inline-block; width: .85rem; height: .85rem; border-radius: 3px; vertical-align: -2px; background: var(--warn-bg); border: 1px solid var(--warn-line); }
+  .legend .dot { display: inline-block; width: .5rem; height: .5rem; border-radius: 50%; background: var(--dirty); vertical-align: 1px; }
+
+  /* Columns menu (collapse/expand columns; scales to many custom fields). */
+  .colmenu { position: relative; }
+  .colmenu > button {
+    font: inherit; font-size: .88rem; padding: .35rem .8rem; cursor: pointer;
+    border: 1px solid var(--line); border-radius: .4rem; background: var(--surface); color: var(--ink);
+    display: flex; gap: .4rem; align-items: center;
+  }
+  .colmenu > button:hover { background: var(--surface-2); }
+  .colmenu .badgecount {
+    background: var(--chip-bg); border-radius: 999px; font-size: .72rem; padding: 0 .45rem; color: var(--ink-2);
+  }
+  .colmenu .menu {
+    position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 15rem;
+    background: var(--surface); border: 1px solid var(--line); border-radius: .5rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .16); padding: .5rem; display: none;
+  }
+  .colmenu.open .menu { display: block; }
+  .colmenu .menu .menuhead { font-size: .78rem; color: var(--ink-2); padding: .15rem .5rem .4rem; }
+  .colmenu .menu label {
+    display: flex; gap: .5rem; align-items: center; font-size: .88rem;
+    padding: .3rem .5rem; border-radius: .35rem; cursor: pointer;
+  }
+  .colmenu .menu label:hover { background: var(--surface-2); }
+  .colmenu .menu label input { accent-color: var(--brand); }
+  .colmenu .menu label.locked { color: var(--ink-2); cursor: default; }
+  .colmenu .menu label.locked:hover { background: none; }
+
+  /* ── Table ─────────────────────────────────────────────────────────── */
+  .tablewrap {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto;
+  }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: .55rem .75rem; text-align: left; vertical-align: middle; }
+  thead th {
+    font-size: .82rem; font-weight: 700; color: var(--ink-2);
+    border-bottom: 2px solid var(--line); background: var(--surface); white-space: nowrap;
+  }
+  tbody tr { border-top: 1px solid var(--line); }
+  tbody tr:hover { background: var(--surface-2); }
+  tbody tr.hiddenrow { display: none; }
+  [data-col].colhidden { display: none; }
+
+  .gcell { display: flex; align-items: center; gap: .6rem; min-width: 0; max-width: 20rem; }
+  .gavatar {
+    flex: none; width: 2.1rem; height: 2.1rem; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 700; font-size: .85rem; color: #fff;
+  }
+  .gname { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .gdirty { flex: none; width: .5rem; height: .5rem; border-radius: 50%; background: var(--dirty); opacity: 0; }
+  tr.dirty .gdirty { opacity: 1; }
+
+  .idcell { font-size: .85rem; color: var(--ink-2); white-space: nowrap; }
+  .idcell .idn {
+    display: inline-block; background: var(--chip-bg); border-radius: 999px;
+    padding: 0 .5rem; font-size: .74rem; margin-left: .3rem; max-width: 9rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom;
+  }
+  .memcell { font-size: .88rem; white-space: nowrap; }
+  .memcell small { color: var(--ink-2); }
+
+  td input[type="number"], td input[type="text"] {
+    font: inherit; font-size: .9rem; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: .4rem; padding: .3rem .5rem; width: 100%;
+  }
+  td input[type="number"] { width: 5.5rem; }
+  td input:focus-visible, button:focus-visible, .tip:focus-visible {
+    outline: 2px solid var(--brand); outline-offset: 1px;
+  }
+  td.isempty { background: var(--warn-bg); }
+  td.isempty input { border-color: var(--warn-line); }
+  td.isempty input::placeholder { color: var(--warn-ink); opacity: .8; font-style: italic; }
+
+  .editbtn {
+    font: inherit; font-size: .85rem; padding: .3rem .8rem; cursor: pointer;
+    border: 1px solid var(--line); border-radius: .4rem; background: var(--surface); color: var(--ink);
+    white-space: nowrap;
+  }
+  .editbtn:hover { background: var(--surface-2); }
+
+  /* ── Tooltip: one floating element positioned by JS (a ::after inside a
+        clipped .gname would be cut off by its own overflow: hidden). In the
+        real plugin this is core's Bootstrap tooltip, which floats the same way. */
+  .tip { cursor: default; }
+  #tipbox {
+    position: fixed; z-index: 100; background: var(--ink); color: var(--bg);
+    font-size: .78rem; padding: .3rem .6rem; border-radius: .35rem;
+    max-width: min(20rem, 85vw); pointer-events: none; opacity: 0;
+    transition: opacity .12s ease;
+  }
+  #tipbox.show { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { #tipbox { transition: none; } }
+
+  /* ── Overbooking indicator on the members column ───────────────────── */
+  td.memcell.isover { background: var(--over-bg); }
+  td.memcell.isover, td.memcell.isover small { color: var(--over-ink); }
+  .overbadge {
+    display: none; margin-left: .4rem; font-size: .72rem; font-weight: 700;
+    background: var(--surface); border: 1px solid var(--over-line); color: var(--over-ink);
+    border-radius: 999px; padding: 0 .45rem; vertical-align: 1px;
+  }
+  td.memcell.isover .overbadge { display: inline-block; }
+
+  /* ── Sticky footer (mock of core sticky_footer) ────────────────────── */
+  .stickyfooter {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--surface); border-top: 1px solid var(--line);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, .06);
+  }
+  .stickyfooter .inner {
+    max-width: 1080px; margin: 0 auto; padding: .7rem 1.25rem;
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  }
+  .dirtycount { font-size: .85rem; color: var(--dirty); font-weight: 600; }
+  .stickyfooter .note { font-size: .78rem; color: var(--ink-2); margin-left: auto; max-width: 30rem; }
+  .btn {
+    font: inherit; font-size: .9rem; border-radius: var(--radius); cursor: pointer;
+    padding: .45rem 1.1rem; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); text-decoration: none; display: inline-block;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+  .btn.primary:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primary:not(:disabled):hover { filter: brightness(1.08); }
+  .btn.link { border: none; background: none; color: var(--brand); }
+  .btn.link:hover { text-decoration: underline; background: none; }
+
+  /* ── Modal (mock of core/modal wrapping the group settings form) ───── */
+  .backdrop {
+    position: fixed; inset: 0; background: rgba(10, 14, 18, .5);
+    display: none; align-items: flex-start; justify-content: center; padding: 3rem 1rem; z-index: 50;
+  }
+  .backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: .6rem; box-shadow: 0 12px 40px rgba(0, 0, 0, .25);
+    width: min(680px, 100%); max-height: 85vh; display: flex; flex-direction: column;
+  }
+  .modal header {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .9rem 1.25rem; border-bottom: 1px solid var(--line);
+  }
+  .modal header h2 { font-size: 1.05rem; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .modal header .close { border: none; background: none; font-size: 1.3rem; color: var(--ink-2); cursor: pointer; line-height: 1; }
+  .modal .body { padding: 1rem 1.25rem; overflow-y: auto; }
+  .modal .frow { display: grid; grid-template-columns: 180px 1fr; gap: .3rem 1rem; padding: .4rem 0; align-items: start; }
+  .modal .frow label { text-align: right; font-size: .9rem; padding-top: .35rem; color: var(--ink); }
+  .modal .frow input[type="text"], .modal .frow textarea, .modal .frow select {
+    font: inherit; font-size: .9rem; width: 100%; max-width: 24rem;
+    border: 1px solid var(--line); border-radius: .4rem; padding: .35rem .55rem;
+    background: var(--surface); color: var(--ink);
+  }
+  .modal .frow textarea { min-height: 4.5rem; resize: vertical; }
+  .modal .sechead {
+    font-size: .95rem; font-weight: 700; color: var(--ink);
+    border-top: 1px solid var(--line); margin-top: .6rem; padding-top: .8rem;
+  }
+  .modal .filedrop {
+    border: 1px dashed var(--line); border-radius: .4rem; padding: .8rem;
+    font-size: .82rem; color: var(--ink-2); text-align: center; max-width: 24rem;
+  }
+  .modal footer {
+    display: flex; gap: .6rem; justify-content: flex-end; flex-wrap: wrap;
+    padding: .8rem 1.25rem; border-top: 1px solid var(--line);
+  }
+  .modalnote { font-size: .78rem; color: var(--ink-2); margin-right: auto; align-self: center; }
+
+  .toast {
+    position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: var(--bg); border-radius: .5rem;
+    padding: .55rem 1.1rem; font-size: .88rem; opacity: 0; pointer-events: none;
+    transition: opacity .2s ease; z-index: 60; max-width: 90vw;
+  }
+  .toast.show { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+  /* ── Mobile: table becomes stacked cards ───────────────────────────── */
+  @media (max-width: 720px) {
+    .wrap { padding: 1rem .9rem 8rem; }
+    .colmenu { display: none; }
+    .legend { display: none; }
+    .tablewrap { overflow-x: visible; background: none; border: none; box-shadow: none; }
+    table, tbody { display: block; }
+    thead { display: none; }
+    tbody tr {
+      display: grid; grid-template-columns: 1fr 1fr; gap: .35rem .9rem;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: .75rem .9rem; margin-bottom: .6rem;
+    }
+    tbody tr:hover { background: var(--surface); }
+    td { padding: 0; display: block; }
+    td[data-col].colhidden { display: block; }
+    td[data-label]::before {
+      content: attr(data-label);
+      display: block; font-size: .74rem; color: var(--ink-2); margin-bottom: .1rem;
+    }
+    td:first-child { grid-column: 1 / -1; }
+    .gcell { max-width: none; }
+    td[data-col="actions"] { grid-column: 1 / -1; }
+    .editbtn { width: 100%; text-align: center; padding: .5rem; }
+    td.isempty { background: none; }
+    td.isempty input { background: var(--warn-bg); }
+    .tip::after { max-width: 80vw; }
+    .massbar .massgroup { width: 100%; }
+    .stickyfooter .note { display: none; }
+    .modal .frow { grid-template-columns: 1fr; }
+    .modal .frow label { text-align: left; padding-top: 0; }
+  }
+</style>
+
+<div class="wrap">
+  <nav class="crumbs" aria-label="Localização">
+    <a href="#">Engenharia de Software — 2026.2</a> ›
+    <a href="#">Participantes</a> ›
+    <a href="#">Grupos</a> ›
+    <span>Editar grupos em lote</span>
+  </nav>
+  <h1>Editar grupos em lote</h1>
+  <p class="lede">Campos personalizados de <strong>8 grupos selecionados</strong>. Nada é gravado até salvar.</p>
+
+  <div class="proto-banner">
+    <span class="tag">Protótipo</span>
+    <span>v3: tooltip agora flutua fora do elemento cortado (pairar, focar ou clicar em nomes/IDs com reticências — Grupos 04 e 05); a coluna Membros sinaliza <b>overbooking</b> em vermelho suave, dinamicamente — reduza as vagas de um grupo abaixo do nº de membros (ou use o "Aplicar" em massa) e veja o Grupo 07, que já começa acima das vagas. Responsivo: estreite a janela para o layout de cartões.</span>
+  </div>
+
+  <div class="massbar">
+    <span class="masslabel">Ações em massa</span>
+    <span class="massgroup">
+      <label for="massvagas">Definir vagas de todos os grupos para</label>
+      <input type="number" id="massvagas" min="0" max="99" placeholder="nº">
+      <button class="editbtn" type="button" id="massapply">Aplicar</button>
+    </span>
+    <span class="hintsmall">Aplica na tabela; só é gravado ao salvar.</span>
+  </div>
+
+  <div class="toolbar">
+    <span class="count"><b>8</b> grupos selecionados</span>
+    <label class="filter"><input type="checkbox" id="onlyempty"> Apenas grupos sem vagas definidas</label>
+    <div class="colmenu" id="colmenu">
+      <button type="button" id="colmenubtn" aria-haspopup="true" aria-expanded="false">
+        Colunas <span class="badgecount" id="hiddencount" hidden></span> <span aria-hidden="true">▾</span>
+      </button>
+      <div class="menu" role="group" aria-label="Colunas visíveis">
+        <div class="menuhead">Grupo, Vagas e Editar são fixas. Campos personalizados adicionais entram nesta lista automaticamente.</div>
+        <label class="locked"><input type="checkbox" checked disabled> Grupo</label>
+        <label><input type="checkbox" data-colkey="id" checked> ID</label>
+        <label><input type="checkbox" data-colkey="members" checked> Membros</label>
+        <label class="locked"><input type="checkbox" checked disabled> Vagas</label>
+        <label><input type="checkbox" data-colkey="local" checked> Local</label>
+      </div>
+    </div>
+    <div class="legend">
+      <span><span class="swatch"></span> vagas não definidas</span>
+      <span><span class="swatch" style="background: var(--over-bg); border-color: var(--over-line);"></span> membros acima das vagas</span>
+      <span><span class="dot"></span> alteração não salva</span>
+    </div>
+  </div>
+
+  <div class="tablewrap">
+    <table aria-label="Grupos selecionados">
+      <thead>
+        <tr>
+          <th scope="col">Grupo</th>
+          <th scope="col" data-col="id">ID</th>
+          <th scope="col" data-col="members">Membros</th>
+          <th scope="col">Vagas</th>
+          <th scope="col" data-col="local">Local</th>
+          <th scope="col" data-col="actions"><span class="hintsmall">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="stickyfooter" id="sticky-footer">
+  <div class="inner">
+    <button class="btn primary" type="button" id="save" disabled>Salvar alterações</button>
+    <a class="btn link" href="#">Cancelar</a>
+    <span class="dirtycount" id="dirtycount" role="status"></span>
+    <span class="note">Somente os campos personalizados são gravados aqui. Nome, descrição, imagem e demais configurações abrem em "Editar".</span>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop" role="dialog" aria-modal="true" aria-labelledby="modaltitle">
+  <div class="modal">
+    <header>
+      <h2 id="modaltitle">Configurações do grupo</h2>
+      <button class="close" type="button" data-action="closemodal" aria-label="Fechar">×</button>
+    </header>
+    <div class="body">
+      <div class="frow"><label for="m-name">Nome do grupo</label><input type="text" id="m-name" value="Grupo 03"></div>
+      <div class="frow"><label for="m-idnumber">Número de ID</label><input type="text" id="m-idnumber" value="ENG-G03"></div>
+      <div class="frow"><label for="m-desc">Descrição</label><textarea id="m-desc">Equipe do laboratório de redes.</textarea></div>
+      <div class="frow"><label for="m-msg">Mensagens do grupo</label>
+        <select id="m-msg"><option>Não</option><option selected>Sim</option></select></div>
+      <div class="frow"><label>Imagem</label><div class="filedrop">Arraste uma imagem ou clique para escolher (form core)</div></div>
+      <div class="sechead">Distribuição</div>
+      <div class="frow"><label for="m-vagas">Vagas</label><input type="text" id="m-vagas" value="12"></div>
+      <div class="frow"><label for="m-local">Local</label><input type="text" id="m-local" value="Lab. de Redes"></div>
+    </div>
+    <footer>
+      <span class="modalnote">Wrap do formulário core de edição do grupo, carregado via fragment no modal.</span>
+      <button class="btn" type="button" data-action="closemodal">Cancelar</button>
+      <button class="btn primary" type="button" id="modalsave">Salvar</button>
+    </footer>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const GROUPS = [
+    {id: 41, idnumber: 'ENG-G01', name: 'Grupo 01', color: '#3d7fc2', members: 12, vagas: 12, local: 'Sala 101'},
+    {id: 42, idnumber: 'ENG-G02', name: 'Grupo 02', color: '#7a5fb8', members: 10, vagas: 12, local: 'Sala 102'},
+    {id: 43, idnumber: 'ENG-G03', name: 'Grupo 03', color: '#2f8f6b', members: 9, vagas: 12, local: 'Lab. de Redes'},
+    {id: 44, idnumber: '', name: 'Grupo 04 — Sistemas Distribuídos e Computação em Nuvem (noturno)', color: '#b5652e', members: 14, vagas: '', local: 'Auditório B'},
+    {id: 45, idnumber: 'ENG-2026-2-TURMA-B-GRUPO-05-LABORATORIO', name: 'Grupo 05', color: '#a83a5c', members: 8, vagas: 10, local: ''},
+    {id: 46, idnumber: 'ENG-G06', name: 'Grupo 06', color: '#4a7f9f', members: 11, vagas: '', local: ''},
+    {id: 47, idnumber: 'ENG-G07', name: 'Grupo 07', color: '#6b7f2e', members: 13, vagas: 12, local: 'Sala 204'},
+    {id: 48, idnumber: 'ENG-G08', name: 'Grupo 08', color: '#8a6d3b', members: 7, vagas: 8, local: 'Lab. de Informática 1'},
+  ];
+
+  const rows = document.getElementById('rows');
+  const dirty = new Set();
+
+  /* Tooltip: one floating box positioned by JS, so overflow: hidden on the
+     truncated element cannot clip it. Shown on hover/focus, toggled on click
+     (touch). In the real plugin this is core's Bootstrap tooltip, as used
+     across local_dimensions. */
+  const tipbox = document.createElement('div');
+  tipbox.id = 'tipbox';
+  tipbox.setAttribute('role', 'tooltip');
+  document.body.appendChild(tipbox);
+  let tippinned = null;
+
+  const showTip = (el) => {
+    tipbox.textContent = el.dataset.tip;
+    tipbox.classList.add('show');
+    const anchor = el.getBoundingClientRect();
+    const box = tipbox.getBoundingClientRect();
+    let top = anchor.top - box.height - 8;
+    if (top < 4) {
+      top = anchor.bottom + 8;
+    }
+    const left = Math.max(8, Math.min(anchor.left, window.innerWidth - box.width - 8));
+    tipbox.style.top = top + 'px';
+    tipbox.style.left = left + 'px';
+  };
+  const hideTip = () => {
+    tipbox.classList.remove('show');
+    tippinned = null;
+  };
+
+  const truncatedTip = (el, text) => {
+    el.classList.add('tip');
+    el.dataset.tip = text;
+    el.tabIndex = 0;
+    el.addEventListener('mouseenter', () => showTip(el));
+    el.addEventListener('mouseleave', () => {
+      if (tippinned !== el) {
+        hideTip();
+      }
+    });
+    el.addEventListener('focus', () => showTip(el));
+    el.addEventListener('blur', hideTip);
+    el.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (tippinned === el) {
+        hideTip();
+      } else {
+        tippinned = el;
+        showTip(el);
+      }
+    });
+  };
+  document.addEventListener('click', hideTip);
+  document.addEventListener('scroll', hideTip, true);
+
+  const syncVagasEmpty = (cell) => {
+    const input = cell.querySelector('input');
+    cell.classList.toggle('isempty', !String(input.value).trim());
+  };
+
+  /* Overbooking indicator: members vs the CURRENT seats value, recomputed on
+     every edit so lowering seats below the member count flags immediately. */
+  const syncOver = (tr) => {
+    const memcell = tr.querySelector('td.memcell');
+    const raw = tr.querySelector('td[data-label="Vagas"] input').value;
+    const members = parseInt(tr.dataset.members, 10);
+    const seats = String(raw).trim() === '' ? null : parseInt(raw, 10);
+    const over = (seats !== null && members > seats) ? members - seats : 0;
+    memcell.classList.toggle('isover', over > 0);
+    const badge = memcell.querySelector('.overbadge');
+    badge.textContent = '+' + over;
+    badge.dataset.tip = over === 1
+      ? '1 membro acima das vagas'
+      : over + ' membros acima das vagas';
+  };
+
+  const refreshChrome = () => {
+    const count = document.getElementById('dirtycount');
+    count.textContent = dirty.size === 0 ? ''
+      : (dirty.size === 1 ? '1 grupo com alterações não salvas' : dirty.size + ' grupos com alterações não salvas');
+    document.getElementById('save').disabled = dirty.size === 0;
+  };
+
+  const markDirty = (tr) => {
+    dirty.add(tr.dataset.id);
+    tr.classList.add('dirty');
+    refreshChrome();
+    applyFilter();
+  };
+
+  GROUPS.forEach((group) => {
+    const tr = document.createElement('tr');
+    tr.dataset.id = group.id;
+
+    // Group: avatar + truncated name with tooltip.
+    const tdg = document.createElement('td');
+    const cell = document.createElement('div');
+    cell.className = 'gcell';
+    const avatar = document.createElement('span');
+    avatar.className = 'gavatar';
+    avatar.style.background = group.color;
+    avatar.textContent = group.name.replace(/[^0-9]/g, '').slice(0, 2) || group.name.slice(0, 2);
+    const name = document.createElement('span');
+    name.className = 'gname';
+    name.textContent = group.name;
+    truncatedTip(name, group.name);
+    const dot = document.createElement('span');
+    dot.className = 'gdirty';
+    dot.setAttribute('aria-hidden', 'true');
+    cell.append(avatar, name, dot);
+    tdg.appendChild(cell);
+    tr.appendChild(tdg);
+
+    // Ids: numeric + truncated idnumber chip with tooltip.
+    const tdi = document.createElement('td');
+    tdi.className = 'idcell';
+    tdi.dataset.col = 'id';
+    tdi.dataset.label = 'ID';
+    tdi.append('#' + group.id);
+    if (group.idnumber) {
+      const chip = document.createElement('span');
+      chip.className = 'idn';
+      chip.textContent = group.idnumber;
+      truncatedTip(chip, 'Número de ID: ' + group.idnumber);
+      tdi.appendChild(chip);
+    }
+    tr.appendChild(tdi);
+
+    tr.dataset.members = group.members;
+    const tdm = document.createElement('td');
+    tdm.className = 'memcell';
+    tdm.dataset.col = 'members';
+    tdm.dataset.label = 'Membros';
+    tdm.innerHTML = group.members + ' <small>membros</small>';
+    const overbadge = document.createElement('span');
+    overbadge.className = 'overbadge';
+    truncatedTip(overbadge, '');
+    tdm.appendChild(overbadge);
+    tr.appendChild(tdm);
+
+    // Seats: the only field flagged when empty (required by distribution).
+    const tdv = document.createElement('td');
+    tdv.dataset.label = 'Vagas';
+    const vagas = document.createElement('input');
+    vagas.type = 'number';
+    vagas.min = 0;
+    vagas.max = 99;
+    vagas.value = group.vagas;
+    vagas.placeholder = 'vazio';
+    vagas.setAttribute('aria-label', 'Vagas de ' + group.name);
+    vagas.addEventListener('input', () => {
+      syncVagasEmpty(tdv);
+      syncOver(tr);
+      markDirty(tr);
+    });
+    tdv.appendChild(vagas);
+    syncVagasEmpty(tdv);
+    tr.appendChild(tdv);
+    syncOver(tr);
+
+    const tdl = document.createElement('td');
+    tdl.dataset.col = 'local';
+    tdl.dataset.label = 'Local';
+    const local = document.createElement('input');
+    local.type = 'text';
+    local.value = group.local;
+    local.setAttribute('aria-label', 'Local de ' + group.name);
+    local.addEventListener('input', () => markDirty(tr));
+    tdl.appendChild(local);
+    tr.appendChild(tdl);
+
+    const tda = document.createElement('td');
+    tda.dataset.col = 'actions';
+    const edit = document.createElement('button');
+    edit.className = 'editbtn';
+    edit.type = 'button';
+    edit.textContent = 'Editar';
+    edit.setAttribute('aria-label', 'Editar configurações do grupo ' + group.name);
+    edit.addEventListener('click', () => {
+      document.getElementById('modaltitle').textContent = 'Configurações do grupo — ' + group.name;
+      document.getElementById('backdrop').classList.add('open');
+    });
+    tda.appendChild(edit);
+    tr.appendChild(tda);
+
+    rows.appendChild(tr);
+  });
+
+  // Mass apply for seats, from the mass-actions bar.
+  document.getElementById('massapply').addEventListener('click', () => {
+    const value = document.getElementById('massvagas').value;
+    if (value === '') {
+      return;
+    }
+    rows.querySelectorAll('tr').forEach((tr) => {
+      const cell = tr.querySelector('td[data-label="Vagas"]');
+      cell.querySelector('input').value = value;
+      syncVagasEmpty(cell);
+      syncOver(tr);
+      markDirty(tr);
+    });
+    toast('Vagas = ' + value + ' aplicado aos 8 grupos (não salvo)');
+  });
+
+  // Filter: groups without seats (rows with pending edits stay visible).
+  const applyFilter = () => {
+    const only = document.getElementById('onlyempty').checked;
+    rows.querySelectorAll('tr').forEach((tr) => {
+      const noseats = tr.querySelector('td[data-label="Vagas"]').classList.contains('isempty');
+      tr.classList.toggle('hiddenrow', only && !noseats && !dirty.has(tr.dataset.id));
+    });
+  };
+  document.getElementById('onlyempty').addEventListener('change', applyFilter);
+
+  // Columns menu: collapse/expand optional columns (custom fields scale here).
+  const colmenu = document.getElementById('colmenu');
+  const colmenubtn = document.getElementById('colmenubtn');
+  colmenubtn.addEventListener('click', () => {
+    const open = colmenu.classList.toggle('open');
+    colmenubtn.setAttribute('aria-expanded', String(open));
+  });
+  document.addEventListener('click', (event) => {
+    if (!colmenu.contains(event.target)) {
+      colmenu.classList.remove('open');
+      colmenubtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  colmenu.querySelectorAll('input[data-colkey]').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      document.querySelectorAll('[data-col="' + checkbox.dataset.colkey + '"]').forEach((el) => {
+        el.classList.toggle('colhidden', !checkbox.checked);
+      });
+      const hidden = colmenu.querySelectorAll('input[data-colkey]:not(:checked)').length;
+      const badge = document.getElementById('hiddencount');
+      badge.hidden = hidden === 0;
+      badge.textContent = hidden + ' oculta' + (hidden > 1 ? 's' : '');
+    });
+  });
+
+  // Save (mock).
+  document.getElementById('save').addEventListener('click', () => {
+    toast(dirty.size + ' grupos salvos (mock) — um WS grava os campos em lote');
+    dirty.clear();
+    rows.querySelectorAll('tr.dirty').forEach((tr) => tr.classList.remove('dirty'));
+    refreshChrome();
+    applyFilter();
+  });
+
+  // Modal wiring.
+  const backdrop = document.getElementById('backdrop');
+  backdrop.addEventListener('click', (event) => {
+    if (event.target === backdrop || event.target.dataset.action === 'closemodal') {
+      backdrop.classList.remove('open');
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      backdrop.classList.remove('open');
+    }
+  });
+  document.getElementById('modalsave').addEventListener('click', () => {
+    backdrop.classList.remove('open');
+    toast('Configurações do grupo salvas (mock) — a linha da tabela é atualizada');
+  });
+
+  let toasttimer = null;
+  function toast(message) {
+    const el = document.getElementById('toast');
+    el.textContent = message;
+    el.classList.add('show');
+    clearTimeout(toasttimer);
+    toasttimer = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+})();
+</script>

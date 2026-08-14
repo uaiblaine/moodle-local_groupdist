@@ -19,8 +19,9 @@ namespace local_groupdist\local;
 /**
  * Candidate selection: who takes part in a distribution.
  *
- * One query fetches ids, name fields and the affinity column for every
- * candidate. groups_get_potential_members() is not reusable here: it cannot
+ * One query fetches ids, name fields and the native affinity columns for
+ * every candidate; custom profile field rules add one bulk lookup each.
+ * groups_get_potential_members() is not reusable here: it cannot
  * carry a custom profile field as an extra column (MDL-70456 — mixed parameter
  * types) and it materialises full user records.
  *
@@ -40,23 +41,51 @@ class candidates {
      * @param options $options The distribution options.
      * @param \core\context\course $context The course context.
      * @return array Ordered map of userid => user record (id, name fields,
-     *   idnumber, affinity).
+     *   idnumber, one affinityN column per rule).
      */
     public static function fetch(options $options, \core\context\course $context): array {
         global $DB;
 
-        // Without the capability, suspended enrolments must never leak
-        // (core precedent: group/autogroup.php).
-        $onlyactive = $options->onlyactive
-            || !has_capability('moodle/course:viewsuspendedusers', $context);
+        /* Without the capability, non-current enrolments must never leak
+           (core precedent: group/autogroup.php) — which also forces the
+           future-start option off: future enrolments are not current. The
+           option is likewise inert when the only-active filter is off, since
+           future enrolments are already included then. */
+        $canviewsuspended = has_capability('moodle/course:viewsuspendedusers', $context);
+        $onlyactive = $options->onlyactive || !$canviewsuspended;
+        $includefuture = $options->includefuture && $onlyactive && $canviewsuspended;
 
-        $enrolledjoin = get_enrolled_join($context, 'u.id', $onlyactive);
+        $enrolledjoin = get_enrolled_join($context, 'u.id', $onlyactive && !$includefuture);
         $joins = [$enrolledjoin->joins];
         $wheres = ['u.deleted = 0'];
         if ($enrolledjoin->wheres) {
             $wheres[] = $enrolledjoin->wheres;
         }
         $params = $enrolledjoin->params;
+
+        if ($includefuture && $options->courseid != SITEID) {
+            /* Active-or-future filter over the plain enrolment join. This
+               inlines (and must stay in agreement with) the only-active
+               predicate of get_enrolled_join(), relaxing only the timestart
+               half; suspended and expired enrolments stay excluded. SITEID is
+               exempt like in the helper — on the frontpage everyone counts as
+               enrolled and nobody holds a {user_enrolments} row. */
+            $now = round(time(), -2); // Same rounding core uses (helps DB caching).
+            $wheres[] = "EXISTS (
+                             SELECT 1
+                               FROM {user_enrolments} fue
+                               JOIN {enrol} fe ON fe.id = fue.enrolid AND fe.courseid = :fcourseid
+                              WHERE fue.userid = u.id
+                                    AND fue.status = :fueactive AND fe.status = :feenabled
+                                    AND ((fue.timestart < :fnow1 AND (fue.timeend = 0 OR fue.timeend > :fnow2))
+                                         OR fue.timestart >= :fnow3))";
+            $params['fcourseid'] = $options->courseid;
+            $params['fueactive'] = ENROL_USER_ACTIVE;
+            $params['feenabled'] = ENROL_INSTANCE_ENABLED;
+            $params['fnow1'] = $now;
+            $params['fnow2'] = $now;
+            $params['fnow3'] = $now;
+        }
 
         if ($options->roleid) {
             // Role assignments count at the course context and every parent
@@ -91,16 +120,28 @@ class candidates {
             $params['ownseed'] = $options->seed;
         }
 
-        $affinityselect = 'NULL AS affinity';
-        if ($options->is_native_affinity()) {
-            // The field name is validated against the native whitelist in options.
-            $affinityselect = 'u.' . $options->affinityfield . ' AS affinity';
-        } else if ($fieldid = $options->get_custom_affinity_fieldid()) {
-            $joins[] = 'LEFT JOIN {user_info_data} uid ON uid.userid = u.id AND uid.fieldid = :affinityfieldid';
-            $params['affinityfieldid'] = $fieldid;
-            // Cast for cross-DB comparability; 255 chars are plenty for grouping.
-            $affinityselect = $DB->sql_compare_text('uid.data', 255) . ' AS affinity';
+        // One value column per rule (affinity0, affinity1, ...). Native sources
+        // are free columns on {user}; custom profile fields are bulk-fetched
+        // per rule after the base query — one indexed lookup each, so there is
+        // no join fan-out as the rule count grows.
+        $affinityselects = [];
+        $profilerules = [];
+        $cohortrules = [];
+        foreach ($options->affinityrules->get_rules() as $i => $rule) {
+            $kind = ruleset::source_kind($rule['source']);
+            if ($kind === ruleset::KIND_NATIVE) {
+                // The column name is validated against the native whitelist in the ruleset.
+                $affinityselects[] = 'u.' . $rule['source'] . ' AS affinity' . $i;
+            } else {
+                $affinityselects[] = 'NULL AS affinity' . $i;
+                if ($kind === ruleset::KIND_PROFILE) {
+                    $profilerules[$i] = ruleset::source_profile_fieldid($rule['source']);
+                } else {
+                    $cohortrules[$i] = ruleset::source_cohortid($rule['source']);
+                }
+            }
         }
+        $affinitysql = $affinityselects ? (', ' . implode(', ', $affinityselects)) : '';
 
         $namefields = implode(', ', array_map(
             function (string $field): string {
@@ -115,14 +156,96 @@ class candidates {
 
         // The deleted flag rides along so groups_add_member() can take the
         // record as-is without re-fetching each user.
-        return $DB->get_records_sql(
-            "SELECT DISTINCT u.id, {$namefields}, u.idnumber, u.deleted, {$affinityselect}
+        $users = $DB->get_records_sql(
+            "SELECT DISTINCT u.id, {$namefields}, u.idnumber, u.deleted{$affinitysql}
                FROM {user} u
                     {$joinsql}
               WHERE {$wheresql}
            ORDER BY {$orderby}",
             $params
         );
+
+        foreach ($profilerules as $i => $fieldid) {
+            if (!$users) {
+                break;
+            }
+            [$insql, $inparams] = $DB->get_in_or_equal(array_keys($users), SQL_PARAMS_NAMED, 'pf');
+            // Cast for cross-DB comparability; 255 chars are plenty for grouping.
+            $data = $DB->get_records_sql_menu(
+                'SELECT uid.userid, ' . $DB->sql_compare_text('uid.data', 255) . ' AS data
+                   FROM {user_info_data} uid
+                  WHERE uid.fieldid = :pffieldid AND uid.userid ' . $insql,
+                $inparams + ['pffieldid' => $fieldid]
+            );
+            foreach ($users as $user) {
+                $user->{'affinity' . $i} = $data[$user->id] ?? null;
+            }
+        }
+
+        foreach ($cohortrules as $i => $cohortid) {
+            if (!$users) {
+                break;
+            }
+            // Binary source: '1' for members, empty otherwise. Keep-apart then
+            // separates cohort mates pairwise (clique semantics without ever
+            // materialising edges); keep-together clusters them.
+            [$insql, $inparams] = $DB->get_in_or_equal(array_keys($users), SQL_PARAMS_NAMED, 'cs');
+            $members = $DB->get_records_sql_menu(
+                'SELECT cm.userid, 1 AS member
+                   FROM {cohort_members} cm
+                  WHERE cm.cohortid = :cscohortid AND cm.userid ' . $insql,
+                $inparams + ['cscohortid' => $cohortid]
+            );
+            foreach ($users as $user) {
+                $user->{'affinity' . $i} = isset($members[$user->id]) ? '1' : null;
+            }
+        }
+
+        if ($includefuture && $users && $options->courseid != SITEID) {
+            /* Display-only marker (never an allocator input, so it stays out
+               of the fingerprint): candidates whose only qualifying enrolment
+               starts in the future carry its earliest start timestamp. */
+            $now = round(time(), -2);
+            [$insql, $inparams] = $DB->get_in_or_equal(array_keys($users), SQL_PARAMS_NAMED, 'fs');
+            $starts = $DB->get_records_sql_menu(
+                "SELECT fue.userid, MIN(fue.timestart) AS starts
+                   FROM {user_enrolments} fue
+                   JOIN {enrol} fe ON fe.id = fue.enrolid AND fe.courseid = :fscourseid
+                  WHERE fue.status = :fsactive AND fe.status = :fsenabled
+                        AND fue.timestart >= :fsnow AND fue.userid {$insql}
+               GROUP BY fue.userid",
+                $inparams + [
+                    'fscourseid' => $options->courseid,
+                    'fsactive' => ENROL_USER_ACTIVE,
+                    'fsenabled' => ENROL_INSTANCE_ENABLED,
+                    'fsnow' => $now,
+                ]
+            );
+            if ($starts) {
+                [$cwsql, $cwparams] = $DB->get_in_or_equal(array_keys($starts), SQL_PARAMS_NAMED, 'cw');
+                $current = $DB->get_records_sql_menu(
+                    "SELECT DISTINCT cue.userid, 1 AS incurrent
+                       FROM {user_enrolments} cue
+                       JOIN {enrol} ce ON ce.id = cue.enrolid AND ce.courseid = :cwcourseid
+                      WHERE cue.status = :cwactive AND ce.status = :cwenabled
+                            AND cue.timestart < :cwnow1 AND (cue.timeend = 0 OR cue.timeend > :cwnow2)
+                            AND cue.userid {$cwsql}",
+                    $cwparams + [
+                        'cwcourseid' => $options->courseid,
+                        'cwactive' => ENROL_USER_ACTIVE,
+                        'cwenabled' => ENROL_INSTANCE_ENABLED,
+                        'cwnow1' => $now,
+                        'cwnow2' => $now,
+                    ]
+                );
+                foreach ($starts as $userid => $start) {
+                    if (!isset($current[$userid])) {
+                        $users[$userid]->futurestart = (int) $start;
+                    }
+                }
+            }
+        }
+        return $users;
     }
 
     /**

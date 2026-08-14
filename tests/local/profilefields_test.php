@@ -65,7 +65,7 @@ final class profilefields_test extends \advanced_testcase {
         $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
 
         $this->setUser($teacher);
-        $available = profilefields::get_available($context);
+        $available = profilefields::get_fields($context);
 
         $this->assertArrayHasKey('profile_' . $fields[PROFILE_VISIBLE_ALL]->id, $available);
         $this->assertArrayHasKey('profile_' . $fields[PROFILE_VISIBLE_TEACHERS]->id, $available);
@@ -89,7 +89,7 @@ final class profilefields_test extends \advanced_testcase {
         $context = \core\context\course::instance($course->id);
 
         $this->setAdminUser();
-        $available = profilefields::get_available($context);
+        $available = profilefields::get_fields($context);
 
         foreach ($fields as $field) {
             $this->assertArrayHasKey('profile_' . $field->id, $available);
@@ -97,20 +97,24 @@ final class profilefields_test extends \advanced_testcase {
     }
 
     /**
-     * Native fields and the none option are always present.
+     * Native fields are always present; cohorts are never enumerated here.
      */
     public function test_native_fields_always_offered(): void {
         $this->resetAfterTest();
         $course = $this->getDataGenerator()->create_course();
         $context = \core\context\course::instance($course->id);
         $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $cohort = $this->getDataGenerator()->create_cohort(['visible' => 1]);
 
         $this->setUser($student);
-        $available = profilefields::get_available($context);
+        $available = profilefields::get_fields($context);
 
-        $this->assertArrayHasKey('', $available);
         foreach (options::NATIVE_AFFINITY_FIELDS as $field) {
             $this->assertArrayHasKey($field, $available);
         }
+        // Cohorts are picked through the bounded menu or the search, and are
+        // authorized per rule via cohort_get_cohort() — never listed here.
+        $this->assertArrayNotHasKey('cohort_' . $cohort->id, $available);
+        $this->assertTrue(profilefields::is_allowed('cohort_' . $cohort->id, $context));
     }
 }

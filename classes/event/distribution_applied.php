@@ -20,8 +20,8 @@ namespace local_groupdist\event;
  * Event fired once per applied distribution run.
  *
  * Individual memberships already produce core group_member_added events; this
- * one records the run itself (seed, group count, memberships written). No
- * objectid/objecttable: the plugin owns no table for runs.
+ * one records the run itself and points at its audit snapshot row
+ * (objectid = the local_groupdist_run id).
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -36,6 +36,7 @@ class distribution_applied extends \core\event\base {
     protected function init(): void {
         $this->data['crud'] = 'c';
         $this->data['edulevel'] = self::LEVEL_TEACHING;
+        $this->data['objecttable'] = 'local_groupdist_run';
     }
 
     /**

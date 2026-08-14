@@ -10,10 +10,14 @@ Plugin context: a Moodle **local** plugin ("Group distribution") that adds a
 distributing enrolled users into the SELECTED existing groups with role/cohort
 filters, autogroup-style allocation orders, profile-field affinity
 (keep-together / keep-apart) and per-group seat capacity + overbooking. It
-owns **no database tables**: "Seats"/"Location" are core *group custom
-fields* it provisions, memberships live in core `{groups_members}`, and
-previews are recomputed deterministically (seed + fingerprint) instead of
-stored — hence privacy `null_provider`. Supports Moodle **5.1 through 5.2**
+owns **two database tables** — the audit log (`local_groupdist_run` +
+`local_groupdist_run_user`), a per-apply snapshot of who ran it, the rules
+with labels resolved at the time and each participant's rule values and
+write outcome. Everything else lives in core: "Seats"/"Location" are core
+*group custom fields* it provisions, memberships live in `{groups_members}`,
+and previews are recomputed deterministically (seed + fingerprint), never
+stored. Privacy is a full provider (export + pseudonymising deletes) plus
+the bulk-edit column preference. Supports Moodle **5.1 through 5.2**
 (`$plugin->requires = 2025100600`, `$plugin->supported = [501, 502]`).
 CI is the moodle-an-hochschulen reusable workflow, one job per supported
 branch in `.github/workflows/ci.yml` — **update those jobs when `supported`
@@ -37,9 +41,16 @@ distribute.php               Step 1+2 controller: options form POST target and
                              preview renderer (sticky_footer with apply/back)
 apply.php                    Step 3: fingerprint re-check, inline vs adhoc
 status.php                   Background apply progress (core task_indicator)
+audit.php                    Distribution log course report: run list + run
+                             detail from the snapshot (gate: viewauditlog)
+bulkedit.php                 Bulk edit table of the selected groups' custom
+                             fields (gate: moodle/course:managegroups)
+lib.php                      local_groupdist_user_preferences() (column prefs)
 classes/
   hook_callbacks.php         before_footer_html_generation → injects the button
   local/options.php          Canonical option value object (form/WS/task shape)
+  local/ruleset.php          Ordered affinity ruleset value object (pure; the
+                             POST transport is affinityrulesources[]/modes[])
   local/candidates.php       One-query candidate fetch (enrol+role+cohort+affinity)
   local/allocator.php        Pure deterministic engine (no DB) + typed warnings
   local/allocation.php       Allocator result value object
@@ -48,6 +59,13 @@ classes/
   local/fields.php           Group custom field provisioning + bulk readers
   local/profilefields.php    Affinity field enumeration (visibility-filtered)
   external/get_preview.php   Paged preview WS (recomputes per call)
+  external/search_cohorts.php Cohort search for the rule builder (cohorts are
+                             never enumerated; menu <= 10, search beyond)
+  external/save_group_fields.php Chunked bulk-edit save (dirty cells only,
+                             MAX_CHANGES=200 per call; client chunks at 100)
+  output/bulkedit_page.php   Table context builder (also refreshes one row
+                             after the settings modal saves)
+  form/group_settings_form.php Dynamic-form modal wrapping core group settings
   task/apply_distribution.php Adhoc apply with stored progress
   event/distribution_applied.php One event per applied run (no objecttable)
 amd/src/index_button.js      Injected formaction submit button on group/index
@@ -58,6 +76,22 @@ docs/                        Approved HTML mockups + design decisions (export-ig
 ```
 
 ## Architecture gotchas
+
+- **Affinity is an ordered ruleset, not a field+mode pair.** Rules are
+  `(source, mode)` entries summed with implicit AND; list position = priority:
+  together rules cluster by the composite value tuple, apart rules share
+  per-group held-value sets keyed `(rule, value)`, group choice minimises the
+  lexicographic violation vector in priority order, and together/apart
+  contradictions are decided by list position (warning `affinitycontradiction`
+  names the winner). `options` exposes `get_affinity_source()`/`_mode()`
+  (first rule) only for the single-rule form UI and first-rule display.
+  Transport: WS `affinityrules` is a typed multiple structure;
+  the POST round trip flattens to parallel `affinityrulesources[]` /
+  `affinityrulemodes[]` scalar arrays (nested arrays are not
+  `optional_param_array`-able). `ruleset` stays pure — the `maxaffinityrules`
+  guardrail is resolved by the caller, and the site-setting lookup is skipped
+  for single-rule input so `basic_testcase` suites stay DB-free. Entries
+  carrying operator keys are rejected by design (modes never inside a tree).
 
 - **The injected button must stay a `type="submit"` with `formaction` and NO
   `name` attribute.** group/index.php throws `moodle_exception('unknowaction')`
@@ -113,18 +147,43 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   `dml_write_exception` is ambiguous (duplicate key vs deadlock/lock timeout —
   same exception type): re-check `groups_is_member()` before counting it as
   added.
-- **Affinity field visibility mirrors core** (`profile_field_base::is_visible`,
+- **Affinity source visibility mirrors core** (`profile_field_base::is_visible`,
   listing case): ALL → everyone; TEACHERS → `moodle/site:viewuseridentity` at
   the course; PRIVATE/NONE → `moodle/user:viewalldetails` (NOT
   viewhiddendetails — teachers hold that by default and it would leak hidden
-  fields). Raw `cohortid` inputs on the WS/apply are validated with
+  fields). Cohort rule sources (`cohort_<id>`, binary '1'/empty membership
+  column) and raw `cohortid` inputs on the WS/apply are both validated with
   `cohort_get_cohort($id, $context)` so hidden cohorts cannot be used as a
-  membership oracle.
+  membership oracle — `profilefields::is_allowed()` owns the dispatch.
+  **Never enumerate cohorts** (platforms carry thousands):
+  `profilefields::get_fields()` lists fields only; the builder shows a cohort
+  menu up to `options_form::COHORT_MENU_LIMIT` and switches to the
+  `local_groupdist_search_cohorts` WS beyond it, and per-rule authorization
+  is always the O(1) `cohort_get_cohort()` check.
 - **"Prevent last small group" is deliberately absent** — core disables it in
   fixed-group-count mode and this allocator balances within one member.
 - **WS return structure is an allowlist**: preview data is rendered client-side
   only, from `get_preview` — a field added to the payload must be added to
   `execute_returns()` or `clean_returnvalue` silently strips it.
+- **Bulk edit saves are payload-bounded by design**: only dirty cells travel,
+  the client slices sequential chunks of 100 and `save_group_fields` rejects
+  calls above `MAX_CHANGES` (200). Partial cell saves are safe because
+  customfield data controllers early-return on absent `customfield_<shortname>`
+  properties (`data_controller::instance_form_save`, property_exists check) —
+  never "helpfully" fill in the other fields' properties, that would wipe them.
+- **The audit log is a snapshot, never a reference**: `runlog` stores rule
+  labels, per-user values and group names as they were at apply time; the
+  audit UI derives explanations from these stored facts, never by replaying
+  the engine. Deletion pseudonymises (userid 0, values blanked) instead of
+  removing rows; course deletion purges via observer (the recycle bin keeps
+  a backup file, not the course). Retention = `auditretentiondays` setting +
+  daily `cleanup_audit` task. `applier::apply()` requires the runid — the
+  `distribution_applied` event carries it as objectid.
+- **The privacy provider is a full provider**: the audit tables (metadata +
+  export + pseudonymising deletes + userlist) plus the collapsible-columns
+  preference `local_groupdist_bulkedit_hiddencols` (declared in
+  `lib.php:local_groupdist_user_preferences()` so the WS may set it). A new
+  user preference means extending BOTH lib.php and the privacy provider.
 
 ## Testing notes
 

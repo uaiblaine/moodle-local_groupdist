@@ -154,8 +154,7 @@ final class distribution_test extends \advanced_testcase {
         $options = options::from_array([
             'courseid' => $course->id,
             'groupids' => [(int) $group1->id, (int) $group2->id],
-            'affinityfield' => 'city',
-            'affinitymode' => options::AFFINITY_TOGETHER,
+            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
             'seed' => 5,
         ]);
         $before = distribution::build($options, $context);
@@ -163,6 +162,62 @@ final class distribution_test extends \advanced_testcase {
         $victim = current($before->users);
         $update = (object) ['id' => $victim->id, 'city' => 'Elsewhere'];
         user_update_user($update, false);
+
+        $after = distribution::build($options, $context);
+        $this->assertNotSame($before->fingerprint, $after->fingerprint);
+    }
+
+    /**
+     * With several rules, EVERY rule's values are fingerprinted: an edit to
+     * the second rule's source shifts the print too.
+     */
+    public function test_fingerprint_covers_every_rules_values(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        [$course, $context, $group1, $group2] = $this->make_course(3);
+
+        $options = options::from_array([
+            'courseid' => $course->id,
+            'groupids' => [(int) $group1->id, (int) $group2->id],
+            'affinityrules' => [
+                ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
+                ['source' => 'department', 'mode' => options::AFFINITY_APART],
+            ],
+            'seed' => 5,
+        ]);
+        $before = distribution::build($options, $context);
+
+        $victim = current($before->users);
+        $update = (object) ['id' => $victim->id, 'department' => 'Elsewhere'];
+        user_update_user($update, false);
+
+        $after = distribution::build($options, $context);
+        $this->assertNotSame($before->fingerprint, $after->fingerprint);
+    }
+
+    /**
+     * Cohort membership churn between preview and apply is detected: adding a
+     * member to a ruled cohort shifts the fingerprint even though the
+     * candidate id set is unchanged.
+     */
+    public function test_fingerprint_covers_cohort_membership(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/cohort/lib.php');
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        [$course, $context, $group1, $group2] = $this->make_course(3);
+
+        $cohort = $this->getDataGenerator()->create_cohort();
+        $options = options::from_array([
+            'courseid' => $course->id,
+            'groupids' => [(int) $group1->id, (int) $group2->id],
+            'affinityrules' => [['source' => 'cohort_' . $cohort->id, 'mode' => options::AFFINITY_APART]],
+            'seed' => 5,
+        ]);
+        $before = distribution::build($options, $context);
+
+        $victim = current($before->users);
+        cohort_add_member($cohort->id, $victim->id);
 
         $after = distribution::build($options, $context);
         $this->assertNotSame($before->fingerprint, $after->fingerprint);

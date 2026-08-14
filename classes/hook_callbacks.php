@@ -56,10 +56,16 @@ class hook_callbacks {
             return;
         }
 
-        if (!has_capability('local/groupdist:distribute', $context)) {
+        $candistribute = has_capability('local/groupdist:distribute', $context);
+        $canbulkedit = has_capability('moodle/course:managegroups', $context);
+        if (!$candistribute && !$canbulkedit) {
             return;
         }
 
-        $PAGE->requires->js_call_amd('local_groupdist/index_button', 'init', [$context->instanceid]);
+        $PAGE->requires->js_call_amd('local_groupdist/index_button', 'init', [
+            $context->instanceid,
+            $candistribute,
+            $canbulkedit,
+        ]);
     }
 }

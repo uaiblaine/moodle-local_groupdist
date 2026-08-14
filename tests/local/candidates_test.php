@@ -133,6 +133,86 @@ final class candidates_test extends \advanced_testcase {
     }
 
     /**
+     * The future-start option includes active-but-not-started enrolments while
+     * suspended enrolments stay out — with controls on both sides.
+     */
+    public function test_includefuture_enrolments(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+
+        $active = $generator->create_and_enrol($course);
+        $future = $generator->create_and_enrol($course, 'student', null, 'manual', time() + WEEKSECS);
+        $suspended = $generator->create_and_enrol($course, 'student', null, 'manual', 0, 0, ENROL_USER_SUSPENDED);
+
+        $this->setAdminUser();
+
+        // Control: only-active alone excludes the future-start enrolment.
+        $without = candidates::fetch($this->make_options($course->id, ['onlyactive' => 1]), $context);
+        $ids = array_map('intval', array_keys($without));
+        $this->assertContains((int) $active->id, $ids);
+        $this->assertNotContains((int) $future->id, $ids);
+
+        $with = candidates::fetch(
+            $this->make_options($course->id, ['onlyactive' => 1, 'includefuture' => 1]),
+            $context
+        );
+        $ids = array_map('intval', array_keys($with));
+        $this->assertContains((int) $active->id, $ids);
+        $this->assertContains((int) $future->id, $ids);
+        // Future-start is not suspended: the suspended user stays out.
+        $this->assertNotContains((int) $suspended->id, $ids);
+    }
+
+    /**
+     * Without viewsuspendedusers the future-start option is forced off, like
+     * the only-active filter itself.
+     */
+    public function test_includefuture_forced_off_without_capability(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+
+        $future = $generator->create_and_enrol($course, 'student', null, 'manual', time() + WEEKSECS);
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        unassign_capability('moodle/course:viewsuspendedusers', 3, $context->id);
+        assign_capability('moodle/course:viewsuspendedusers', CAP_PROHIBIT, 3, $context->id, true);
+
+        $this->setUser($teacher);
+        $result = candidates::fetch(
+            $this->make_options($course->id, ['onlyactive' => 1, 'includefuture' => 1]),
+            $context
+        );
+        $this->assertNotContains((int) $future->id, array_map('intval', array_keys($result)));
+    }
+
+    /**
+     * A cohort rule yields the binary membership column: '1' for members,
+     * empty for everyone else.
+     */
+    public function test_cohort_rule_column(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+
+        $member = $generator->create_and_enrol($course);
+        $outsider = $generator->create_and_enrol($course);
+        $cohort = $generator->create_cohort();
+        cohort_add_member($cohort->id, $member->id);
+
+        $this->setAdminUser();
+        $result = candidates::fetch($this->make_options($course->id, [
+            'affinityrules' => [['source' => 'cohort_' . $cohort->id, 'mode' => options::AFFINITY_APART]],
+        ]), $context);
+
+        $this->assertSame('1', $result[(int) $member->id]->affinity0);
+        $this->assertNull($result[(int) $outsider->id]->affinity0);
+    }
+
+    /**
      * "Ignore grouped" excludes members of the SELECTED groups only.
      */
     public function test_ignoregrouped_scoped_to_selected_groups(): void {
@@ -185,14 +265,21 @@ final class candidates_test extends \advanced_testcase {
 
         $this->setAdminUser();
 
-        $bycity = candidates::fetch($this->make_options($course->id, ['affinityfield' => 'city']), $context);
-        $this->assertSame('Fortaleza', $bycity[(int) $user->id]->affinity);
-
-        $bycustom = candidates::fetch(
-            $this->make_options($course->id, ['affinityfield' => 'profile_' . $field->id]),
+        $bycity = candidates::fetch(
+            $this->make_options($course->id, [
+                'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
+            ]),
             $context
         );
-        $this->assertSame('Sobral', $bycustom[(int) $user->id]->affinity);
+        $this->assertSame('Fortaleza', $bycity[(int) $user->id]->affinity0);
+
+        $bycustom = candidates::fetch(
+            $this->make_options($course->id, [
+                'affinityrules' => [['source' => 'profile_' . $field->id, 'mode' => options::AFFINITY_TOGETHER]],
+            ]),
+            $context
+        );
+        $this->assertSame('Sobral', $bycustom[(int) $user->id]->affinity0);
     }
 
     /**

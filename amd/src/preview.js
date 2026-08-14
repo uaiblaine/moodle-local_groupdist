@@ -33,6 +33,7 @@ const SELECTORS = {
     STATS: '[data-region="stats"]',
     WARNINGS: '[data-region="warnings"]',
     GROUPS: '[data-region="groups"]',
+    RULEREPORT: '[data-region="rulereport"]',
     LOADMORE: '[data-action="loadmore"]',
     COUNTER: '[data-region="counter"]',
     CAPNOTE: '[data-region="capnote"]',
@@ -98,6 +99,16 @@ const renderHeader = async(root, data) => {
     warningsregion.textContent = '';
     data.warnings.forEach((warning) => addAlert(warningsregion, warning.message));
 
+    const reportregion = root.querySelector(SELECTORS.RULEREPORT);
+    if (data.rulereport.length) {
+        const report = await Templates.renderForPromise('local_groupdist/preview_rulereport', {
+            rules: data.rulereport,
+        });
+        Templates.replaceNodeContents(reportregion, report.html, report.js);
+    } else {
+        reportregion.textContent = '';
+    }
+
     state.fingerprint = data.fingerprint;
     document.querySelectorAll(SELECTORS.FINGERPRINT).forEach((input) => {
         input.value = data.fingerprint;
@@ -144,7 +155,10 @@ const loadPage = async(root) => {
         state.shownmax = data.shownmax;
         state.offset += data.groups.length;
 
-        const {html, js} = await Templates.renderForPromise('local_groupdist/preview_groups', {groups: data.groups});
+        const {html, js} = await Templates.renderForPromise('local_groupdist/preview_groups', {
+            groups: data.groups,
+            locationlabel: data.locationlabel,
+        });
         Templates.appendNodeContents(groupsregion, html, js);
 
         const counter = root.querySelector(SELECTORS.COUNTER);

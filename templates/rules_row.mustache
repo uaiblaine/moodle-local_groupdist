@@ -1,0 +1,139 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_groupdist/rules_row
+
+    One affinity rule row, rendered by the local_groupdist/rules AMD module.
+    The type select decides the second control: a field select, a cohort
+    select, or — in search mode — a cohort search box whose suggestions the
+    AMD module fills from the search web service. The priority number, labels
+    and button titles carry the 1-based index; the connector chip appears on
+    every row after the first.
+
+    Context variables required for this template:
+    * index - 1-based position (priority)
+    * isapart - whether the current mode is keep-apart (row accent)
+    * notfirst - whether the connector row is shown
+    * isfirst / islast - disable the up/down buttons at the edges
+    * iscohort - whether the cohort type is selected
+    * cohortsearch - whether the cohort picker is a search box
+    * cohortlabel / cohortquery - current pick and query for search mode
+    * fields / cohorts - options for the second select (value, label, selected)
+    * together / apart - selected flags for the mode select
+
+    Example context (json):
+    {
+        "index": 2,
+        "isapart": true,
+        "notfirst": true,
+        "isfirst": false,
+        "islast": true,
+        "iscohort": true,
+        "cohortsearch": false,
+        "cohortlabel": "",
+        "cohortquery": "",
+        "together": false,
+        "apart": true,
+        "fields": [
+            {"value": "city", "label": "City", "selected": false}
+        ],
+        "cohorts": [
+            {"value": "cohort_7", "label": "Managers", "selected": true}
+        ]
+    }
+}}
+{{#notfirst}}
+<div class="local-groupdist-ruleconnector small text-muted" aria-hidden="true">
+    <span class="badge bg-light text-dark border fw-normal">{{#str}} ruleconnector, local_groupdist {{/str}}</span>
+</div>
+{{/notfirst}}
+<div class="local-groupdist-rule d-flex flex-wrap align-items-center gap-2 border rounded p-2 {{#isapart}}local-groupdist-rule-apart{{/isapart}}"
+    data-region="rule"
+    draggable="true">
+    <span class="local-groupdist-rulegrip text-muted" aria-hidden="true">⠿</span>
+    <span class="local-groupdist-ruleprio badge rounded-pill {{#isapart}}text-bg-warning{{/isapart}}{{^isapart}}text-bg-success{{/isapart}}">{{index}}</span>
+    <label class="visually-hidden" for="local-groupdist-ruletype-{{index}}">
+        {{#str}} ruletypelabel, local_groupdist, {{index}} {{/str}}
+    </label>
+    <select id="local-groupdist-ruletype-{{index}}" class="form-select form-select-sm w-auto" data-action="kind">
+        <option value="field" {{^iscohort}}selected{{/iscohort}}>{{#str}} ruletypefield, local_groupdist {{/str}}</option>
+        <option value="cohort" {{#iscohort}}selected{{/iscohort}}>{{#str}} ruletypecohort, local_groupdist {{/str}}</option>
+    </select>
+    {{^iscohort}}
+    <label class="visually-hidden" for="local-groupdist-rulefield-{{index}}">
+        {{#str}} rulefieldlabel, local_groupdist, {{index}} {{/str}}
+    </label>
+    <select id="local-groupdist-rulefield-{{index}}" class="form-select form-select-sm w-auto flex-grow-1"
+            data-action="source">
+        <option value="">{{#str}} rulechoosefield, local_groupdist {{/str}}</option>
+        {{#fields}}
+        <option value="{{value}}" {{#selected}}selected{{/selected}}>{{label}}</option>
+        {{/fields}}
+    </select>
+    {{/iscohort}}
+    {{#iscohort}}
+    {{^cohortsearch}}
+    <label class="visually-hidden" for="local-groupdist-rulecohort-{{index}}">
+        {{#str}} rulecohortlabel, local_groupdist, {{index}} {{/str}}
+    </label>
+    <select id="local-groupdist-rulecohort-{{index}}" class="form-select form-select-sm w-auto flex-grow-1"
+            data-action="source">
+        <option value="">{{#str}} rulechoosecohort, local_groupdist {{/str}}</option>
+        {{#cohorts}}
+        <option value="{{value}}" {{#selected}}selected{{/selected}}>{{label}}</option>
+        {{/cohorts}}
+    </select>
+    {{/cohortsearch}}
+    {{#cohortsearch}}
+    <span class="position-relative flex-grow-1 local-groupdist-cohortpick" data-region="cohortpick">
+        {{#cohortlabel}}
+        <span class="badge bg-light text-dark border fw-normal me-1" data-region="cohortchosen">{{.}}</span>
+        {{/cohortlabel}}
+        <label class="visually-hidden" for="local-groupdist-rulecohortsearch-{{index}}">
+            {{#str}} rulecohortsearchlabel, local_groupdist, {{index}} {{/str}}
+        </label>
+        <input type="text" id="local-groupdist-rulecohortsearch-{{index}}"
+               class="form-control form-control-sm d-inline-block w-auto"
+               data-action="cohortsearch" autocomplete="off"
+               placeholder="{{#str}} rulechoosecohort, local_groupdist {{/str}}" value="{{cohortquery}}">
+        <span class="list-group position-absolute local-groupdist-cohortresults" data-region="cohortresults"
+              role="listbox" hidden></span>
+    </span>
+    {{/cohortsearch}}
+    {{/iscohort}}
+    <label class="visually-hidden" for="local-groupdist-rulemode-{{index}}">
+        {{#str}} rulemodelabel, local_groupdist, {{index}} {{/str}}
+    </label>
+    <select id="local-groupdist-rulemode-{{index}}" class="form-select form-select-sm w-auto" data-action="mode">
+        <option value="together" {{#together}}selected{{/together}}>{{#str}} modetogether, local_groupdist {{/str}}</option>
+        <option value="apart" {{#apart}}selected{{/apart}}>{{#str}} modeapart, local_groupdist {{/str}}</option>
+    </select>
+    <span class="d-flex gap-1">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-action="moveup" {{#isfirst}}disabled{{/isfirst}}
+                aria-label="{{#str}} rulemoveup, local_groupdist, {{index}} {{/str}}">
+            <i class="fa fa-arrow-up" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-action="movedown" {{#islast}}disabled{{/islast}}
+                aria-label="{{#str}} rulemovedown, local_groupdist, {{index}} {{/str}}">
+            <i class="fa fa-arrow-down" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-action="delete"
+                aria-label="{{#str}} ruledelete, local_groupdist, {{index}} {{/str}}">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </span>
+</div>

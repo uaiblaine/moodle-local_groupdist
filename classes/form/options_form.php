@@ -39,6 +39,9 @@ require_once($CFG->dirroot . '/cohort/lib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class options_form extends \moodleform {
+    /** @var int Most cohorts shown as a plain menu; beyond it the picker becomes a search. */
+    public const COHORT_MENU_LIMIT = 10;
+
     /**
      * Form definition.
      *
@@ -86,6 +89,12 @@ class options_form extends \moodleform {
             $mform->addElement('checkbox', 'includeonlyactiveenrol', get_string('includeonlyactiveenrol', 'group'), '');
             $mform->addHelpButton('includeonlyactiveenrol', 'includeonlyactiveenrol', 'group');
             $mform->setDefault('includeonlyactiveenrol', 1);
+
+            $mform->addElement('checkbox', 'includefuture', get_string('includefutureenrol', 'local_groupdist'), '');
+            $mform->addHelpButton('includefuture', 'includefutureenrol', 'local_groupdist');
+            $mform->setDefault('includefuture', 0);
+            // Without the only-active filter, future enrolments are already in.
+            $mform->disabledIf('includefuture', 'includeonlyactiveenrol', 'notchecked');
         }
 
         // Section: allocation order.
@@ -100,43 +109,62 @@ class options_form extends \moodleform {
         $mform->addElement('select', 'allocateby', get_string('allocateby', 'group'), $allocateoptions);
         $mform->setDefault('allocateby', options::ALLOCATE_RANDOM);
 
-        // Section: affinity by profile field.
+        // Section: affinity rules. The builder is an AMD-driven widget whose
+        // rows post through the flattened affinityrulesources[]/modes[]
+        // hidden inputs (read back via options::rules_from_post()). Each row
+        // picks a type first (profile field or cohort); cohorts are a bounded
+        // list up to COHORT_MENU_LIMIT and a search beyond it — platforms can
+        // carry thousands, so they are never enumerated.
+        global $CFG, $OUTPUT, $PAGE;
+        require_once($CFG->dirroot . '/cohort/lib.php');
+
+        $fields = [];
+        foreach (profilefields::get_fields($context) as $value => $label) {
+            $fields[] = ['value' => $value, 'label' => $label];
+        }
+        $cohorts = [];
+        $cohortsearch = false;
+        $sample = cohort_get_available_cohorts($context, 0, 0, self::COHORT_MENU_LIMIT + 1);
+        if (count($sample) > self::COHORT_MENU_LIMIT) {
+            $cohortsearch = true;
+        } else {
+            foreach ($sample as $cohort) {
+                $cohorts[] = [
+                    'value' => 'cohort_' . (int) $cohort->id,
+                    'label' => format_string($cohort->name, true, [
+                        'context' => \core\context::instance_by_id($cohort->contextid),
+                    ]),
+                ];
+            }
+        }
+        $initialrules = [];
+        foreach (($this->_customdata['initialrules'] ?? []) as $rule) {
+            $initialrules[] = $rule + [
+                'label' => profilefields::get_label($rule['source'], $context),
+            ];
+        }
+
         $mform->addElement('header', 'affinityhdr', get_string('affinitysection', 'local_groupdist'));
         $mform->setExpanded('affinityhdr', true);
-        $mform->addElement(
-            'select',
-            'affinityfield',
-            get_string('affinityfield', 'local_groupdist'),
-            profilefields::get_available($context)
-        );
-        $mform->addHelpButton('affinityfield', 'affinityfield', 'local_groupdist');
-        $mform->setDefault('affinityfield', '');
+        $mform->addElement('html', $OUTPUT->render_from_template('local_groupdist/rules_builder', [
+            'fieldsjson' => json_encode($fields),
+            'cohortsjson' => json_encode($cohorts),
+            'cohortsearch' => $cohortsearch,
+            'courseid' => $courseid,
+            'rulesjson' => json_encode($initialrules),
+            'maxrules' => \local_groupdist\local\ruleset::DEFAULT_MAX_RULES,
+        ]));
+        $mform->addElement('static', 'affinityruleserr', '', '');
+        $PAGE->requires->js_call_amd('local_groupdist/rules', 'init');
 
-        $modes = [];
-        $modes[] = $mform->createElement(
-            'radio',
-            'affinitymode',
-            '',
-            get_string('affinitymodetogether', 'local_groupdist'),
-            options::AFFINITY_TOGETHER
-        );
-        $modes[] = $mform->createElement(
-            'radio',
-            'affinitymode',
-            '',
-            get_string('affinitymodeapart', 'local_groupdist'),
-            options::AFFINITY_APART
-        );
-        $mform->addGroup($modes, 'affinitymodegroup', get_string('affinitymode', 'local_groupdist'), '<br>', false);
-        $mform->addHelpButton('affinitymodegroup', 'affinitymode', 'local_groupdist');
-        $mform->setDefault('affinitymode', options::AFFINITY_TOGETHER);
-        $mform->disabledIf('affinitymodegroup', 'affinityfield', 'eq', '');
-
-        // Section: seats and overbooking.
+        // Section: seats and overbooking. Labels echo the field's STORED name
+        // (set once at provisioning time): a site provisioned in English shows
+        // "Seats" here even when the UI language is Portuguese.
+        $seatslabel = (string) $this->_customdata['seatslabel'];
         $mform->addElement('header', 'seatshdr', get_string('seatssection', 'local_groupdist'));
         $mform->setExpanded('seatshdr', true);
-        $mform->addElement('advcheckbox', 'useseats', get_string('useseats', 'local_groupdist'));
-        $mform->addHelpButton('useseats', 'useseats', 'local_groupdist');
+        $mform->addElement('advcheckbox', 'useseats', get_string('useseats', 'local_groupdist', $seatslabel));
+        $mform->addHelpButton('useseats', 'useseats', 'local_groupdist', '', false, $seatslabel);
         $mform->setDefault('useseats', 1);
 
         $mform->addElement('text', 'overbook', get_string('overbook', 'local_groupdist'), 'maxlength="2" size="4"');
@@ -146,7 +174,7 @@ class options_form extends \moodleform {
         $mform->disabledIf('overbook', 'useseats', 'notchecked');
 
         if ($noseats > 0) {
-            $a = (object) ['noseats' => $noseats, 'total' => count($groupids)];
+            $a = (object) ['noseats' => $noseats, 'total' => count($groupids), 'field' => $seatslabel];
             $mform->addElement('static', 'noseatsnote', '', get_string('noseatsnote', 'local_groupdist', $a));
         }
 
@@ -179,8 +207,22 @@ class options_form extends \moodleform {
         if (($data['overbook'] ?? 0) < 0 || ($data['overbook'] ?? 0) > 99) {
             $errors['overbook'] = get_string('erroroverbookrange', 'local_groupdist');
         }
-        if (!profilefields::is_allowed($data['affinityfield'] ?? '', $context)) {
-            $errors['affinityfield'] = get_string('invaliddata', 'error');
+
+        /* The builder's rows are not registered elements, so they arrive via
+           the flattened POST arrays instead of $data. Structural validation
+           (shape, duplicates, guardrail) and per-source authorization both
+           run here so a bad ruleset never reaches the preview. */
+        $rules = options::rules_from_post();
+        try {
+            $ruleset = \local_groupdist\local\ruleset::from_array($rules);
+            foreach ($ruleset->get_rules() as $rule) {
+                if (!profilefields::is_allowed($rule['source'], $context)) {
+                    $errors['affinityruleserr'] = get_string('invaliddata', 'error');
+                    break;
+                }
+            }
+        } catch (\moodle_exception $exception) {
+            $errors['affinityruleserr'] = get_string('invaliddata', 'error');
         }
         return $errors;
     }

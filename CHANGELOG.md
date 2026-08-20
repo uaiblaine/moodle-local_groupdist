@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Fixed
+
+- Group names and custom field labels are no longer escaped twice in the bulk
+  edit table. `bulkedit_page` formatted them with `format_string()`'s default
+  escaping and then handed them to Mustache double stashes, so a group called
+  "Ana & Bruno" read "Ana &amp;amp; Bruno" — and read correctly a moment later,
+  because `bulkedit.js` writes the refreshed row with `textContent` after the
+  settings modal saves. The same group, two spellings, depending on whether
+  the page had been reloaded. They are formatted `escape => false` now, which
+  is the rule the audit report already follows.
+
 ### Changed
 
 - The group settings modal on the bulk edit page now carries **every** element

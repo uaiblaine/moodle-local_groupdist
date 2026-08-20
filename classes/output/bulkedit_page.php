@@ -53,12 +53,34 @@ class bulkedit_page implements \renderable, \templatable {
     }
 
     /**
+     * Format a stored name for output, unescaped.
+     *
+     * Every consumer of this class's context arrays escapes for itself: the
+     * table renders through Mustache double stashes, and bulkedit.js writes
+     * the same values with textContent after the settings modal saves. Leaving
+     * format_string's default escaping on would encode them a second time, so
+     * a group called "Ana & Bruno" reads "Ana &amp;amp; Bruno" on the page and
+     * "Ana &amp; Bruno" once the modal has refreshed the row — the same group,
+     * two spellings. Same rule as the audit report; see auditreader.
+     *
+     * @param string $text The stored name.
+     * @param \core\context $context The context to format in.
+     * @return string The formatted name, not HTML-escaped.
+     */
+    protected static function plain(string $text, \core\context $context): string {
+        return format_string($text, true, ['context' => $context, 'escape' => false]);
+    }
+
+    /**
      * Column metadata for every group custom field on the site.
      *
      * @return array List of column descriptors (key, shortname, label, type
      *   flags, select options).
      */
     public static function get_field_columns(): array {
+        /* Group custom fields are defined site-wide: group_handler's own
+           get_configuration_context() is the system context. */
+        $fieldcontext = \core\context\system::instance();
         $columns = [];
         foreach (group_handler::create()->get_fields() as $field) {
             $type = $field->get('type');
@@ -67,13 +89,13 @@ class bulkedit_page implements \renderable, \templatable {
                 $raw = (string) $field->get_configdata_property('options');
                 foreach (preg_split('/\s*\n\s*/', trim($raw)) as $index => $label) {
                     // Select custom fields store the 1-based option index.
-                    $options[] = ['value' => $index + 1, 'label' => format_string($label)];
+                    $options[] = ['value' => $index + 1, 'label' => self::plain($label, $fieldcontext)];
                 }
             }
             $columns[] = [
                 'key' => 'cf_' . $field->get('shortname'),
                 'shortname' => $field->get('shortname'),
-                'label' => format_string($field->get('name')),
+                'label' => self::plain($field->get('name'), $fieldcontext),
                 'isseats' => $field->get('shortname') === fields::SHORTNAME_SEATS,
                 'isnumber' => $type === 'number',
                 'istext' => $type === 'text',
@@ -144,12 +166,13 @@ class bulkedit_page implements \renderable, \templatable {
 
         $over = ($seats !== null && $members > $seats) ? $members - $seats : 0;
         $pictureurl = get_group_picture_url($group, $group->courseid, false);
+        $name = self::plain($group->name, \core\context\course::instance($group->courseid));
         return [
             'groupid' => (int) $group->id,
-            'name' => format_string($group->name),
+            'name' => $name,
             'idnumber' => (string) $group->idnumber,
             'pictureurl' => $pictureurl ? $pictureurl->out(false) : '',
-            'initial' => mb_strtoupper(mb_substr(format_string($group->name), 0, 1)),
+            'initial' => mb_strtoupper(mb_substr($name, 0, 1)),
             'members' => $members,
             'over' => $over,
             'isover' => $over > 0,

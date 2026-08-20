@@ -8,6 +8,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- One participant could break the whole distribution preview. Affinity values
+  reached the payload straight from `{user_info_data}` with no `format_string()`
+  anywhere on the path, into return fields declared `PARAM_TEXT`, whose cleaner
+  runs `strip_tags()`; `validate_param()` then throws because the cleaned string
+  differs from the original, and the exception surfaces through
+  `Notification.exception` — so every page of the preview failed for everyone,
+  not just the row at fault. Reproduced before fixing, and the reproduction is
+  now three tests.
+- The vector is narrower than "any profile field" and worth naming, because it
+  is the one that will come back: a **textarea** custom profile field. The
+  standard fields self-sanitise — `user_update_user()` puts city, department
+  and institution through `core_user::clean_field()` with `PARAM_TEXT` — but
+  `profile_field_textarea` declares `PARAM_RAW`, with its own comment reading
+  "We MUST clean this before display!", and `profilefields::get_fields()`
+  offers every custom field whatever its datatype. So a value holding `<3`,
+  `<TI>` or real markup was reachable through ordinary use.
+- The values now go through one `display_value()` helper that resolves the
+  mapped sources (country, cohort) and otherwise formats the stored text with
+  `escape => false` — stripping the markup, which is what makes it passable
+  through `PARAM_TEXT`, without reintroducing the double-escaping fixed above.
+  `format_string()` strips tags in both escape modes, so the two fixes do not
+  fight. This is the treatment `auditreader::display_value()` has always
+  applied, which is exactly why the audit report was never affected.
+- The group location travels through the same `PARAM_TEXT` field and is now
+  formatted with it. That one is defence in depth rather than a fixed crash:
+  `customfield_data` declares `charvalue` as `PARAM_TEXT`, so the persistent
+  refuses to store a location containing a bare `<` in the first place.
 - The seats and location field labels are no longer escaped twice either,
   finishing the sweep the bulk edit row fix started. Measured on 5.2 with a
   field named "Vagas & Lugares": the page carried `Vagas &amp;amp; Lugares`

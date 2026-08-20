@@ -196,7 +196,7 @@ class get_preview extends external_api {
                         continue;
                     }
                     $affinities[] = [
-                        'value' => $valuemaps[$i][$value] ?? $value,
+                        'value' => self::display_value($valuemaps, $i, $value, $context),
                         'apart' => ($rule['mode'] === options::AFFINITY_APART),
                     ];
                 }
@@ -234,7 +234,7 @@ class get_preview extends external_api {
                     $ok = count($counts) <= 1;
                     $single = $counts ? array_key_first($counts) : '';
                     $text = $ok
-                        ? (string) ($valuemaps[$i][$single] ?? $single)
+                        ? self::display_value($valuemaps, $i, (string) $single, $context)
                         : get_string('rulestatusvalues', 'local_groupdist', count($counts));
                 } else {
                     $repeats = 0;
@@ -258,7 +258,10 @@ class get_preview extends external_api {
             $groupspayload[] = [
                 'id' => $group['id'],
                 'name' => format_string($group['name'], true, ['context' => $context]),
-                'location' => (string) ($group['location'] ?? ''),
+                'location' => format_string((string) ($group['location'] ?? ''), true, [
+                    'context' => $context,
+                    'escape' => false,
+                ]),
                 'seats' => $seats ?? -1,
                 'current' => $group['current'],
                 'allocated' => count($allocated),
@@ -441,6 +444,35 @@ class get_preview extends external_api {
     }
 
     /**
+     * One affinity value as the preview should show it.
+     *
+     * A mapped source (country, cohort) resolves to its label; anything else
+     * is arbitrary stored profile text. A textarea custom profile field
+     * declares PARAM_RAW — its own class comment says "We MUST clean this
+     * before display!" — and profilefields::get_fields() offers every custom
+     * field whatever its datatype, so the value can hold markup. Passing it
+     * through format_string() strips that, which is also what keeps it
+     * passable through this web service's PARAM_TEXT return fields: their
+     * cleaner runs strip_tags(), and validate_param() throws when that changes
+     * the string, so one participant whose value held a bare "<" used to fail
+     * every page of the preview for everyone. escape => false because every
+     * consumer renders it escaped already. Same treatment, same reason, as
+     * auditreader::display_value().
+     *
+     * @param array $valuemaps Maps from {@see build_value_maps()}.
+     * @param int $ruleindex Position of the rule in the ruleset.
+     * @param string $value The raw stored value.
+     * @param \core\context\course $context The course context.
+     * @return string The display text, safe for a PARAM_TEXT field.
+     */
+    private static function display_value(array $valuemaps, int $ruleindex, string $value, \core\context\course $context): string {
+        if (isset($valuemaps[$ruleindex][$value])) {
+            return (string) $valuemaps[$ruleindex][$value];
+        }
+        return format_string($value, true, ['context' => $context, 'escape' => false]);
+    }
+
+    /**
      * Global per-rule report: value clusters, destinations and trouble flags.
      *
      * Computed over the full allocation (not the paged window), so it is the
@@ -513,7 +545,7 @@ class get_preview extends external_api {
                     $flagtext = get_string('rulereportsplit', 'local_groupdist', count($names));
                 }
                 $entries[] = [
-                    'value' => (string) ($valuemaps[$i][$value] ?? $value),
+                    'value' => self::display_value($valuemaps, $i, (string) $value, $context),
                     'count' => $bucket['count'],
                     'groups' => $groupstext,
                     'flagtext' => $flagtext,
@@ -570,15 +602,16 @@ class get_preview extends external_api {
                     $message = get_string('warningunassigned', 'local_groupdist', $count);
                     break;
                 case allocator::WARNING_SPLIT:
+                    $splitrule = (int) ($warning['rule'] ?? 0);
                     $message = get_string('warningsplit', 'local_groupdist', (object) [
-                        'value' => $warning['value'],
+                        'value' => self::display_value($valuemaps, $splitrule, (string) $warning['value'], $context),
                         'count' => $count,
                     ]);
                     break;
                 case allocator::WARNING_APART:
                     $rawvalue = (string) $warning['value'];
                     $message = get_string('warningapart', 'local_groupdist', (object) [
-                        'value' => $valuemaps[$warning['rule']][$rawvalue] ?? $rawvalue,
+                        'value' => self::display_value($valuemaps, (int) $warning['rule'], $rawvalue, $context),
                         'field' => $rulelabel($warning),
                         'count' => $count,
                     ]);

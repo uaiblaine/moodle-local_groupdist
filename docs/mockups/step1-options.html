@@ -1,4 +1,4 @@
-<title>Protótipo — Distribuir participantes (opções)</title>
+<title>Prototype — Distribute participants (options)</title>
 <style>
   /* ── Tokens: same system as the preview prototype ─────────────────── */
   :root {
@@ -174,32 +174,53 @@
   .btn.primary:hover { filter: brightness(1.08); }
   .btn.link { border: none; background: none; color: var(--brand); }
   .btn.link:hover { text-decoration: underline; background: none; }
+
+  /* Affinity rule list (static representation of the builder). */
+  .rulelist { display: flex; flex-direction: column; gap: .1rem; }
+  .rulerow {
+    display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+    border: 1px solid var(--line); border-left: 3px solid var(--ok);
+    border-radius: var(--radius); background: var(--surface); padding: .4rem .5rem;
+  }
+  .rulerow.apart { border-left-color: #b8860b; }
+  .rulerow .prio {
+    display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem;
+    border-radius: 999px; background: var(--chip-bg); font-size: .75rem; font-weight: 700;
+  }
+  .rulerow .grip { cursor: grab; color: var(--ink-2); }
+  .rulerow .rmv { border: 0; background: none; color: var(--ink-2); cursor: pointer; margin-left: auto; }
+  .ruleand { padding-left: 2.2rem; margin: .15rem 0; font-size: .78rem; color: var(--ink-2); }
+  .ruleand .e { font-weight: 700; color: var(--ink); margin-right: .3rem; }
+  .addrule {
+    margin-top: .4rem; border: 1px dashed var(--line); background: none; color: var(--brand);
+    border-radius: var(--radius); padding: .3rem .6rem; cursor: pointer; font-size: .85rem;
+  }
 </style>
 
 <div class="wrap">
-  <nav class="crumbs" aria-label="Localização">
-    <a href="#">Engenharia de Software — 2026.2</a> ›
-    <a href="#">Participantes</a> ›
-    <a href="#">Grupos</a> ›
-    <span>Distribuir participantes</span>
+  <nav class="crumbs" aria-label="Location">
+    <a href="#">Software Engineering — 2026.2</a> ›
+    <a href="#">Participants</a> ›
+    <a href="#">Groups</a> ›
+    <span>Distribute participants</span>
   </nav>
-  <h1>Distribuir participantes</h1>
-  <p class="lede">Etapa 1 de 2 — <strong>opções da distribuição</strong>. Nada é gravado nesta etapa; a próxima tela mostra a pré-visualização.</p>
+  <h1>Distribute participants</h1>
+  <p class="lede">Step 1 of 2 — <strong>distribution options</strong>. Nothing is written in this step; the next screen shows the preview.</p>
 
   <div class="proto-banner">
-    <span class="tag">Protótipo</span>
-    <span>Mockup da tela de opções (formulário moodleform). A barra inferior representa o <code>\core\output\sticky_footer</code> do core. Os controles de Afinidade e Vagas habilitam/desabilitam conforme a seleção — experimente.</span>
+    <span class="tag">Prototype</span>
+    <span>Mockup of the options screen (a moodleform). The bottom bar stands for core's <code>\core\output\sticky_footer</code> . The Affinity and Seats controls enable and disable with the selection — try them.</span>
   </div>
 
   <section class="card selgroups" aria-labelledby="sel-h">
-    <h2 id="sel-h">Grupos selecionados (42)</h2>
+    <h2 id="sel-h">Selected groups (42)</h2>
     <div class="chips">
-      <span class="chip">Grupo 01</span><span class="chip">Grupo 02</span><span class="chip">Grupo 03</span>
-      <span class="chip">Grupo 04</span><span class="chip">Grupo 05</span><span class="chip">Grupo 06</span>
-      <span class="chip">Grupo 07</span><span class="chip">Grupo 08</span>
-      <span class="chip count">+34 grupos</span>
+      <span class="chip">Group 01</span><span class="chip">Group 02</span><span class="chip">Group 03</span>
+      <span class="chip">Group 04</span><span class="chip">Group 05</span><span class="chip">Group 06</span>
+      <span class="chip">Group 07</span><span class="chip">Group 08</span>
+      <span class="chip count">+34 groups</span>
     </div>
-    <p class="hint">A seleção vem da página de grupos do curso. Para mudar os grupos, volte e selecione novamente.</p>
+    <p class="hint">The selection comes from the course groups page. To change the groups, go back and select again.</p>
   </section>
 
   <form class="mform" onsubmit="return false">
@@ -208,24 +229,24 @@
     </div>
 
     <fieldset id="fs-members">
-      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Membros <span class="badge">2 filtros ativos</span></button></legend>
+      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Members <span class="badge">2 filtros ativos</span></button></legend>
       <div class="fbody">
         <div class="frow">
-          <div class="flabel"><label for="roleid">Selecionar membros com o papel</label><span class="help" title="Somente usuários com este papel no curso entram na distribuição.">?</span></div>
+          <div class="flabel"><label for="roleid">Select members from role</label><span class="help" title="Only users holding this role in the course take part in the distribution.">?</span></div>
           <div class="ffield">
             <select id="roleid">
               <option selected>Estudante</option>
-              <option>Todos os papéis</option>
+              <option>All roles</option>
               <option>Moderador</option>
               <option>Professor</option>
             </select>
           </div>
         </div>
         <div class="frow">
-          <div class="flabel"><label for="cohortid">Selecionar membros da coorte</label><span class="help" title="Restringe a distribuição aos membros de uma coorte.">?</span></div>
+          <div class="flabel"><label for="cohortid">Select members from cohort</label><span class="help" title="Restricts the distribution to the members of one cohort.">?</span></div>
           <div class="ffield">
             <select id="cohortid">
-              <option>Todas</option>
+              <option>Any</option>
               <option selected>Ingressantes 2026</option>
               <option>Polo Sobral</option>
             </select>
@@ -234,93 +255,86 @@
         <div class="frow">
           <div class="flabel" aria-hidden="true"></div>
           <div class="ffield">
-            <label class="check"><input type="checkbox" checked> <span>Incluir apenas inscrições ativas
-              <span class="sub">Inscrições suspensas ou expiradas ficam de fora.</span></span></label>
-            <label class="check"><input type="checkbox" checked> <span>Ignorar usuários já em grupos
-              <span class="sub">Quem já pertence a algum dos grupos selecionados não é redistribuído.</span></span></label>
+            <label class="check"><input type="checkbox" id="onlyactive" checked> <span>Include only active enrolments
+              <span class="sub">Suspended or expired enrolments stay out.</span></span></label>
+            <label class="check"><input type="checkbox" id="includefuture"> <span>Include future-start enrolments
+              <span class="sub">Active enrolments whose start date still lies in the future take part — unlike suspended ones, which stay out. Only available to users who may see suspended enrolments.</span></span></label>
+            <label class="check"><input type="checkbox" checked> <span>Ignore users already in the selected groups
+              <span class="sub">When enabled, participants who already belong to one of the selected groups are not redistributed.</span></span></label>
           </div>
         </div>
       </div>
     </fieldset>
 
     <fieldset id="fs-alloc">
-      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Alocação</button></legend>
+      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Allocation</button></legend>
       <div class="fbody">
         <div class="frow">
-          <div class="flabel"><label for="allocateby">Alocar membros</label><span class="help" title="Define a ordem em que os participantes são distribuídos entre os grupos.">?</span></div>
+          <div class="flabel"><label for="allocateby">Allocate members</label><span class="help" title="Sets the order in which participants are handed out to the groups.">?</span></div>
           <div class="ffield">
             <select id="allocateby">
-              <option selected>Aleatoriamente</option>
-              <option>Alfabeticamente por nome, sobrenome</option>
-              <option>Alfabeticamente por sobrenome, nome</option>
-              <option>Alfabeticamente por número de identificação (ID)</option>
+              <option selected>Randomly</option>
+              <option>Alphabetically by first name, last name</option>
+              <option>Alphabetically by last name, first name</option>
+              <option>Alphabetically by ID number</option>
             </select>
-          </div>
-        </div>
-        <div class="frow">
-          <div class="flabel" aria-hidden="true"></div>
-          <div class="ffield">
-            <label class="check"><input type="checkbox"> <span>Evitar último grupo pequeno
-              <span class="sub">Redistribui a sobra para não deixar um grupo com poucos membros. Sem efeito quando "Respeitar vagas" está ativo.</span></span></label>
           </div>
         </div>
       </div>
     </fieldset>
 
     <fieldset id="fs-affinity">
-      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Afinidade por campo de perfil <span class="badge on" id="aff-badge">Cidade · manter juntos</span></button></legend>
+      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Affinity <span class="badge on" id="aff-badge">2 rules</span></button></legend>
       <div class="fbody">
         <div class="frow">
-          <div class="flabel"><label for="afffield">Campo de perfil</label><span class="help" title="Campos nativos do usuário e campos de perfil personalizados aparecem juntos nesta lista.">?</span></div>
+          <div class="flabel"><span>Affinity rules, in priority order</span><span class="help" title="Every rule applies at the same time (AND). The order sets the priority: when two rules cannot both hold, the one higher up wins.">?</span></div>
           <div class="ffield">
-            <select id="afffield">
-              <option value="">Não agrupar (padrão)</option>
-              <optgroup label="Campos nativos">
-                <option value="city" selected>Cidade</option>
-                <option value="department">Departamento</option>
-                <option value="institution">Instituição</option>
-                <option value="country">País</option>
-              </optgroup>
-              <optgroup label="Campos personalizados">
-                <option value="polo">Polo</option>
-                <option value="turno">Turno</option>
-              </optgroup>
-            </select>
-          </div>
-        </div>
-        <div class="frow">
-          <div class="flabel"><span>Estratégia</span><span class="help" title="Manter juntos: mesmo valor no campo, mesmo grupo. Manter separados: o algoritmo evita repetir o mesmo valor dentro de um grupo.">?</span></div>
-          <div class="ffield">
-            <div class="radios" id="affmode">
-              <label><input type="radio" name="affmode" checked> <span><b>Manter juntos</b> — participantes com o mesmo valor vão para o mesmo grupo</span></label>
-              <label><input type="radio" name="affmode"> <span><b>Manter separados</b> — evita participantes com o mesmo valor no mesmo grupo</span></label>
+            <div class="rulelist">
+              <div class="rulerow">
+                <span class="prio">1</span>
+                <span class="grip" aria-hidden="true">⠿</span>
+                <select aria-label="Rule 1 type"><option selected>Profile field</option><option>Cohort</option></select>
+                <select aria-label="Rule 1 field"><option selected>City</option><option>Department</option><option>Institution</option><option>Country</option></select>
+                <select aria-label="Rule 1 strategy"><option selected>Keep together</option><option>Keep apart</option></select>
+                <button type="button" class="rmv" aria-label="Remove rule 1">✕</button>
+              </div>
+              <div class="ruleand"><span class="e">AND</span><span class="etxt">also</span></div>
+              <div class="rulerow apart">
+                <span class="prio">2</span>
+                <span class="grip" aria-hidden="true">⠿</span>
+                <select aria-label="Rule 2 type"><option>Profile field</option><option selected>Cohort</option></select>
+                <select aria-label="Rule 2 cohort"><option selected>Cohort: Mentors</option><option>Cohort: 2026 intake</option></select>
+                <select aria-label="Rule 2 strategy"><option>Keep together</option><option selected>Keep apart</option></select>
+                <button type="button" class="rmv" aria-label="Remove rule 2">✕</button>
+              </div>
             </div>
-            <p class="fhint" id="affhint">Participantes sem valor em "Cidade" são alocados aleatoriamente e aparecem como aviso na pré-visualização.</p>
+            <button type="button" class="addrule">+ Add rule</button>
+            <p class="fhint">Participants with no value in a rule's source are allocated to balance the groups and are reported as a warning in the preview. The rule builder is prototyped in full, with drag reordering and the searchable cohort picker, in <a href="affinity-rules.html">affinity-rules.html</a>.</p>
           </div>
         </div>
       </div>
     </fieldset>
 
     <fieldset id="fs-seats">
-      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Vagas e overbooking <span class="badge on" id="seats-badge">ativo · +2</span></button></legend>
+      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Seats and overbooking <span class="badge on" id="seats-badge">on · +2</span></button></legend>
       <div class="fbody">
         <div class="frow">
           <div class="flabel" aria-hidden="true"></div>
           <div class="ffield">
-            <label class="check"><input type="checkbox" id="useseats" checked> <span>Respeitar o campo "Vagas" dos grupos
-              <span class="sub">Cada grupo recebe no máximo o número de participantes definido no seu campo "Vagas".</span></span></label>
+            <label class="check"><input type="checkbox" id="useseats" checked> <span>Respect the groups' "Seats" field
+              <span class="sub">Each group takes at most the number of participants set in its "Seats" field.</span></span></label>
           </div>
         </div>
         <div class="frow">
-          <div class="flabel"><label for="overbook">Overbooking por grupo</label><span class="help" title="Participantes extras permitidos além das vagas, por grupo, quando as vagas declaradas não bastam para todos.">?</span></div>
+          <div class="flabel"><label for="overbook">Overbooking per group</label><span class="help" title="Extra participants allowed beyond the declared seats, per group, when the declared seats are not enough for everyone.">?</span></div>
           <div class="ffield">
             <div class="inline">
               <input type="number" id="overbook" min="0" max="99" value="2">
-              <span class="unit">participantes além das vagas (0 = desativado)</span>
+              <span class="unit">participants beyond the seats (0 = off)</span>
             </div>
             <div class="fnote" id="seatsnote">
               <span aria-hidden="true">!</span>
-              <span>3 dos 42 grupos selecionados não têm "Vagas" definido — serão tratados como <b>sem limite</b>. <a href="#">Editar campos dos grupos</a></span>
+              <span>3 of the 42 selected groups have no "Seats" value — they are treated as <b>unlimited</b>. <a href="#">Bulk edit groups</a></span>
             </div>
           </div>
         </div>
@@ -331,9 +345,9 @@
 
 <div class="stickyfooter" id="sticky-footer">
   <div class="inner">
-    <a class="btn primary" href="step2-preview.html">Pré-visualizar distribuição</a>
-    <button class="btn link" type="button">Cancelar</button>
-    <span class="note">A distribuição só é gravada na próxima etapa, ao clicar em "Aplicar distribuição".</span>
+    <a class="btn primary" href="step2-preview.html">Preview distribution</a>
+    <button class="btn link" type="button">Cancel</button>
+    <span class="note">The distribution is only written in the next step, when you click "Apply distribution".</span>
   </div>
 </div>
 
@@ -376,12 +390,12 @@
     affmode.querySelectorAll('input').forEach(r => { r.disabled = off; });
     const label = afffield.selectedOptions[0].textContent;
     if (off) {
-      affhint.textContent = 'Escolha um campo para ativar a estratégia de afinidade.';
+      affhint.textContent = 'Add at least one rule to constrain the distribution.';
       affbadge.textContent = 'inativo';
       affbadge.classList.remove('on');
     } else {
       const together = affmode.querySelector('input').checked;
-      affhint.textContent = `Participantes sem valor em "${label}" são alocados aleatoriamente e aparecem como aviso na pré-visualização.`;
+      affhint.textContent = `Participants with no value in "${label}" are allocated to balance the groups and are reported as a warning in the preview.`;
       affbadge.textContent = `${label} · ${together ? 'manter juntos' : 'manter separados'}`;
       affbadge.classList.add('on');
     }

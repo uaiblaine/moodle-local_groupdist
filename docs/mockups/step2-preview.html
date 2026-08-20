@@ -1,4 +1,4 @@
-<title>Protótipo — Distribuir participantes (preview)</title>
+<title>Prototype — Distribute participants (preview)</title>
 <style>
   /* ── Tokens: Moodle Boost vernacular, both themes ─────────────────── */
   :root {
@@ -178,73 +178,94 @@
     display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
   }
   .actionbar .note { font-size: .78rem; color: var(--ink-2); margin-left: auto; max-width: 26rem; }
+
+  /* Rule priority pills, per-rule card footer and the rules report. */
+  .rp { display: inline-grid; place-items: center; width: 1.05rem; height: 1.05rem; border-radius: 999px;
+        font-size: .68rem; font-weight: 700; color: #fff; margin-right: .25rem; }
+  .rp.ok { background: var(--ok); }
+  .rp.apart { background: #b8860b; }
+  .fv.apartv { background: var(--warn-bg); color: var(--warn-ink); }
+  .rulestatus { display: flex; flex-wrap: wrap; gap: .9rem; border-top: 1px solid var(--line);
+                margin-top: .6rem; padding-top: .5rem; font-size: .78rem; color: var(--ink-2); }
+  .rulestatus .tick { margin-right: .15rem; }
+  .rulestatus .tick.ok { color: var(--ok); }
+  .rulestatus .tick.warn { color: var(--warn-ink); }
+  .rulereport summary { cursor: pointer; font-weight: 600; }
+  .rulereport table { width: 100%; border-collapse: collapse; font-size: .82rem; margin-top: .5rem; }
+  .rulereport th, .rulereport td { text-align: left; padding: .3rem .5rem; border-bottom: 1px solid var(--line); }
+
+  /* Explanatory notes live in the page, never in the sticky footer:
+     that footer carries action buttons only. */
+  .footnote { max-width: 60rem; margin: 1rem auto 5.5rem; padding: 0 1rem;
+              color: var(--ink-2); font-size: .85rem; }
 </style>
 
 <div class="wrap">
-  <nav class="crumbs" aria-label="Localização">
-    <a href="#">Engenharia de Software — 2026.2</a> ›
-    <a href="#">Participantes</a> ›
-    <a href="#">Grupos</a> ›
-    <span>Distribuir participantes</span>
+  <nav class="crumbs" aria-label="Location">
+    <a href="#">Software Engineering — 2026.2</a> ›
+    <a href="#">Participants</a> ›
+    <a href="#">Groups</a> ›
+    <span>Distribute participants</span>
   </nav>
-  <h1>Distribuir participantes</h1>
-  <p class="lede">Pré-visualização da distribuição em <strong>42 grupos selecionados</strong>. Nada foi gravado ainda — a distribuição só é aplicada ao confirmar.</p>
+  <h1>Distribute participants</h1>
+  <p class="lede">Preview of the distribution into <strong>42 selected groups</strong>. Nothing has been saved yet — memberships are only written when you apply.</p>
 
   <div class="proto-banner">
-    <span class="tag">Protótipo</span>
-    <span>Mockup navegável da etapa 2 (preview) do fluxo do plugin. Os dados são fictícios; o botão "Mostrar mais grupos" simula o carregamento via web service (lote de 5, teto de 25). A barra inferior representa o <code>\core\output\sticky_footer</code> do core. <a href="step1-options.html">Ver etapa 1 — opções</a>.</span>
+    <span class="tag">Prototype</span>
+    <span>Navigable mockup of step 2 (preview). The data is fictitious; the "Show more groups" button simulates loading through the web service (pages of 5, capped at 25). The bottom bar stands for core's <code>\core\output\sticky_footer</code> . <a href="step1-options.html">See step 1 — options</a>.</span>
   </div>
 
   <section class="card recap" aria-labelledby="recap-h">
     <div class="recap-head">
-      <h2 id="recap-h">Opções escolhidas</h2>
-      <button class="btn link" type="button">Ajustar opções</button>
+      <h2 id="recap-h">Chosen options</h2>
+      <button class="btn link" type="button">Back and adjust</button>
     </div>
     <dl>
-      <dt>Origem dos membros</dt>
-      <dd><span class="chip">Papel: Estudante</span><span class="chip">Coorte: Ingressantes 2026</span><span class="chip on">Apenas inscrições ativas</span></dd>
-      <dt>Alocação</dt>
-      <dd><span class="chip">Aleatória</span><span class="chip on">Ignorar quem já está em grupos</span></dd>
-      <dt>Afinidade</dt>
-      <dd><span class="chip">Agrupar por campo de perfil: <b>Cidade</b></span></dd>
-      <dt>Vagas</dt>
-      <dd><span class="chip on">Respeitar campo "Vagas" do grupo</span><span class="chip">Overbooking: até +2 por grupo</span></dd>
+      <dt>Group members</dt>
+      <dd><span class="chip">Role: Student</span><span class="chip">Cohort: 2026 intake</span><span class="chip on">Only active enrolments</span></dd>
+      <dt>Allocation</dt>
+      <dd><span class="chip">Random</span><span class="chip on">Ignore users already in the selected groups</span></dd>
+      <dt>Affinity</dt>
+      <dd><span class="chip"><span class="rp ok">1</span> Keep together: <b>City</b></span><span class="chip"><span class="rp apart">2</span> Keep apart: <b>Cohort: Mentors</b></span></dd>
+      <dt>Seats</dt>
+      <dd><span class="chip on">Respect the group "Seats" field</span><span class="chip">Overbooking: up to +2 per group</span></dd>
     </dl>
   </section>
 
-  <section class="stats" aria-label="Resumo da distribuição">
-    <div class="card stat"><div class="n">487</div><div class="l">participantes a distribuir</div></div>
-    <div class="card stat"><div class="n">42</div><div class="l">grupos selecionados</div></div>
-    <div class="card stat"><div class="n">11,6</div><div class="l">média por grupo</div></div>
-    <div class="card stat"><div class="n">476 <small>+84</small></div><div class="l">vagas declaradas + overbooking</div></div>
-    <div class="card stat attn"><div class="n">2</div><div class="l">avisos</div></div>
+  <section class="stats" aria-label="Distribution summary">
+    <div class="card stat"><div class="n">487</div><div class="l">participants to distribute</div></div>
+    <div class="card stat"><div class="n">42</div><div class="l">selected groups</div></div>
+    <div class="card stat"><div class="n">11.6</div><div class="l">average per group</div></div>
+    <div class="card stat"><div class="n">476 <small>+84</small></div><div class="l">declared seats + overbooking</div></div>
+    <div class="card stat attn"><div class="n">2</div><div class="l">warnings</div></div>
   </section>
 
-  <section aria-label="Avisos">
+  <section aria-label="Warnings">
     <div class="alert warn"><span class="ico" aria-hidden="true">!</span>
-      <span><b>3 grupos ficariam acima das vagas declaradas.</b> 7 participantes serão acomodados pelo overbooking (+2 por grupo). Sem o overbooking, sobrariam 7 participantes sem grupo.</span></div>
+      <span><b>3 groups would end up above their declared seats.</b> 7 participants are taken by the overbooking allowance (+2 per group). Without it, 7 participants would be left without a group.</span></div>
     <div class="alert info"><span class="ico" aria-hidden="true">i</span>
-      <span><b>12 participantes não têm valor no campo "Cidade".</b> Eles foram alocados aleatoriamente, ignorando a regra de afinidade.</span></div>
+      <span><b>12 participants have no value in "City".</b> They were allocated to balance the groups instead.</span></div>
   </section>
 
   <section aria-labelledby="groups-h">
     <div class="recap-head" style="margin-bottom:.6rem">
-      <h2 id="groups-h">Amostra da distribuição <span style="font-weight:400;text-transform:none;letter-spacing:0">— 5 participantes por grupo; <b style="color:var(--ok)">novo</b> = entraria no grupo agora</span></h2>
+      <h2 id="groups-h">Distribution sample <span style="font-weight:400;text-transform:none;letter-spacing:0">— up to 5 participants per group; <b style="color:var(--ok)">New</b> = this run would add them</span></h2>
     </div>
     <div id="grouplist"></div>
     <div class="loadrow" id="loadrow">
-      <button class="btn" type="button" id="loadmore">Mostrar mais 5 grupos</button>
+      <button class="btn" type="button" id="loadmore">Show more groups</button>
       <span class="counter" id="counter"></span>
     </div>
   </section>
 </div>
 
+<p class="footnote">Nothing is saved until you apply. Large runs are applied in the background and show a progress bar: above ~2,000 memberships the apply becomes an adhoc task, and you are notified when it finishes.</p>
+
 <div class="actionbar">
   <div class="inner">
-    <button class="btn primary" type="button">Aplicar distribuição</button>
-    <a class="btn" href="step1-options.html" style="text-decoration:none">Voltar e ajustar</a>
-    <button class="btn link" type="button">Cancelar</button>
-    <span class="note">Acima de ~2.000 inscrições a aplicação roda em segundo plano (tarefa ad-hoc) e você é avisado ao concluir.</span>
+    <button class="btn primary" type="button">Apply distribution</button>
+    <a class="btn" href="step1-options.html" style="text-decoration:none">Back and adjust</a>
+    <button class="btn" type="button">Cancel</button>
   </div>
 </div>
 
@@ -260,7 +281,7 @@
   const FIRST = ['Ana','Bruno','Camila','Diego','Elisa','Felipe','Gabriela','Heitor','Isabela','João','Karina','Lucas','Mariana','Nicolas','Olívia','Paulo','Rafaela','Samuel','Tainá','Vitor','Yasmin','Caio','Larissa','Mateus','Beatriz'];
   const LAST = ['Silva','Santos','Oliveira','Souza','Lima','Pereira','Costa','Almeida','Nascimento','Carvalho','Araújo','Ribeiro','Monteiro','Barbosa','Rocha','Teixeira'];
   const CITY = ['Fortaleza','Sobral','Juazeiro do Norte','Crato','Quixadá','Itapipoca'];
-  const LOCAL = ['Sala 101','Sala 102','Lab. de Informática 1','Lab. de Informática 2','Auditório B','Sala 204','Lab. de Redes','Sala 310'];
+  const LOCAL = ['Room 101','Room 102','Computer lab 1','Computer lab 2','Auditorium B','Room 204','Networking lab','Room 310'];
 
   const groups = Array.from({ length: TOTAL_GROUPS }, (_, i) => {
     const seats = 8 + Math.floor(rnd() * 8);              // 8..15
@@ -270,9 +291,17 @@
     const members = Array.from({ length: 5 }, () => ({
       name: pick(FIRST) + ' ' + pick(LAST) + ' ' + pick(LAST),
       city: rnd() < 0.86 ? city : pick(CITY),
+      // Rule 2 is keep-apart on a cohort, so at most one holder per group is clean.
+      cohort: rnd() < 0.18,
+      // The "include future-start enrolments" option surfaces as a date badge.
+      starts: rnd() < 0.07 ? '01 Sep' : null,
       isnew: rnd() < 0.8,
     }));
-    return { name: 'Grupo ' + String(i + 1).padStart(2, '0'), local: pick(LOCAL), seats, alloc, members };
+    const repeats = Math.max(0, members.filter(m => m.cohort).length - 1);
+    return {
+      name: 'Group ' + String(i + 1).padStart(2, '0'),
+      local: pick(LOCAL), seats, alloc, members, city, repeats,
+    };
   });
 
   const list = document.getElementById('grouplist');
@@ -289,29 +318,34 @@
     const denom = g.seats + Math.max(over, 0) || 1;
     const fillCls = over > 0 || inside === g.seats ? 'fill full' : 'fill';
     const capTxt = over > 0
-      ? `<b>${g.alloc}</b> / ${g.seats} vagas <span class="over">(+${over} overbooking)</span>`
-      : `<b>${g.alloc}</b> / ${g.seats} vagas`;
+      ? `<b>${g.alloc}</b> / ${g.seats} seats <span class="over">(+${over} overbooking)</span>`
+      : `<b>${g.alloc}</b> / ${g.seats} seats`;
     const rows = g.members.map(m => `
       <li><span class="avatar" aria-hidden="true">${initials(m.name)}</span>
         <span class="nm">${m.name}</span>
-        ${m.isnew ? '<span class="new">NOVO</span>' : ''}
-        <span class="fv">${m.city}</span></li>`).join('');
+        ${m.isnew ? '<span class="new">New</span>' : ''}
+        <span class="fv">${m.city}</span>${m.cohort ? '<span class="fv apartv">Cohort: Mentors</span>' : ''}${m.starts ? `<span class="fv">starts ${m.starts}</span>` : ''}</li>`).join('');
     const hidden = g.alloc - g.members.length;
     const el = document.createElement('article');
     el.className = 'card group';
     el.innerHTML = `
       <div class="g-head">
         <h3 class="g-name">${g.name}</h3>
-        <span class="g-local">Local: ${g.local}</span>
+        <span class="g-local">Location: ${g.local}</span>
         <span class="g-cap">${capTxt}</span>
       </div>
-      <div class="meter" role="img" aria-label="${g.alloc} de ${g.seats} vagas ocupadas">
+      <div class="meter" role="img" aria-label="${g.alloc} of ${g.seats} seats taken">
         <div class="${fillCls}" style="width:${(inside / denom) * 100}%"></div>
         ${over > 0 ? `<div class="spill" style="width:${(over / denom) * 100}%"></div>` : ''}
       </div>
       <ul class="members">${rows}
-        ${hidden > 0 ? `<li class="more">+ ${hidden} participante${hidden > 1 ? 's' : ''} não exibido${hidden > 1 ? 's' : ''} na amostra</li>` : ''}
-      </ul>`;
+        ${hidden > 0 ? `<li class="more">+ ${hidden} members not shown in the sample</li>` : ''}
+      </ul>
+      <div class="rulestatus">
+        <span><span class="tick ok">✓</span> R1 City: ${g.city}</span>
+        <span>${g.repeats ? `<span class="tick warn">⚠</span> R2 Cohort: Mentors: ${g.repeats} repeated`
+          : '<span class="tick ok">✓</span> R2 Cohort: Mentors'}</span>
+      </div>`;
     return el;
   }
 
@@ -324,15 +358,15 @@
   }
 
   function updateChrome() {
-    counter.textContent = `Exibindo ${shown} de ${TOTAL_GROUPS} grupos`;
+    counter.textContent = `Showing ${shown} of ${TOTAL_GROUPS} groups`;
     if (shown >= CAP) {
       btn.remove();
       const note = document.createElement('div');
       note.className = 'capnote';
-      note.textContent = `Pré-visualização limitada a ${CAP} grupos. A distribuição será aplicada aos ${TOTAL_GROUPS} grupos normalmente.`;
+      note.textContent = `The preview lists at most ${CAP} groups. The distribution still applies to all ${TOTAL_GROUPS} groups.`;
       loadrow.prepend(note);
     } else {
-      btn.textContent = `Mostrar mais ${Math.min(PAGE, CAP - shown)} grupos`;
+      btn.textContent = `Show more groups`;
     }
   }
 

@@ -1,4 +1,4 @@
-<title>Protótipo — Afinidade multi-regra (construtor + preview)</title>
+<title>Prototype — Multi-rule affinity (builder + preview)</title>
 <style>
   /* ── Tokens: same system as the approved step1/step2 prototypes ────── */
   :root {
@@ -306,42 +306,50 @@
 </style>
 
 <div class="wrap">
-  <nav class="crumbs" aria-label="Localização">
-    <a href="#">Engenharia de Software — 2026.2</a> ›
-    <a href="#">Participantes</a> ›
-    <a href="#">Grupos</a> ›
-    <span>Distribuir participantes</span>
+  <nav class="crumbs" aria-label="Location">
+    <a href="#">Software Engineering — 2026.2</a> ›
+    <a href="#">Participants</a> ›
+    <a href="#">Groups</a> ›
+    <span>Distribute participants</span>
   </nav>
-  <h1>Afinidade multi-regra — protótipo</h1>
-  <p class="lede">Quatro explorações: o <strong>construtor de regras</strong> (etapa 1, substitui a seção "Afinidade por campo de perfil"), as <strong>opções de inscrição dos membros</strong> (com a nova opção de início futuro e a regra "rodapé fixo só para ações"), <strong>três alternativas de explicabilidade no preview</strong> (etapa 2) e o <strong>log de auditoria</strong> com fotografia dos dados (feature nova — é onde a alternativa B vive).</p>
+  <h1>Multi-rule affinity — prototype</h1>
+  <p class="lede">Four explorations: the <strong>rule builder</strong> (step 1, replacing the old "Affinity by profile field" section), the <strong>member enrolment options</strong> (with the new future-start option and the "sticky footer carries actions only" rule), <strong>three explainability alternatives in the preview</strong> (step 2) and the <strong>audit log</strong> with a snapshot of the data — this is where alternative B lives.</p>
+  <p class="lede" style="font-size:.9rem;">
+    <b>What shipped:</b> the rule builder and the enrolment options as prototyped here;
+    in the preview, <b>alternative A</b> (per-rule badges on the group card) together with
+    <b>alternative C</b> (the collapsible "Rules report"), while <b>alternative B</b>
+    ("why here?", per participant) became the audit log's own screen — now paged and
+    searchable, prototyped in <a href="distribution-log.html">distribution-log.html</a>.
+    Section 3 below is the original exploration of that log and is kept as the design record.
+  </p>
 
   <div class="proto-banner">
-    <span class="tag">Protótipo</span>
-    <span>Tudo é interativo: reordene as regras arrastando pela alça ⠿ ou pelos botões ▲▼, troque campo/estratégia, adicione e remova linhas. Nas alternativas de preview, a aba B tem participantes clicáveis. Segue o sistema visual dos mockups aprovados (<code>docs/mockups/</code>).</span>
+    <span class="tag">Prototype</span>
+    <span>Everything is interactive: reorder the rules by dragging the ⠿ handle or with the ▲▼ buttons, change the field or strategy, add and remove rows. In the preview alternatives, tab B has clickable participants. It follows the visual system of the approved mockups (<code>docs/mockups/</code>).</span>
   </div>
 
   <!-- ══════════════ 1 · RULE BUILDER ══════════════ -->
   <section aria-labelledby="builder-h">
     <div class="sec-head">
-      <h2 id="builder-h">1 · Construtor de regras (etapa 1)</h2>
-      <span class="sub">tipo primeiro · soma ("E") · ordem = prioridade · coorte pesquisável acima de 10</span>
+      <h2 id="builder-h">1 · Rule builder (step 1)</h2>
+      <span class="sub">type first · summed with AND · order = priority · searchable cohort beyond 10</span>
     </div>
     <div class="card" style="padding: .25rem 1.25rem .5rem;">
       <fieldset>
-        <legend><span class="fslabel"><span aria-hidden="true">▼</span> Afinidade <span class="badge" id="rulecount">4 regras ativas</span></span></legend>
+        <legend><span class="fslabel"><span aria-hidden="true">▼</span> Affinity <span class="badge" id="rulecount">4 active rules</span></span></legend>
         <div>
-          <ul class="rules" id="rulelist" aria-label="Regras de afinidade, em ordem de prioridade"></ul>
+          <ul class="rules" id="rulelist" aria-label="Affinity rules, in priority order"></ul>
           <div class="builder-tools">
-            <button class="btn" type="button" id="addrule">+ Adicionar regra</button>
-            <span class="hint" id="addhint">Cada linha soma uma restrição — todas valem ao mesmo tempo.</span>
+            <button class="btn" type="button" id="addrule">+ Add rule</button>
+            <span class="hint" id="addhint">Each row adds one constraint — all of them hold at the same time.</span>
             <label class="hint" style="margin-left:auto; display:flex; align-items:center; gap:.35rem; cursor:pointer;">
               <input type="checkbox" id="simulatemany" style="accent-color: var(--brand);">
-              Simular plataforma com mais de 10 coortes (o seletor vira pesquisa)
+              Simulate a platform with more than 10 cohorts (the picker becomes a search)
             </label>
           </div>
           <div class="prio-note">
             <span aria-hidden="true">i</span>
-            <span><b>Todas as regras se aplicam em conjunto (E).</b> A ordem define a <b>prioridade</b>: quando duas regras entram em conflito, ou quando um agrupamento precisa ser dividido por falta de vagas, a regra mais acima prevalece e a violação é contada na regra mais abaixo — sempre com aviso no preview.</span>
+            <span><b>Every rule applies at the same time (AND).</b> The order sets the <b>priority</b>: when two rules conflict, or when a cluster has to be split for lack of seats, the rule higher up wins and the violation is counted against the rule further down — always with a warning in the preview.</span>
           </div>
           <div class="summary">
             <h3>Resumo (aparece no recap do preview)</h3>
@@ -355,31 +363,31 @@
   <!-- ══════════════ 1b · MEMBERS / ENROLMENTS ══════════════ -->
   <section aria-labelledby="members-h">
     <div class="sec-head">
-      <h2 id="members-h">1b · Membros — inscrições (etapa 1)</h2>
-      <span class="sub">nova opção: inscrições com início futuro · notas no conteúdo, não no rodapé</span>
+      <h2 id="members-h">1b · Members — enrolments (step 1)</h2>
+      <span class="sub">new option: future-start enrolments · notes in the content, not in the footer</span>
     </div>
     <div class="card" style="padding: .25rem 1.25rem .9rem;">
       <fieldset>
-        <legend><span class="fslabel"><span aria-hidden="true">▼</span> Membros <span class="badge" id="enrbadge" style="color:var(--ok)">ativas + futuras</span></span></legend>
+        <legend><span class="fslabel"><span aria-hidden="true">▼</span> Members <span class="badge" id="enrbadge" style="color:var(--ok)">ativas + futuras</span></span></legend>
         <div>
           <label style="display:flex; gap:.55rem; align-items:baseline; padding:.25rem 0; font-size:.92rem;">
             <input type="checkbox" id="onlyactive" checked style="accent-color:var(--brand); flex:none; transform:translateY(2px);">
-            <span>Incluir apenas inscrições ativas
-              <span style="display:block; font-size:.8rem; color:var(--ink-2);">Inscrições suspensas ou expiradas ficam de fora.</span></span>
+            <span>Include only active enrolments
+              <span style="display:block; font-size:.8rem; color:var(--ink-2);">Suspended or expired enrolments stay out.</span></span>
           </label>
           <label id="futurerow" style="display:flex; gap:.55rem; align-items:baseline; padding:.25rem 0 .25rem 1.6rem; font-size:.92rem;">
             <input type="checkbox" id="includefuture" checked style="accent-color:var(--brand); flex:none; transform:translateY(2px);">
-            <span>Incluir inscrições com início futuro
-              <span style="display:block; font-size:.8rem; color:var(--ink-2);" id="futurehint">Inscrições ativas ainda não iniciadas (data de início no futuro) entram na distribuição — diferente de suspensas, que continuam de fora. Disponível para quem pode ver participantes não ativos.</span></span>
+            <span>Include future-start enrolments
+              <span style="display:block; font-size:.8rem; color:var(--ink-2);" id="futurehint">Active enrolments whose start date still lies in the future take part — unlike suspended ones, which stay out. Only available to users who may see suspended enrolments.</span></span>
           </label>
           <div class="prio-note" style="margin-top:.7rem;">
             <span aria-hidden="true">i</span>
-            <span>Nada é gravado até você aplicar. Volumes grandes são aplicados em segundo plano, com barra de progresso. <b>Esta nota vive na área de conteúdo</b> — regra de UI: o rodapé fixo carrega só ações.</span>
+            <span>Nothing is saved until you apply. Large runs are applied in the background and show a progress bar. <b>This note lives in the page content</b> — UI rule: the sticky footer carries action buttons only.</span>
           </div>
           <div style="margin-top:.8rem; border:1px dashed var(--line); border-radius:.45rem; padding:.55rem .9rem; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;">
-            <button class="btn primary" type="button">Pré-visualizar distribuição</button>
-            <button class="btn" type="button">Cancelar</button>
-            <span style="font-size:.74rem; color:var(--ink-2); margin-left:auto;">mock do <code>sticky_footer</code>: apenas botões de ação, sem textos</span>
+            <button class="btn primary" type="button">Preview distribution</button>
+            <button class="btn" type="button">Cancel</button>
+            <span style="font-size:.74rem; color:var(--ink-2); margin-left:auto;">mock do <code>sticky_footer</code>: action buttons only, no prose</span>
           </div>
         </div>
       </fieldset>
@@ -389,29 +397,29 @@
   <!-- ══════════════ 2 · PREVIEW ALTERNATIVES ══════════════ -->
   <section aria-labelledby="prev-h">
     <div class="sec-head">
-      <h2 id="prev-h">2 · Preview — alternativas de explicabilidade</h2>
-      <span class="sub">as três se compõem; veja a recomendação ao final</span>
+      <h2 id="prev-h">2 · Preview — explainability alternatives</h2>
+      <span class="sub">the three compose; see the recommendation at the end</span>
     </div>
 
     <div class="tabs" role="tablist" aria-label="Alternativas de preview">
-      <button class="tab" role="tab" id="tab-a" aria-controls="panel-a" aria-selected="true">A · Selos no cartão</button>
-      <button class="tab" role="tab" id="tab-b" aria-controls="panel-b" aria-selected="false">B · "Por que aqui?"</button>
-      <button class="tab" role="tab" id="tab-c" aria-controls="panel-c" aria-selected="false">C · Relatório por regra</button>
+      <button class="tab" role="tab" id="tab-a" aria-controls="panel-a" aria-selected="true">A · Badges on the card</button>
+      <button class="tab" role="tab" id="tab-b" aria-controls="panel-b" aria-selected="false">B · "Why here?"</button>
+      <button class="tab" role="tab" id="tab-c" aria-controls="panel-c" aria-selected="false">C · Per-rule report</button>
     </div>
 
     <!-- ── A: badges ── -->
     <div class="card panel" role="tabpanel" id="panel-a" aria-labelledby="tab-a">
-      <p class="desc"><b>Evolução direta do preview atual.</b> Cada participante exibe um selo por regra "manter juntos" (o valor que o agrupou) e um selo de alerta quando pertence a uma coorte/valor de regra "manter separados". O rodapé do cartão dá o status de cada regra <em>naquele grupo</em>.</p>
+      <p class="desc"><b>A direct evolution of the current preview.</b> Each participant shows one badge per keep-together rule (the value that grouped them) and a warning badge when they hold a keep-apart cohort or value. The card footer gives the status of each rule <em>in that group</em>.</p>
 
       <div class="prio-note" style="margin:0 0 .9rem;">
         <span aria-hidden="true">i</span>
-        <span><b>2 participantes com inscrição de início futuro</b> foram incluídos (opção "Incluir inscrições com início futuro"); o selo cinza indica a data de início.</span>
+        <span><b>2 participants with a future-start enrolment</b> were included (the "Include future-start enrolments" option); the grey badge shows the start date.</span>
       </div>
 
       <article class="group">
         <div class="g-head">
-          <h3 class="g-name">Grupo 01</h3>
-          <span class="g-cap"><b>12</b> / 12 vagas</span>
+          <h3 class="g-name">Group 01</h3>
+          <span class="g-cap"><b>12</b> / 12 seats</span>
         </div>
         <ul class="members">
           <li><span class="mrow"><span class="avatar" aria-hidden="true">AS</span><span class="nm">Ana Souza Lima</span>
@@ -421,90 +429,90 @@
           <li><span class="mrow"><span class="avatar" aria-hidden="true">CA</span><span class="nm">Carla Almeida Braga</span>
             <span class="mbadges"><span class="fv">Engenharia</span></span></span></li>
           <li><span class="mrow"><span class="avatar" aria-hidden="true">FR</span><span class="nm">Fátima Rocha Dias</span>
-            <span class="mbadges"><span class="fv">Engenharia</span><span class="fv apart">coorte Gestores</span></span></span></li>
+            <span class="mbadges"><span class="fv">Engenharia</span><span class="fv apart">cohort Managers</span></span></span></li>
           <li><span class="mrow"><span class="avatar" aria-hidden="true">FL</span><span class="nm">Fábio Lima Prado</span>
             <span class="mbadges"><span class="fv">Engenharia</span></span></span></li>
           <li><span class="mrow"><span class="avatar" aria-hidden="true">LP</span><span class="nm">Larissa Prado Dias</span>
-            <span class="mbadges"><span class="fv">Engenharia</span><span class="fv neutral">início 01 set</span></span></span></li>
-          <li class="mrow" style="color:var(--ink-2); font-size:.82rem; padding-left:2.25rem;">+ 6 participantes não exibidos na amostra</li>
+            <span class="mbadges"><span class="fv">Engenharia</span><span class="fv neutral">starts 01 Sep</span></span></span></li>
+          <li class="mrow" style="color:var(--ink-2); font-size:.82rem; padding-left:2.25rem;">+ 6 members not shown in the sample</li>
         </ul>
-        <div class="rulestatus" aria-label="Status das regras neste grupo">
+        <div class="rulestatus" aria-label="Rule status in this group">
           <span><span class="okmark">✓</span> R1 Departamento: Engenharia</span>
-          <span><span class="warnmark">⚠</span> R2 Gênero: repetições inevitáveis (2 valores, 12 membros)</span>
-          <span><span class="okmark">✓</span> R3 Nome da mãe: sem irmãos juntos</span>
-          <span><span class="okmark">✓</span> R4 Gestores: 1 no grupo</span>
+          <span><span class="warnmark">⚠</span> R2 Gender: unavoidable repeats (2 values, 12 members)</span>
+          <span><span class="okmark">✓</span> R3 Mother's name: no siblings together</span>
+          <span><span class="okmark">✓</span> R4 Managers: 1 in the group</span>
         </div>
       </article>
 
       <article class="group">
         <div class="g-head">
-          <h3 class="g-name">Grupo 03</h3>
-          <span class="g-cap"><b>11</b> / 12 vagas</span>
+          <h3 class="g-name">Group 03</h3>
+          <span class="g-cap"><b>11</b> / 12 seats</span>
         </div>
         <ul class="members">
           <li><span class="mrow"><span class="avatar" aria-hidden="true">CS</span><span class="nm">Caio Souza Lima</span>
             <span class="mbadges"><span class="fv">Engenharia</span></span></span></li>
           <li><span class="mrow"><span class="avatar" aria-hidden="true">DR</span><span class="nm">Débora Rocha Melo</span>
             <span class="mbadges"><span class="fv">Direito</span></span></span></li>
-          <li class="mrow" style="color:var(--ink-2); font-size:.82rem; padding-left:2.25rem;">+ 9 participantes não exibidos na amostra</li>
+          <li class="mrow" style="color:var(--ink-2); font-size:.82rem; padding-left:2.25rem;">+ 9 members not shown in the sample</li>
         </ul>
         <div class="rulestatus">
-          <span><span class="warnmark">⚠</span> R1 Departamento: 2 valores (cluster "Engenharia" dividido — não coube em um grupo)</span>
+          <span><span class="warnmark">⚠</span> R1 Department: 2 values (cluster "Engineering" split — did not fit one group)</span>
           <span><span class="okmark">✓</span> R3 · <span class="okmark">✓</span> R4</span>
         </div>
       </article>
 
       <div class="procon">
-        <div><b>Força</b>Visão geral instantânea; quase nenhum dado novo no WS (valores por regra já viajam para o preview).</div>
-        <div><b>Limite</b>Mostra "o quê", não "por quê" — não conta que Ana e Caio foram separados de propósito.</div>
-        <div><b>Custo</b>Baixo. Extensão do template atual + 1 campo por regra no payload.</div>
+        <div><b>Strength</b>An instant overview; almost no new data in the web service (per-rule values already travel to the preview).</div>
+        <div><b>Limite</b>Shows "what", not "why" — it does not say that Ana and Caio were separated on purpose.</div>
+        <div><b>Custo</b>Low. An extension of the current template plus one field per rule in the payload.</div>
       </div>
     </div>
 
     <!-- ── B: why here ── -->
     <div class="card panel" role="tabpanel" id="panel-b" aria-labelledby="tab-b" hidden>
-      <p class="desc"><b>Auditoria individual.</b> Clique em um participante para ver o raciocínio da alocação: com quem ficou (e por qual regra), de quem foi separado, e que grupo foi evitado. <b>Experimente Ana e Fátima.</b></p>
+      <p class="desc"><b>Auditoria individual.</b> Click a participant to see the reasoning: who they were placed with (and by which rule), who they were separated from, and which group was avoided. <b>Try Ana and Fátima.</b></p>
 
       <article class="group">
         <div class="g-head">
-          <h3 class="g-name">Grupo 01</h3>
-          <span class="g-cap"><b>12</b> / 12 vagas</span>
+          <h3 class="g-name">Group 01</h3>
+          <span class="g-cap"><b>12</b> / 12 seats</span>
         </div>
         <ul class="members" id="whymembers">
           <li>
             <button class="mrow" type="button" aria-expanded="false" data-why="ana">
               <span class="avatar" aria-hidden="true">AS</span><span class="nm">Ana Souza Lima</span>
-              <span class="mbadges"><span class="fv neutral">por quê?</span></span>
+              <span class="mbadges"><span class="fv neutral">why?</span></span>
             </button>
             <div class="whybox" data-whybox="ana" hidden>
               <ul>
-                <li><span class="r">R1 · Manter juntos · Departamento:</span> entrou no Grupo 01 com mais 11 participantes de <b>Engenharia</b>.</li>
-                <li><span class="r">R3 · Manter separados · Nome da mãe:</span> separada de <b>Caio Souza Lima</b> (mesmo valor) — Caio foi para o <b>Grupo 03</b>. ✓ regra cumprida.</li>
-                <li class="na">R2 (Gênero) e R4 (coorte Gestores): sem efeito sobre Ana neste grupo.</li>
+                <li><span class="r">R1 · Manter juntos · Departamento:</span> joined Group 01 with 11 more participants from <b>Engenharia</b>.</li>
+                <li><span class="r">R3 · Keep apart · Mother's name:</span> separada de <b>Caio Souza Lima</b> (same value) — Caio went to <b>Group 03</b>. ✓ rule satisfied.</li>
+                <li class="na">R2 (Gender) and R4 (cohort Managers): no effect on Ana in this group.</li>
               </ul>
             </div>
           </li>
           <li>
             <button class="mrow" type="button" aria-expanded="false" data-why="bruno">
               <span class="avatar" aria-hidden="true">BS</span><span class="nm">Bruno Santos Rocha</span>
-              <span class="mbadges"><span class="fv neutral">por quê?</span></span>
+              <span class="mbadges"><span class="fv neutral">why?</span></span>
             </button>
             <div class="whybox" data-whybox="bruno" hidden>
               <ul>
-                <li><span class="r">R1 · Manter juntos · Departamento:</span> alocado com o cluster <b>Engenharia</b>.</li>
-                <li class="na">Nenhuma outra regra restringiu Bruno.</li>
+                <li><span class="r">R1 · Manter juntos · Departamento:</span> placed with the cluster <b>Engenharia</b>.</li>
+                <li class="na">No other rule constrained Bruno.</li>
               </ul>
             </div>
           </li>
           <li>
             <button class="mrow" type="button" aria-expanded="false" data-why="fatima">
               <span class="avatar" aria-hidden="true">FR</span><span class="nm">Fátima Rocha Dias</span>
-              <span class="mbadges"><span class="fv apart">coorte Gestores</span><span class="fv neutral">por quê?</span></span>
+              <span class="mbadges"><span class="fv apart">cohort Managers</span><span class="fv neutral">why?</span></span>
             </button>
             <div class="whybox" data-whybox="fatima" hidden>
               <ul>
-                <li><span class="r">R4 · Manter separados · coorte Gestores:</span> única gestora do Grupo 01. O <b>Grupo 02 foi evitado</b> — já tinha 1 membro da coorte. ✓ regra cumprida.</li>
-                <li><span class="r">R1 · Manter juntos · Departamento:</span> alocada com o cluster <b>Engenharia</b>.</li>
+                <li><span class="r">R4 · Keep apart · cohort Managers:</span> the only manager in Group 01. The <b>Group 02 was avoided</b> — already held 1 cohort member. ✓ rule satisfied.</li>
+                <li><span class="r">R1 · Manter juntos · Departamento:</span> placed with the cluster <b>Engenharia</b>.</li>
               </ul>
             </div>
           </li>
@@ -512,167 +520,167 @@
       </article>
 
       <div class="procon">
-        <div><b>Força</b>Responde exatamente "o que levou / o que bloqueou" — o caso dos irmãos fica verificável em 1 clique.</div>
-        <div><b>Limite</b>Um participante por vez; não prova que a regra valeu para a turma toda.</div>
-        <div><b>Custo</b>Médio. Exige payload por membro no WS (decidir os campos antes de congelar <code>execute_returns()</code>).</div>
+        <div><b>Strength</b>Answers exactly "what placed them / what blocked them" — the sibling case is verifiable in one click.</div>
+        <div><b>Limite</b>One participant at a time; it does not prove the rule held for the whole class.</div>
+        <div><b>Custo</b>Medium. Needs a per-member payload in the web service (decide the fields before freezing <code>execute_returns()</code>).</div>
       </div>
     </div>
 
     <!-- ── C: per-rule report ── -->
     <div class="card panel" role="tabpanel" id="panel-c" aria-labelledby="tab-c" hidden>
-      <p class="desc"><b>Auditoria global, uma seção por regra.</b> Prova que cada regra funcionou (ou avisa onde foi impossível): clusters e destinos para "manter juntos"; pares detectados e como ficaram para "manter separados". Os dados são agregados que o allocator já computa.</p>
+      <p class="desc"><b>A global audit, one section per rule.</b> Proves that each rule held (or reports where it could not): clusters and destinations for keep-together; detected pairs and where they landed for keep-apart. Os dados são agregados que o allocator já computa.</p>
 
       <details class="rrule" open>
         <summary><span class="chev" aria-hidden="true">▶</span><span class="chip"><span class="dot"></span><b>R1</b> Manter juntos · Departamento</span><span class="rsum"><span class="warnmark">⚠</span> 1 cluster dividido</span></summary>
         <div class="rbody tablewrap">
           <table>
-            <tr><th>Valor</th><th class="num">Participantes</th><th>Destino</th></tr>
-            <tr><td>Engenharia</td><td class="num">19</td><td>Grupo 01 (12) + Grupo 03 (7) <span class="fv apart" style="margin-left:.3rem">⚠ dividido — não coube em um grupo</span></td></tr>
-            <tr><td>Administração</td><td class="num">11</td><td>Grupo 02</td></tr>
-            <tr><td>Direito</td><td class="num">9</td><td>Grupo 04</td></tr>
-            <tr><td><i>sem valor</i></td><td class="num">4</td><td>distribuídos para equilibrar (aviso "sem valor")</td></tr>
+            <tr><th>Value</th><th class="num">Participants</th><th>Destino</th></tr>
+            <tr><td>Engenharia</td><td class="num">19</td><td>Group 01 (12) + Group 03 (7) <span class="fv apart" style="margin-left:.3rem">⚠ split — did not fit one group</span></td></tr>
+            <tr><td>Administration</td><td class="num">11</td><td>Group 02</td></tr>
+            <tr><td>Direito</td><td class="num">9</td><td>Group 04</td></tr>
+            <tr><td><i>no value</i></td><td class="num">4</td><td>allocated to balance the groups ("no value" warning)</td></tr>
           </table>
-          <p class="foot">A divisão de "Engenharia" preservou as regras mais prioritárias — a fronteira do corte foi escolhida pela regra menos prioritária.</p>
+          <p class="foot">Splitting "Engineering" preserved the higher-priority rules — the cut was chosen by the lowest-priority rule.</p>
         </div>
       </details>
 
       <details class="rrule">
-        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip apart"><span class="dot"></span><b>R2</b> Manter separados · Gênero</span><span class="rsum"><span class="warnmark">⚠</span> repetição inevitável</span></summary>
+        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip apart"><span class="dot"></span><b>R2</b> Keep apart · Gender</span><span class="rsum"><span class="warnmark">⚠</span> unavoidable repeat</span></summary>
         <div class="rbody">
-          <p style="margin:.2rem 0 0">São <b>2 valores para 43 participantes em 4 grupos</b> — repetir é matematicamente inevitável (princípio do pombal). A regra vira <b>balanceamento</b>: os valores foram espalhados por igual e as repetições são contadas como aviso, nunca escondidas.</p>
-          <p class="foot">Quando os titulares de um valor excedem o número de grupos, o preview avisa em vez de fingir que separou.</p>
+          <p style="margin:.2rem 0 0">São <b>2 values across 43 participants in 4 groups</b> — repeating is mathematically unavoidable (the pigeonhole principle). The rule becomes <b>balanceamento</b>: the values were spread evenly and the repeats are counted as a warning, never hidden.</p>
+          <p class="foot">When the holders of a value outnumber the groups, the preview warns instead of pretending it separated them.</p>
         </div>
       </details>
 
       <details class="rrule" open>
-        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip apart"><span class="dot"></span><b>R3</b> Manter separados · Nome da mãe</span><span class="rsum"><span class="okmark">✓</span> 3 conjuntos · 0 violações</span></summary>
+        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip apart"><span class="dot"></span><b>R3</b> Keep apart · Mother's name</span><span class="rsum"><span class="okmark">✓</span> 3 sets · 0 violations</span></summary>
         <div class="rbody tablewrap">
           <table>
-            <tr><th>Participantes com o mesmo valor</th><th>Como ficaram</th><th></th></tr>
-            <tr><td>Ana Souza Lima <span class="pairarrow">↔</span> Caio Souza Lima</td><td>Grupo 01 / Grupo 03</td><td><span class="rsum"><span class="okmark">✓</span> separados</span></td></tr>
-            <tr><td>Débora Rocha Melo <span class="pairarrow">↔</span> Elisa Rocha Melo</td><td>Grupo 03 / Grupo 02</td><td><span class="rsum"><span class="okmark">✓</span> separados</span></td></tr>
-            <tr><td>Fábio Lima Prado <span class="pairarrow">↔</span> Gil Lima Prado <span class="pairarrow">↔</span> Hugo Lima Prado</td><td>Grupo 01 / Grupo 02 / Grupo 04</td><td><span class="rsum"><span class="okmark">✓</span> separados</span></td></tr>
+            <tr><th>Participants sharing the value</th><th>Where they landed</th><th></th></tr>
+            <tr><td>Ana Souza Lima <span class="pairarrow">↔</span> Caio Souza Lima</td><td>Group 01 / Group 03</td><td><span class="rsum"><span class="okmark">✓</span> separados</span></td></tr>
+            <tr><td>Débora Rocha Melo <span class="pairarrow">↔</span> Elisa Rocha Melo</td><td>Group 03 / Group 02</td><td><span class="rsum"><span class="okmark">✓</span> separados</span></td></tr>
+            <tr><td>Fábio Lima Prado <span class="pairarrow">↔</span> Gil Lima Prado <span class="pairarrow">↔</span> Hugo Lima Prado</td><td>Group 01 / Group 02 / Group 04</td><td><span class="rsum"><span class="okmark">✓</span> separados</span></td></tr>
           </table>
-          <p class="foot">É a resposta direta a "a regra funcionou?": cada conjunto de irmãos detectado, e o destino de cada um.</p>
+          <p class="foot">It is the direct answer to "did the rule hold?": every sibling set detected, and where each one went.</p>
         </div>
       </details>
 
       <details class="rrule">
-        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip apart"><span class="dot"></span><b>R4</b> Manter separados · coorte Gestores</span><span class="rsum"><span class="okmark">✓</span> 4 gestores · 4 grupos distintos</span></summary>
+        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip apart"><span class="dot"></span><b>R4</b> Keep apart · cohort Managers</span><span class="rsum"><span class="okmark">✓</span> 4 managers · 4 distinct groups</span></summary>
         <div class="rbody">
-          <p style="margin:.2rem 0 0">Fátima R. → Grupo 01 · Marcos T. → Grupo 02 · Paula V. → Grupo 03 · Renato B. → Grupo 04. Máximo de 1 por grupo. <span class="okmark">✓</span></p>
+          <p style="margin:.2rem 0 0">Fátima R. → Group 01 · Marcos T. → Group 02 · Paula V. → Group 03 · Renato B. → Group 04. At most 1 per group. <span class="okmark">✓</span></p>
         </div>
       </details>
 
       <div class="procon">
-        <div><b>Força</b>Prova global de cada regra; é onde os avisos (divisão, pombal, contradição) ganham contexto.</div>
-        <div><b>Limite</b>Listas de pares podem crescer — exigem paginação/limite por regra.</div>
-        <div><b>Custo</b>Baixo-médio. Agregados já computados pelo allocator; payload pequeno e paginável.</div>
+        <div><b>Strength</b>A global proof of every rule; this is where the warnings (split, pigeonhole, contradiction) gain context.</div>
+        <div><b>Limite</b>Pair lists can grow — they need paging or a per-rule cap.</div>
+        <div><b>Custo</b>Low to medium. Aggregates the allocator already computes; a small, pageable payload.</div>
       </div>
     </div>
 
     <div class="rec" style="margin-top:1rem">
       <span class="tag">Aprovado</span>
-      <span><b>Composição fechada:</b> A no cartão do grupo + C como painel "Regras" formam o preview. B vive na <b>auditoria</b> (seção 3, abaixo), lendo a fotografia gravada de cada execução — sem payload extra no web service do preview.</span>
+      <span><b>Closed composition:</b> A on the group card plus C as the "Rules" panel make up the preview. B lives in the <b>auditoria</b> (section 3, below), reading each run's stored snapshot — with no extra payload in the preview web service.</span>
     </div>
   </section>
 
   <!-- ══════════════ 3 · AUDIT LOG ══════════════ -->
   <section aria-labelledby="audit-h">
     <div class="sec-head">
-      <h2 id="audit-h">3 · Auditoria — log de execuções (feature nova)</h2>
-      <span class="sub">fotografia dos dados do dia · "por que aqui?" por participante</span>
+      <h2 id="audit-h">3 · Audit — distribution log</h2>
+      <span class="sub">a snapshot of the data as it was · a per-participant "why here?"</span>
     </div>
 
     <div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1rem;">
-      <nav class="crumbs" aria-label="Localização do log" style="margin-bottom:.5rem;">
-        <a href="#">Engenharia de Software — 2026.2</a> ›
-        <a href="#">Relatórios</a> ›
-        <span>Log de distribuições</span>
+      <nav class="crumbs" aria-label="Where the log lives" style="margin-bottom:.5rem;">
+        <a href="#">Software Engineering — 2026.2</a> ›
+        <a href="#">Reports</a> ›
+        <span>Distribution log</span>
       </nav>
-      <h3 style="font-size:.74rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); margin:0 0 .6rem;">Log de distribuições — Engenharia de Software 2026.2</h3>
+      <h3 style="font-size:.74rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); margin:0 0 .6rem;">Distribution log — Software Engineering 2026.2</h3>
       <div class="tablewrap">
         <table class="audittable">
-          <tr><th>Quando</th><th>Aplicada por</th><th>Regras</th><th class="num">Gravados</th><th>Status</th><th></th></tr>
+          <tr><th>When</th><th>Applied by</th><th>Rules</th><th class="num">Gravados</th><th>Status</th><th></th></tr>
           <tr>
             <td class="num">13 ago 2026 · 10:42</td><td>Anderson Blaine</td>
-            <td><span class="minichips"><span class="mini together">J</span><span class="mini apart">S</span><span class="mini apart">S</span><span class="mini apart">S</span></span> 4 regras</td>
-            <td class="num">43 / 43</td><td><span class="status ok">Concluída</span></td>
+            <td><span class="minichips"><span class="mini together">J</span><span class="mini apart">S</span><span class="mini apart">S</span><span class="mini apart">S</span></span> 4 rules</td>
+            <td class="num">43 / 43</td><td><span class="status ok">Completed</span></td>
             <td><a href="#run-detail">Ver detalhe</a></td>
           </tr>
           <tr>
             <td class="num">6 ago 2026 · 09:15</td><td>Anderson Blaine</td>
-            <td><span class="minichips"><span class="mini together">J</span><span class="mini apart">S</span></span> 2 regras</td>
-            <td class="num">118 / 120</td><td><span class="status warn">Parcial</span></td>
+            <td><span class="minichips"><span class="mini together">J</span><span class="mini apart">S</span></span> 2 rules</td>
+            <td class="num">118 / 120</td><td><span class="status warn">Partial</span></td>
             <td><a href="#">Ver detalhe</a></td>
           </tr>
           <tr>
             <td class="num">28 jul 2026 · 14:03</td><td>Márcia Torres</td>
-            <td><span class="minichips"><span class="mini together">J</span></span> 1 regra</td>
-            <td class="num">87 / 87</td><td><span class="status ok">Concluída</span></td>
+            <td><span class="minichips"><span class="mini together">J</span></span> 1 rule</td>
+            <td class="num">87 / 87</td><td><span class="status ok">Completed</span></td>
             <td><a href="#">Ver detalhe</a></td>
           </tr>
         </table>
       </div>
-      <p style="font-size:.8rem; color:var(--ink-2); margin:.6rem 0 0;">Entrada na seção <b>Relatórios</b> do curso (Curso › Relatórios), como os relatórios padrão · capability própria de leitura · retenção configurável (padrão sugerido: 365 dias) · viaja no backup do curso quando "Incluir os logs do curso" está marcado.</p>
+      <p style="font-size:.8rem; color:var(--ink-2); margin:.6rem 0 0;">Entry point in the <b>Reports</b> section of the course (Course › Reports), like the standard reports · its own read capability · configurable retention (default 365 days) · travels in the course backup when "Include course logs" is ticked.</p>
     </div>
 
     <div class="card" style="padding: 1rem 1.25rem;" id="run-detail">
       <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:.4rem .9rem; margin-bottom:.5rem;">
-        <h3 style="font-size:1.02rem; font-weight:600; margin:0;">Execução de 13 ago 2026, 10:42</h3>
-        <span style="font-size:.82rem; color:var(--ink-2);">por Anderson Blaine · seed 3941 · plugin v1.2.0 · 43 participantes · <span class="status ok">Concluída</span></span>
+        <h3 style="font-size:1.02rem; font-weight:600; margin:0;">Run of 13 Aug 2026, 10:42</h3>
+        <span style="font-size:.82rem; color:var(--ink-2);">by Anderson Blaine · seed 3941 · plugin v1.2.0 · 43 participants · <span class="status ok">Completed</span></span>
       </div>
 
       <div class="prio-note" style="margin-top:.2rem;">
         <span aria-hidden="true">📷</span>
-        <span><b>Fotografia.</b> Os valores abaixo são os do momento da aplicação. Mudanças posteriores em perfis, coortes ou grupos <b>não alteram</b> este registro — os rótulos das regras também são os da época.</span>
+        <span><b>Fotografia.</b> The values below are the ones held at apply time. Later changes to profiles, cohorts or groups <b>do not alter</b> this record — the rule labels are the ones resolved then, too.</span>
       </div>
 
       <div class="summary" style="margin-top:.9rem;">
-        <h3>Regras aplicadas (rótulos da época)</h3>
+        <h3>Rules applied (labels as of apply time)</h3>
         <div class="chips">
           <span class="chip"><span class="dot"></span>1 · Manter juntos: <b>Departamento</b></span>
-          <span class="chip apart"><span class="dot"></span>2 · Manter separados: <b>Gênero</b></span>
-          <span class="chip apart"><span class="dot"></span>3 · Manter separados: <b>Nome da mãe</b></span>
-          <span class="chip apart"><span class="dot"></span>4 · Manter separados: <b>coorte Gestores</b></span>
+          <span class="chip apart"><span class="dot"></span>2 · Manter separados: <b>Gender</b></span>
+          <span class="chip apart"><span class="dot"></span>3 · Manter separados: <b>Mother's name</b></span>
+          <span class="chip apart"><span class="dot"></span>4 · Manter separados: <b>cohort Managers</b></span>
         </div>
       </div>
 
       <article class="group" style="margin-top:1rem;">
         <div class="g-head">
-          <h3 class="g-name">Grupo 01</h3>
+          <h3 class="g-name">Group 01</h3>
           <span class="g-cap"><b>12</b> gravados</span>
         </div>
         <ul class="members">
           <li>
             <button class="mrow" type="button" aria-expanded="true" data-why="audit-ana">
               <span class="avatar" aria-hidden="true">AS</span><span class="nm">Ana Souza Lima</span>
-              <span class="mbadges"><span class="fv neutral">gravado ✓</span><span class="fv neutral">por quê?</span></span>
+              <span class="mbadges"><span class="fv neutral">gravado ✓</span><span class="fv neutral">why?</span></span>
             </button>
             <div class="whybox" data-whybox="audit-ana">
               <ul>
-                <li><span class="r">R1 · Manter juntos · Departamento:</span> valor na época: <b>Engenharia</b> — alocada com mais 11 do mesmo valor.</li>
-                <li><span class="r">R2 · Manter separados · Gênero:</span> valor <b>oculto para você</b> — o campo era privado e você não tem permissão para vê-lo; o dado está registrado, apenas mascarado na exibição.</li>
-                <li><span class="r">R3 · Manter separados · Nome da mãe:</span> separada de <b>Caio Souza Lima</b> (mesmo valor na época) — Caio foi gravado no <b>Grupo 03</b>. ✓</li>
-                <li class="na">R4 (coorte Gestores): Ana não pertencia à coorte na época.</li>
+                <li><span class="r">R1 · Manter juntos · Departamento:</span> value at the time: <b>Engenharia</b> — placed with 11 more of the same value.</li>
+                <li><span class="r">R2 · Keep apart · Gender:</span> value <b>hidden from you</b> — the field was private and you may not see it; the data is recorded, only masked on screen.</li>
+                <li><span class="r">R3 · Keep apart · Mother's name:</span> separada de <b>Caio Souza Lima</b> (same value at the time) — Caio was recorded in <b>Group 03</b>. ✓</li>
+                <li class="na">R4 (cohort Managers): Ana did not belong to the cohort at the time.</li>
               </ul>
             </div>
           </li>
           <li>
             <button class="mrow" type="button" aria-expanded="false" data-why="audit-bruno">
               <span class="avatar" aria-hidden="true">BS</span><span class="nm">Bruno Santos Rocha</span>
-              <span class="mbadges"><span class="fv neutral">já era membro</span><span class="fv neutral">por quê?</span></span>
+              <span class="mbadges"><span class="fv neutral">already a member</span><span class="fv neutral">why?</span></span>
             </button>
             <div class="whybox" data-whybox="audit-bruno" hidden>
               <ul>
-                <li><span class="r">R1 · Manter juntos · Departamento:</span> valor na época: <b>Engenharia</b>. Já era membro do Grupo 01 — nenhuma escrita foi necessária.</li>
+                <li><span class="r">R1 · Manter juntos · Departamento:</span> value at the time: <b>Engenharia</b>. Already a member of Group 01 — no write was needed.</li>
               </ul>
             </div>
           </li>
           <li>
             <span class="mrow" style="opacity:.6;">
-              <span class="avatar" aria-hidden="true">—</span><span class="nm"><i>Participante removido</i></span>
-              <span class="mbadges"><span class="fv neutral">dados excluídos (privacidade)</span></span>
+              <span class="avatar" aria-hidden="true">—</span><span class="nm"><i>Removed participant</i></span>
+              <span class="mbadges"><span class="fv neutral">data deleted (privacy)</span></span>
             </span>
           </li>
         </ul>
@@ -680,17 +688,17 @@
 
       <article class="group" style="margin-top:.75rem;">
         <div class="g-head">
-          <h3 class="g-name">Grupo 03</h3>
-          <span class="fv neutral">grupo excluído do curso em 2 set 2026</span>
+          <h3 class="g-name">Group 03</h3>
+          <span class="fv neutral">group deleted from the course on 2 Sep 2026</span>
           <span class="g-cap"><b>11</b> gravados</span>
         </div>
-        <p style="font-size:.82rem; color:var(--ink-2); margin:.2rem 0 0;">O grupo não existe mais; nome, vagas e composição vêm da fotografia — o registro permanece íntegro até a retenção expirar.</p>
+        <p style="font-size:.82rem; color:var(--ink-2); margin:.2rem 0 0;">The group no longer exists; its name, seats and composition come from the snapshot — the record stays intact until retention expires.</p>
       </article>
 
       <div class="procon">
-        <div><b>Fonte dos dados</b>Tabelas próprias do plugin (as primeiras): cabeçalho da execução + fotografia por participante. Nada é lido das tabelas vivas.</div>
-        <div><b>Explicações</b>Derivadas dos fatos gravados (valores + alocações), não de replay do algoritmo — imunes a upgrades do engine.</div>
-        <div><b>Privacidade</b>Provider completo (export/delete); exclusão pseudonimiza a linha; leitura mascara campos que o leitor não pode ver.</div>
+        <div><b>Data source</b>The plugin's own tables (its first): the run header plus a per-participant snapshot. Nothing is read from the live tables.</div>
+        <div><b>Explanations</b>Derived from the stored facts (values + allocations), never by replaying the engine — immune to engine upgrades.</div>
+        <div><b>Privacidade</b>A full privacy provider (export/delete); a deletion pseudonymises the row; reading masks fields the reader may not see.</div>
       </div>
     </div>
   </section>
@@ -707,10 +715,10 @@
   const FIELDS = [
     { v: 'city', l: 'Cidade' },
     { v: 'department', l: 'Departamento' },
-    { v: 'institution', l: 'Instituição' },
-    { v: 'country', l: 'País' },
-    { v: 'profile_7', l: 'Gênero' },
-    { v: 'profile_9', l: 'Nome da mãe' },
+    { v: 'institution', l: 'Institution' },
+    { v: 'country', l: 'Country' },
+    { v: 'profile_7', l: 'Gender' },
+    { v: 'profile_9', l: 'Mother's name' },
     { v: 'profile_3', l: 'Polo' },
     { v: 'profile_4', l: 'Turno' },
   ];
@@ -721,7 +729,7 @@
   ];
   const MANYCOHORTS = COHORTS.concat([
     'Ingressantes 2025', 'Polo Sobral', 'Polo Crato', 'Bolsistas PIBIC', 'Atletas', 'Repetentes',
-    'Tutores EAD', 'Estagiários', 'Intercâmbio',
+    'Tutores EAD', 'Interns', 'Exchange',
   ].map((l, i) => ({ v: 'cohort_' + (100 + i), l })));
 
   const fieldlabel = v => (FIELDS.find(i => i.v === v) || { l: '' }).l;
@@ -754,20 +762,20 @@
 
   function secondControl(r, idx) {
     if (r.kind === 'field') {
-      return '<select class="src" aria-label="Campo da regra ' + (idx + 1) + '">'
-        + optionsFor(FIELDS, r.source, 'Escolha o campo…') + '</select>';
+      return '<select class="src" aria-label="Field of rule ' + (idx + 1) + '">'
+        + optionsFor(FIELDS, r.source, 'Choose the field…') + '</select>';
     }
     if (!searchmode()) {
-      return '<select class="src" aria-label="Coorte da regra ' + (idx + 1) + '">'
-        + optionsFor(cohortlist(), r.source, 'Escolha a coorte…') + '</select>';
+      return '<select class="src" aria-label="Cohort of rule ' + (idx + 1) + '">'
+        + optionsFor(cohortlist(), r.source, 'Choose the cohort…') + '</select>';
     }
     const chosen = r.source !== ''
       ? '<span class="chip" style="flex:none;">' + cohortlabel(r.source) + '</span>'
       : '';
     return '<span class="cohortpick" style="position:relative; flex:1 1 12rem; display:flex; gap:.4rem; align-items:center;">'
       + chosen
-      + '<input type="text" class="srch" aria-label="Pesquisa de coorte da regra ' + (idx + 1) + '"'
-      + ' placeholder="Escolha a coorte…" autocomplete="off"'
+      + '<input type="text" class="srch" aria-label="Cohort search for rule ' + (idx + 1) + '"'
+      + ' placeholder="Choose the cohort…" autocomplete="off"'
       + ' style="font:inherit; font-size:.9rem; color:var(--ink); background:var(--surface);'
       + ' border:1px solid var(--line); border-radius:.4rem; padding:.35rem .5rem; min-width:0; flex:1;">'
       + '<span class="sug" role="listbox" hidden style="position:absolute; top:100%; left:0; right:0; z-index:5;'
@@ -783,7 +791,7 @@
         const con = document.createElement('li');
         con.className = 'connector';
         con.setAttribute('aria-hidden', 'true');
-        con.innerHTML = '<span class="e">E</span><span class="etxt">também</span>';
+        con.innerHTML = '<span class="e">E</span><span class="etxt">also</span>';
         list.appendChild(con);
       }
       const li = document.createElement('li');
@@ -791,21 +799,21 @@
       li.draggable = true;
       li.dataset.index = String(idx);
       li.innerHTML =
-        '<span class="grip" title="Arraste para reordenar" aria-hidden="true">⠿</span>' +
-        '<span class="prio" title="Prioridade ' + (idx + 1) + '">' + (idx + 1) + '</span>' +
-        '<select class="kind" aria-label="Tipo da regra ' + (idx + 1) + '" style="flex:0 1 10rem;">' +
-          '<option value="field"' + (r.kind === 'field' ? ' selected' : '') + '>Campo de perfil</option>' +
-          '<option value="cohort"' + (r.kind === 'cohort' ? ' selected' : '') + '>Coorte</option>' +
+        '<span class="grip" title="Drag to reorder" aria-hidden="true">⠿</span>' +
+        '<span class="prio" title="Priority ' + (idx + 1) + '">' + (idx + 1) + '</span>' +
+        '<select class="kind" aria-label="Type of rule ' + (idx + 1) + '" style="flex:0 1 10rem;">' +
+          '<option value="field"' + (r.kind === 'field' ? ' selected' : '') + '>Profile field</option>' +
+          '<option value="cohort"' + (r.kind === 'cohort' ? ' selected' : '') + '>Cohort</option>' +
         '</select>' +
         secondControl(r, idx) +
-        '<select class="mode" aria-label="Estratégia da regra ' + (idx + 1) + '">' +
-          '<option value="together"' + (r.mode === 'together' ? ' selected' : '') + '>Manter juntos</option>' +
-          '<option value="apart"' + (r.mode === 'apart' ? ' selected' : '') + '>Manter separados</option>' +
+        '<select class="mode" aria-label="Strategy of rule ' + (idx + 1) + '">' +
+          '<option value="together"' + (r.mode === 'together' ? ' selected' : '') + '>Keep together</option>' +
+          '<option value="apart"' + (r.mode === 'apart' ? ' selected' : '') + '>Keep apart</option>' +
         '</select>' +
         '<span class="rowbtns">' +
-          '<button type="button" class="up" aria-label="Subir prioridade da regra ' + (idx + 1) + '"' + (idx === 0 ? ' disabled' : '') + '>▲</button>' +
-          '<button type="button" class="down" aria-label="Descer prioridade da regra ' + (idx + 1) + '"' + (idx === rules.length - 1 ? ' disabled' : '') + '>▼</button>' +
-          '<button type="button" class="del" aria-label="Remover regra ' + (idx + 1) + '">✕</button>' +
+          '<button type="button" class="up" aria-label="Raise the priority of rule ' + (idx + 1) + '"' + (idx === 0 ? ' disabled' : '') + '>▲</button>' +
+          '<button type="button" class="down" aria-label="Lower the priority of rule ' + (idx + 1) + '"' + (idx === rules.length - 1 ? ' disabled' : '') + '>▼</button>' +
+          '<button type="button" class="del" aria-label="Remove rule ' + (idx + 1) + '">✕</button>' +
         '</span>';
 
       li.querySelector('.kind').addEventListener('change', e => {
@@ -825,7 +833,7 @@
           if (!hits.length) {
             const none = document.createElement('span');
             none.style.cssText = 'display:block; padding:.4rem .6rem; font-size:.82rem; color:var(--ink-2);';
-            none.textContent = 'Nenhuma coorte encontrada';
+            none.textContent = 'No cohort found';
             sug.appendChild(none);
           }
           hits.forEach(c => {
@@ -860,7 +868,7 @@
     });
 
     const active = rules.filter(r => r.source !== '').length;
-    count.textContent = active === 0 ? 'inativo' : active + (active === 1 ? ' regra ativa' : ' regras ativas');
+    count.textContent = active === 0 ? 'inativo' : active + (active === 1 ? ' active rule' : ' active rules');
     count.style.color = active === 0 ? 'var(--ink-2)' : 'var(--ok)';
     addbtn.disabled = rules.length >= 10;
 
@@ -871,11 +879,11 @@
       chip.className = 'chip' + (r.mode === 'apart' ? ' apart' : '');
       chip.innerHTML = '<span class="dot"></span>' + (idx + 1) + ' · ' +
         (r.mode === 'apart' ? 'Manter separados' : 'Manter juntos') + ': <b>' +
-        (r.kind === 'cohort' ? 'coorte ' + cohortlabel(r.source) : fieldlabel(r.source)) + '</b>';
+        (r.kind === 'cohort' ? 'cohort ' + cohortlabel(r.source) : fieldlabel(r.source)) + '</b>';
       chips.appendChild(chip);
     });
     if (!chips.textContent) {
-      chips.innerHTML = '<span class="chip">Sem afinidade — distribuição apenas balanceada</span>';
+      chips.innerHTML = '<span class="chip">No affinity — the distribution only balances the groups</span>';
     }
   }
 
@@ -902,12 +910,12 @@
     includefuture.disabled = !active;
     futurerow.style.opacity = active ? '' : '.5';
     if (!active) {
-      futurehint.textContent = 'Sem o filtro de ativas, inscrições futuras (e suspensas) já entram — a opção não se aplica.';
-      enrbadge.textContent = 'todas as inscrições';
+      futurehint.textContent = 'Without the active-only filter, future (and suspended) enrolments already take part — the option does not apply.';
+      enrbadge.textContent = 'all enrolments';
       enrbadge.style.color = 'var(--ink-2)';
     } else {
       futurehint.textContent = FUTUREHINT;
-      enrbadge.textContent = includefuture.checked ? 'ativas + futuras' : 'apenas ativas';
+      enrbadge.textContent = includefuture.checked ? 'ativas + futuras' : 'active only';
       enrbadge.style.color = 'var(--ok)';
     }
   }

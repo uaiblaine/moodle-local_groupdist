@@ -17,21 +17,28 @@
 {{!
     @template local_groupdist/bulkedit_footer
 
-    Sticky footer of the bulk edit page: save (chunked via web service),
-    cancel, unsaved-changes counter.
+    Sticky footer of the bulk edit page: save (chunked via web service) and
+    the way back to group management. Action buttons only — the unsaved
+    changes counter is page content and lives in the toolbar.
+
+    There is no cancel here on purpose: saving writes through a web service
+    as it goes, so by the time this footer is reached there is nothing a
+    cancel could undo. Leaving with unsaved cells is confirmed by the AMD
+    module instead.
 
     Context variables required for this template:
-    * cancelurl - the group management page URL
+    * returnurl - the group management page URL
 
     Example context (json):
     {
-        "cancelurl": "https://example.com/group/index.php?id=2"
+        "returnurl": "https://example.com/group/index.php?id=2"
     }
 }}
 <div class="d-flex flex-wrap align-items-center gap-2 w-100">
     <button type="button" class="btn btn-primary" data-action="save" disabled>
         {{#str}} savechanges, core {{/str}}
     </button>
-    <a href="{{cancelurl}}" class="btn btn-link">{{#str}} cancel, core {{/str}}</a>
-    <span class="small fw-bold local-groupdist-dirtycount" data-region="dirtycount" role="status"></span>
+    <a href="{{returnurl}}" class="btn btn-secondary" data-action="backtogroups">
+        {{#str}} backtogroups, local_groupdist {{/str}}
+    </a>
 </div>

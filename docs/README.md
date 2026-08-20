@@ -5,32 +5,38 @@
 The HTML files under [`mockups/`](mockups/) are the self-contained,
 navigable prototypes the flow was designed and approved against.
 Open them in any browser; they carry no external dependencies
-and follow Moodle Boost's visual language. Labels inside the mockups are in
-Brazilian Portuguese because they mirror the approved `pt_br` UI strings —
-the shipped plugin resolves all labels through language packs (`en` +
-`pt_br`).
+and follow Moodle Boost's visual language. Every label is in English and
+mirrors the shipped `lang/en` string, so a mockup and the screen it stands for
+read the same; the plugin itself resolves all labels through its language
+packs (`en` + `pt_br`). Sample people and cities are Brazilian, which is the
+deployment these screens were designed for.
 
 | File | Screen |
 |------|--------|
-| [`mockups/step1-options.html`](mockups/step1-options.html) | Step 1 — distribution options form (moodleform sections, affinity + seats controls with enable/disable behaviour; approved 2026-08-11) |
-| [`mockups/step2-preview.html`](mockups/step2-preview.html) | Step 2 — preview (recap chips, stat tiles, warnings, group cards with capacity meters, simulated lazy loading in pages of 5 up to the 25-group cap; approved 2026-08-11) |
-| [`mockups/bulk-edit.html`](mockups/bulk-edit.html) | Bulk edit groups (approved v3, 2026-08-12) — table of selected groups with inline custom-field editing, mass-apply for seats, dynamic overbooking indicator on the members column, empty-seats highlighting + filter, collapsible columns menu, floating tooltips on truncated names/idnumbers, per-row "Edit" modal wrapping core's group settings, responsive card layout on mobile |
-| [`mockups/affinity-rules.html`](mockups/affinity-rules.html) | Multi-rule affinity (approved 2026-08-13) — rule builder (repeatable rows summed with an explicit "AND" connector, list position = priority, drag + button reordering), member enrolment options (new "include future-start enrolments" checkbox, distinct from suspended), preview explainability alternatives A (per-rule badges on group cards), B (per-participant "why here?") and C (per-rule report with clusters/pairs), and the audit log screens (run list under the course Reports section, run detail reading the stored snapshot, reader-side masking, pseudonymised participants, deleted-group marker). Rule rows pick a **type** first (profile field / cohort); the cohort picker is a menu up to 10 visible cohorts and a debounced search beyond that — the mockup has a toggle simulating the large-platform search mode |
+| [`mockups/step1-options.html`](mockups/step1-options.html) | Step 1 — distribution options form (moodleform sections, seats controls with enable/disable behaviour; the affinity section is the ordered rule list, with the interactive builder prototyped in `affinity-rules.html`; approved 2026-08-11, refreshed 2026-08-20) |
+| [`mockups/step2-preview.html`](mockups/step2-preview.html) | Step 2 — preview (recap with one numbered chip per rule, stat tiles, warnings, group cards with capacity meters, per-rule status footer, future-start badges, simulated lazy loading in pages of 5 up to the 25-group cap; approved 2026-08-11, refreshed 2026-08-20) |
+| [`mockups/distribution-log.html`](mockups/distribution-log.html) | Distribution log — the audit report as built (2026-08-20). Both screens: the run list under Course › Reports, and one run's detail **paged on two axes** — group sections, and participants inside each section — with the two searches filtering live, profile links opening in a new tab, the masked-rule note, pseudonymised participants, the deleted-group marker and the no-JS route into a single group's own page |
+| [`mockups/bulk-edit.html`](mockups/bulk-edit.html) | Bulk edit groups (approved v3, 2026-08-12; refreshed 2026-08-20) — table of selected groups with inline custom-field editing, mass-apply for seats, dynamic overbooking indicator on the members column, empty-seats highlighting + filter, collapsible columns menu, floating tooltips on truncated names/idnumbers, per-row "Edit" modal wrapping core's group settings, responsive card layout on mobile. The footer carries "Save changes" and "Back to groups" only — there is no cancel, because saving writes as it goes, and leaving with unsaved cells is confirmed first |
+| [`mockups/affinity-rules.html`](mockups/affinity-rules.html) | Multi-rule affinity (approved 2026-08-13) — rule builder (repeatable rows summed with an explicit "AND" connector, list position = priority, drag + button reordering), member enrolment options (new "include future-start enrolments" checkbox, distinct from suspended), preview explainability alternatives A (per-rule badges on group cards), B (per-participant "why here?") and C (per-rule report with clusters/pairs), and the audit log screens (run list under the course Reports section, run detail reading the stored snapshot, reader-side masking, pseudonymised participants, deleted-group marker). Rule rows pick a **type** first (profile field / cohort); the cohort picker is a menu up to 10 visible cohorts and a debounced search beyond that — the mockup has a toggle simulating the large-platform search mode. Section 3 explored the audit log; the built report now has its own prototype in `distribution-log.html` |
 
 The mockups link to each other the same way the real pages flow ("Preview
-distribution" / "Back and adjust"). The bottom action bar in both mockups
-represents core's `\core\output\sticky_footer`, which the implemented pages
-use.
+distribution" / "Back and adjust"). The bottom action bar represents core's
+`\core\output\sticky_footer`, which the implemented pages use — and it carries
+**action buttons only**: explanatory notes and status counters live in the page
+content, which is why the bulk edit footer has no cancel and no counter.
 
 ## Design decisions worth knowing
 
 - **Deterministic recompute, no plan storage.** Every preview page call and
   the apply step recompute the full allocation from (options + seed). A
-  sha256 fingerprint over the candidate id set and each group's
-  (id, seats, current members) is returned by the preview and re-verified at
+  sha256 fingerprint over every input the plan is a function of — candidate
+  ids, their sort keys, each rule's per-user values and each group's
+  (id, seats, current members) — is returned by the preview and re-verified at
   apply: any concurrent enrolment/membership change aborts the apply instead
-  of silently writing a plan the teacher never saw. Consequence: the plugin
-  stores no user data (privacy `null_provider`).
+  of silently writing a plan the teacher never saw. **Previews** are still
+  never stored; what is stored is the audit snapshot of an *applied* run,
+  which is why the plugin owns two tables and ships a full privacy provider
+  (export, userlist and pseudonymising deletes) rather than a `null_provider`.
 - **"Seats"/"Location" are core group custom fields**, provisioned
   idempotently under a lock into a plugin-managed category. Uninstall
   cleanup is an admin opt-in (`cleanupfieldsonuninstall`), patterned on

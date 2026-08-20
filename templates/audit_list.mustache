@@ -22,8 +22,9 @@
 
     Context variables required for this template:
     * hasruns - whether any run exists
-    * runs - array of rows: when, byname, rules (index, apart), rulecount,
-      written, total, status (label, class), restored, detailurl
+    * runs - array of rows: when, byname, byprofileurl (empty when there is no
+      profile to reach), rules (index, apart), rulecount, written, total,
+      status (label, class), restored, detailurl
 
     Example context (json):
     {
@@ -32,6 +33,7 @@
             {
                 "when": "13/08/26, 10:42",
                 "byname": "Terry Teacher",
+                "byprofileurl": "https://example.com/user/view.php?id=3&course=2",
                 "rules": [
                     {"index": 1, "apart": false},
                     {"index": 2, "apart": true}
@@ -66,7 +68,13 @@
             {{#runs}}
             <tr>
                 <td class="text-nowrap">{{when}}</td>
-                <td>{{byname}}</td>
+                <td>
+                    {{#byprofileurl}}
+                    <a href="{{byprofileurl}}" target="_blank" rel="noopener">{{byname}}<span
+                        class="visually-hidden"> {{#str}} opensinnewwindowbracketed, core {{/str}}</span></a>
+                    {{/byprofileurl}}
+                    {{^byprofileurl}}{{byname}}{{/byprofileurl}}
+                </td>
                 <td>
                     {{#rules}}
                     <span class="badge rounded-pill {{#apart}}text-bg-warning{{/apart}}{{^apart}}text-bg-success{{/apart}}">{{index}}</span>

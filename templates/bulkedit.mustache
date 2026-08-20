@@ -101,6 +101,13 @@
 
     <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
         <span class="text-muted">{{#str}} selectedgroups, local_groupdist, {{total}} {{/str}}</span>
+        {{!
+            The unsaved-changes count is page status, not an action: the
+            sticky footer carries buttons only. The save button's own
+            enabled state and each row's dirty dot are the always-visible
+            half of the same signal.
+        }}
+        <span class="small fw-bold local-groupdist-dirtycount" data-region="dirtycount" role="status"></span>
         <div class="form-check mb-0">
             <input class="form-check-input" type="checkbox" id="local-groupdist-filterempty" data-action="filterempty">
             <label class="form-check-label" for="local-groupdist-filterempty">
@@ -171,7 +178,7 @@
                     <td data-colkey="members" data-label="{{#str}} memberscolumn, local_groupdist {{/str}}"
                         class="text-nowrap local-groupdist-memcell {{#isover}}table-danger{{/isover}}" data-region="memcell">
                         {{members}} <small class="text-muted">{{#str}} memberscolumnunit, local_groupdist {{/str}}</small>
-                        <span class="badge bg-light border local-groupdist-overbadge" data-region="overbadge"
+                        <span class="badge bg-light text-dark border local-groupdist-overbadge" data-region="overbadge"
                               {{^isover}}hidden{{/isover}}>+{{over}}</span>
                     </td>
                     {{#cells}}

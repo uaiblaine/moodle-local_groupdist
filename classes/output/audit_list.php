@@ -67,7 +67,7 @@ class audit_list implements \renderable, \templatable {
 
         $namefields = \core_user\fields::for_name()->get_sql('u', false, '', '', false)->selects;
         $records = $DB->get_records_sql(
-            "SELECT r.*, {$namefields}
+            "SELECT r.*, u.deleted AS userdeleted, {$namefields}
                FROM {local_groupdist_run} r
           LEFT JOIN {user} u ON u.id = r.userid
               WHERE r.courseid = :courseid
@@ -84,11 +84,18 @@ class audit_list implements \renderable, \templatable {
             foreach (array_values($rules) as $i => $rule) {
                 $chips[] = ['index' => $i + 1, 'apart' => ($rule['mode'] ?? '') === 'apart'];
             }
+            // A pseudonymised run has userid 0; an account since removed leaves
+            // the join empty. Neither has a profile page to link to.
+            $applied = ((int) $record->userid > 0 && $record->userdeleted !== null);
             $rows[] = [
                 'when' => userdate((int) $record->timecreated, get_string('strftimedatetimeshort', 'langconfig')),
-                'byname' => ((int) $record->userid > 0)
-                    ? fullname($record)
-                    : get_string('auditremoved', 'local_groupdist'),
+                'byname' => $applied ? fullname($record) : get_string('auditremoved', 'local_groupdist'),
+                'byprofileurl' => ($applied && empty($record->userdeleted))
+                    ? \core_user::get_profile_url(
+                        (object) ['id' => (int) $record->userid],
+                        \core\context\course::instance($this->courseid)
+                    )->out(false)
+                    : '',
                 'rules' => $chips,
                 'rulecount' => count($chips),
                 'written' => (int) $record->memberswritten,

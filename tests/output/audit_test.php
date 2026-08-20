@@ -100,11 +100,12 @@ final class audit_test extends \advanced_testcase {
 
         $this->assertCount(2, $export['rules']);
         $this->assertFalse($export['rules'][0]['masked']);
+        $this->assertNotEmpty($export['sections'], 'The first page of sections is server-rendered');
 
         // The two Maria guardians were split across groups by the apart rule:
         // one member's explanations must include a keep-apart separation line.
         $alltexts = [];
-        foreach ($export['groups'] as $group) {
+        foreach ($export['sections'] as $group) {
             foreach ($group['members'] as $member) {
                 foreach ($member['why'] as $line) {
                     $alltexts[] = $line['text'];
@@ -141,8 +142,13 @@ final class audit_test extends \advanced_testcase {
             'index' => 2,
             'label' => 'Guardian name',
         ]);
+        $this->assertStringNotContainsString(
+            $maskedstring,
+            json_encode($adminexport['sections']),
+            'The masked note must be absent for a viewer who may see the field'
+        );
         $found = false;
-        foreach ($export['groups'] as $group) {
+        foreach ($export['sections'] as $group) {
             foreach ($group['members'] as $member) {
                 foreach ($member['why'] as $line) {
                     $this->assertStringNotContainsString('Maria', $line['text']);
@@ -153,6 +159,86 @@ final class audit_test extends \advanced_testcase {
             }
         }
         $this->assertTrue($found, 'The masked rule must surface as the masked note');
+    }
+
+    /**
+     * A masked keep-together value must not surface through the warnings
+     * either. The split warning names no rule and carries the composite value
+     * of every keep-together rule, so it is masked whenever any of them is.
+     *
+     * The control is the admin export: it must still contain the real value,
+     * proving the warning is produced at all and the teacher's absence of it
+     * is the mask rather than a missing warning.
+     */
+    public function test_split_warning_does_not_leak_a_masked_value(): void {
+        global $CFG, $DB;
+        $this->resetAfterTest();
+        require_once($CFG->dirroot . '/user/profile/lib.php');
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+        $field = $generator->create_custom_profile_field([
+            'shortname' => 'guardian',
+            'name' => 'Guardian name',
+            'datatype' => 'text',
+            'visible' => PROFILE_VISIBLE_PRIVATE,
+        ]);
+        // Two groups of one seat each, three participants sharing one value:
+        // the cluster cannot fit one group, so the allocator splits it.
+        // Admin first: the customfield handler silently drops fields the
+        // current user may not edit, which would leave the seats unset.
+        $this->setAdminUser();
+        $groupids = [];
+        // Reset both sides: the field id cache is a request-level static, so a
+        // provisioning run in an earlier test of the same process would make
+        // ensure_fields_exist() a no-op against a database that no longer has
+        // the field, and the seats below would be silently dropped.
+        \local_groupdist\local\fields::reset_field_cache();
+        \local_groupdist\local\fields::ensure_fields_exist();
+        \local_groupdist\local\fields::reset_field_cache();
+        foreach (['Alpha', 'Beta'] as $name) {
+            $group = $generator->create_group(['courseid' => $course->id, 'name' => $name]);
+            $groupids[] = (int) $group->id;
+            \core_group\customfield\group_handler::create()->instance_form_save((object) [
+                'id' => $group->id,
+                'customfield_' . \local_groupdist\local\fields::SHORTNAME_SEATS => 1,
+            ]);
+        }
+        for ($i = 0; $i < 3; $i++) {
+            $user = $generator->create_and_enrol($course);
+            profile_save_data((object) ['id' => $user->id, 'profile_field_guardian' => 'Mariazinha']);
+        }
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+
+        $this->setAdminUser();
+        $options = options::from_array([
+            'courseid' => $course->id,
+            'groupids' => $groupids,
+            'affinityrules' => [['source' => 'profile_' . $field->id, 'mode' => options::AFFINITY_TOGETHER]],
+            'roleid' => (int) current(get_archetype_roles('student'))->id,
+            'useseats' => 1,
+            'seed' => 5,
+        ]);
+        $distribution = distribution::build($options, $context);
+        $types = array_column($distribution->warnings, 'type');
+        $this->assertContains('affinitysplit', $types, 'The fixture must actually provoke a split');
+
+        $runid = runlog::create($distribution, (int) get_admin()->id, $context);
+        $run = $DB->get_record('local_groupdist_run', ['id' => $runid], '*', MUST_EXIST);
+        $renderer = $this->renderer();
+
+        $this->setAdminUser();
+        $adminwarnings = json_encode(
+            (new audit_detail($run, $context))->export_for_template($renderer)['warnings']
+        );
+        $this->assertStringContainsString('Mariazinha', $adminwarnings);
+
+        $this->setUser($teacher->id);
+        $teacherwarnings = json_encode(
+            (new audit_detail($run, $context))->export_for_template($renderer)['warnings']
+        );
+        $this->assertStringNotContainsString('Mariazinha', $teacherwarnings);
     }
 
     /**
@@ -170,7 +256,7 @@ final class audit_test extends \advanced_testcase {
         $export = (new audit_detail($run, $context))->export_for_template($this->renderer());
 
         $names = [];
-        foreach ($export['groups'] as $group) {
+        foreach ($export['sections'] as $group) {
             foreach ($group['members'] as $member) {
                 $names[] = $member['name'];
             }

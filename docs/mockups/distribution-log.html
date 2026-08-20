@@ -1,0 +1,608 @@
+<title>Prototype — Distribution log (audit)</title>
+<style>
+
+  /* ── Tokens: Moodle Boost vernacular, both themes ─────────────────── */
+  :root {
+    --brand: #0f6cbf;
+    --brand-ink: #0a4a84;
+    --bg: #f8f9fa;
+    --surface: #ffffff;
+    --surface-2: #f1f3f5;
+    --ink: #1d2125;
+    --ink-2: #5b6470;
+    --line: #dee2e6;
+    --ok: #357a32;
+    --warn-bg: #fcefdc;
+    --warn-ink: #7a5a1e;
+    --warn: #f0ad4e;
+    --danger: #ca3120;
+    --info-bg: #e7f1fa;
+    --info-ink: #0a4a84;
+    --chip-bg: #eef2f6;
+    --shadow: 0 1px 2px rgba(29, 33, 37, .06);
+    --radius: .5rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --brand: #4da3e8;
+      --brand-ink: #8ec4f0;
+      --bg: #14171a;
+      --surface: #1f2429;
+      --surface-2: #262c33;
+      --ink: #e8eaed;
+      --ink-2: #9aa4b0;
+      --line: #343b43;
+      --ok: #6fbf6b;
+      --warn-bg: #3a3120;
+      --warn-ink: #ecc879;
+      --warn: #d9a03f;
+      --danger: #ef7b6d;
+      --info-bg: #1d2f40;
+      --info-ink: #9ec9ee;
+      --chip-bg: #2b323a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --brand: #4da3e8; --brand-ink: #8ec4f0; --bg: #14171a; --surface: #1f2429;
+    --surface-2: #262c33; --ink: #e8eaed; --ink-2: #9aa4b0; --line: #343b43;
+    --ok: #6fbf6b; --warn-bg: #3a3120; --warn-ink: #ecc879; --warn: #d9a03f;
+    --danger: #ef7b6d; --info-bg: #1d2f40; --info-ink: #9ec9ee; --chip-bg: #2b323a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .35);
+  }
+  :root[data-theme="light"] {
+    --brand: #0f6cbf; --brand-ink: #0a4a84; --bg: #f8f9fa; --surface: #ffffff;
+    --surface-2: #f1f3f5; --ink: #1d2125; --ink-2: #5b6470; --line: #dee2e6;
+    --ok: #357a32; --warn-bg: #fcefdc; --warn-ink: #7a5a1e; --warn: #f0ad4e;
+    --danger: #ca3120; --info-bg: #e7f1fa; --info-ink: #0a4a84; --chip-bg: #eef2f6;
+    --shadow: 0 1px 2px rgba(29, 33, 37, .06);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 400 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 1.5rem 1.25rem 6rem; }
+
+  /* ── Page head ─────────────────────────────────────────────────────── */
+  .crumbs { font-size: .82rem; color: var(--ink-2); margin-bottom: .35rem; }
+  .crumbs a { color: var(--brand); text-decoration: none; }
+  .crumbs a:hover, .crumbs a:focus { text-decoration: underline; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 .2rem; text-wrap: balance; }
+  .lede { color: var(--ink-2); margin: 0 0 1.25rem; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .proto-banner {
+    display: flex; gap: .6rem; align-items: baseline;
+    background: var(--info-bg); color: var(--info-ink);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: .6rem .9rem; margin-bottom: 1.5rem; font-size: .85rem;
+  }
+  .proto-banner .tag {
+    flex: none; font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; border: 1px solid currentColor;
+    border-radius: 999px; padding: .1rem .5rem;
+  }
+
+  
+  /* ── Report chrome ─────────────────────────────────────────────────── */
+  section { margin-bottom: 1.5rem; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  h2 { font-size: .78rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 .6rem; }
+  h3 { font-size: .95rem; font-weight: 600; margin: 0; }
+  a { color: var(--brand); }
+
+  .alert { border: 1px solid var(--line); border-radius: var(--radius); padding: .7rem 1rem; font-size: .88rem; display: flex; gap: .6rem; margin-bottom: .6rem; }
+  .alert.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .alert.info { background: var(--info-bg); color: var(--info-ink); }
+  .alert .ico { flex: none; font-weight: 700; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: .25rem; border-radius: 999px;
+    padding: .05rem .55rem; font-size: .74rem; font-weight: 600; white-space: nowrap;
+  }
+  .badge.ok { background: #dff0d8; color: #2a5d27; }
+  .badge.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .badge.mute { background: var(--chip-bg); color: var(--ink-2); font-weight: 500; }
+  .badge.danger { background: #f8d7da; color: #842029; }
+  @media (prefers-color-scheme: dark) {
+    .badge.ok { background: #22381f; color: #a6d5a2; }
+    .badge.danger { background: #3d1f22; color: #eda9a9; }
+  }
+  :root[data-theme="dark"] .badge.ok { background: #22381f; color: #a6d5a2; }
+  :root[data-theme="dark"] .badge.danger { background: #3d1f22; color: #eda9a9; }
+
+  .rulechips { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: 1rem; }
+  .rulechip {
+    display: inline-flex; align-items: center; gap: .4rem; background: var(--chip-bg);
+    border: 1px solid var(--line); border-radius: 999px; padding: .15rem .6rem .15rem .2rem; font-size: .82rem;
+  }
+  .prio {
+    display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; border-radius: 999px;
+    font-size: .72rem; font-weight: 700; color: #fff; background: var(--ok);
+  }
+  .prio.apart { background: #b8860b; }
+  .masked { color: var(--ink-2); font-size: .78rem; }
+
+  /* ── Toolbar: the two searches + counter ───────────────────────────── */
+  .toolbar { display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: flex-end; margin-bottom: 1rem; }
+  .toolbar .fld { display: flex; flex-direction: column; gap: .2rem; }
+  .toolbar label { font-size: .78rem; color: var(--ink-2); }
+  .toolbar input[type="search"] {
+    font: inherit; font-size: .88rem; padding: .3rem .55rem; min-width: 13rem;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--surface); color: var(--ink);
+  }
+  .toolbar .counter { margin-left: auto; font-size: .82rem; color: var(--ink-2); }
+
+  /* ── Group sections ────────────────────────────────────────────────── */
+  .gsec { padding: .85rem 1.1rem; margin-bottom: .6rem; }
+  .ghead { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; margin-bottom: .5rem; }
+  .ghead .count { margin-left: auto; font-size: .82rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .members { list-style: none; margin: 0; padding: 0; }
+  .members li { border-top: 1px solid var(--line); padding: .35rem 0; }
+  .mrow { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+  .mrow .who { display: flex; align-items: center; gap: .4rem; min-width: 0; }
+  .mrow .out { margin-left: auto; }
+  .removed { font-style: italic; color: var(--ink-2); }
+  /* The real page marks this .visually-hidden: it is there for screen readers,
+     never on screen. Reproduced faithfully so the mockup shows what a sighted
+     reader actually sees. */
+  .newtab {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+  .tablewrap { overflow-x: auto; }
+
+  details.why { font-size: .82rem; margin-top: .15rem; }
+  details.why summary { cursor: pointer; color: var(--ink-2); list-style: none; }
+  details.why summary::before { content: "▸ "; }
+  details.why[open] summary::before { content: "▾ "; }
+  details.why ul { margin: .25rem 0 .35rem; padding-left: 1.5rem; color: var(--ink); }
+  details.why li.mutedline { color: var(--ink-2); }
+  details.why li.warnline { color: var(--danger, #ca3120); }
+
+  .more { border-top: 1px solid var(--line); margin-top: .4rem; padding-top: .45rem; text-align: center; }
+  .more a { font-size: .84rem; }
+
+  /* ── Paging bar (core's) ───────────────────────────────────────────── */
+  .paging { display: flex; flex-wrap: wrap; gap: .25rem; justify-content: center; margin: 1rem 0; }
+  .paging a, .paging span {
+    min-width: 2rem; text-align: center; padding: .2rem .5rem; border-radius: var(--radius);
+    font-size: .85rem; text-decoration: none; color: var(--brand);
+  }
+  .paging .cur { background: var(--brand); color: #fff; font-weight: 700; }
+  .paging .dots { color: var(--ink-2); }
+
+  /* ── Run list table ────────────────────────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left; font-size: .74rem; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--ink-2); padding: .5rem .7rem; border-bottom: 1px solid var(--line); font-weight: 700;
+  }
+  tbody td { padding: .5rem .7rem; border-bottom: 1px solid var(--line); font-size: .88rem; }
+  tbody tr:last-child td { border-bottom: 0; }
+  .nowrap { white-space: nowrap; }
+
+  .screen { display: none; }
+  .screen.on { display: block; }
+  .switch { display: flex; gap: .4rem; margin-bottom: 1.25rem; }
+  .switch button {
+    font: inherit; font-size: .85rem; padding: .3rem .8rem; cursor: pointer;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--surface); color: var(--ink);
+  }
+  .switch button[aria-pressed="true"] { background: var(--brand); color: #fff; border-color: var(--brand); }
+</style>
+
+<div class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="#">Software Engineering — 2026.2</a> ›
+    <a href="#">Reports</a> ›
+    Distribution log
+  </nav>
+  <h1>Distribution log</h1>
+  <p class="lede">Every applied distribution of this course, read back from its stored snapshot.</p>
+
+  <div class="proto-banner">
+    <span class="tag">Prototype</span>
+    <span>Both screens of the report. The run detail is <strong>paged on two axes</strong> — group sections,
+      and participants inside each section — because a run can hold hundreds of groups and thousands of
+      participants. The two searches filter live here exactly as the AMD module does against the audit web
+      services; the paging bar, the search form and each section's "Show more" are plain links and a form
+      first, so the report also works with JavaScript off.</span>
+  </div>
+
+  <div class="switch" role="group" aria-label="Screen">
+    <button type="button" data-screen="list" aria-pressed="true">Run list</button>
+    <button type="button" data-screen="detail" aria-pressed="false">Run detail</button>
+  </div>
+
+  <!-- ── Screen 1: the run list ─────────────────────────────────────── -->
+  <section class="screen on" id="screen-list" aria-labelledby="list-h">
+    <h2 id="list-h">Applied distributions</h2>
+    <div class="card tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">When</th>
+            <th scope="col">Applied by</th>
+            <th scope="col">Affinity</th>
+            <th scope="col">Written</th>
+            <th scope="col">Status</th>
+            <th scope="col"><span class="newtab">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody id="runrows"></tbody>
+      </table>
+    </div>
+    <div class="paging" id="listpaging" aria-label="Page"></div>
+    <p class="footnote" style="margin:.5rem 0 0; padding:0;">
+      Retention is a site setting (<code>auditretentiondays</code>, default 365 days); a daily task deletes
+      runs past it. Deleting a participant pseudonymises their rows rather than removing them, so the run
+      counts and group compositions stay intact.
+    </p>
+  </section>
+
+  <!-- ── Screen 2: one run, paged ───────────────────────────────────── -->
+  <section class="screen" id="screen-detail" aria-labelledby="detail-h">
+    <div class="ghead" style="margin-bottom:.25rem;">
+      <h3 id="detail-h" style="font-size:1.15rem;">Run of 13/08/26, 10:42</h3>
+      <span class="badge ok">Completed</span>
+      <span class="badge mute">Restored from backup</span>
+    </div>
+    <p class="lede" style="font-size:.86rem; margin-bottom:1rem;">
+      Applied by: <a href="#" target="_blank" rel="noopener">Terry Teacher<span class="newtab"> (Opens in new window)</span></a>
+      · seed 3941 · plugin 2026082001 · 2000 of 2000 memberships written
+    </p>
+
+    <div class="alert info">
+      <span class="ico" aria-hidden="true">📷</span>
+      <span>Snapshot: everything below shows the data as it was at apply time. Later changes to profiles,
+        cohorts or groups do not alter this record.</span>
+    </div>
+
+    <h2>Rules applied (labels as of apply time)</h2>
+    <div class="rulechips">
+      <span class="rulechip"><span class="prio">1</span> Keep together: City</span>
+      <span class="rulechip"><span class="prio apart">2</span> Keep apart: Mother's name
+        <span class="masked" title="value hidden from you" aria-label="value hidden from you">👁</span></span>
+    </div>
+
+    <div class="alert warn">
+      <span class="ico" aria-hidden="true">⚠</span>
+      <span>17 participants have no value in "City".</span>
+    </div>
+
+    <form class="toolbar" id="filters" onsubmit="return false;">
+      <div class="fld">
+        <label for="uq">Search participants</label>
+        <input type="search" id="uq" autocomplete="off" placeholder="e.g. Ana">
+      </div>
+      <div class="fld" id="gqfield">
+        <label for="gq">Search groups</label>
+        <input type="search" id="gq" autocomplete="off" placeholder="e.g. Group 01">
+      </div>
+      <button type="submit" class="btn">Search</button>
+      <a href="#" id="clearfilters" hidden>Clear filters</a>
+      <span class="counter" id="counter" role="status"></span>
+    </form>
+
+    <p id="pinnednote" hidden><a href="#" id="allgroups">All groups of this run</a></p>
+
+    <div id="sections"></div>
+    <div class="alert info" id="empty" hidden>
+      <span class="ico" aria-hidden="true">ℹ</span>
+      <span>No group or participant of this run matches the current search.</span>
+    </div>
+
+    <div class="paging" id="paging" aria-label="Page"></div>
+  </section>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // The real constants: auditreader::SECTIONS_PER_PAGE and ::MEMBERS_PER_PAGE.
+  const SECTIONS_PER_PAGE = 8;
+  const MEMBERS_PER_PAGE = 20;
+  const PEER_CAP = 5;
+  const TOTAL_GROUPS = 42;
+
+  let seed = 20260820;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const pick = a => a[Math.floor(rnd() * a.length)];
+
+  const FIRST = ['Ana','Bruno','Camila','Diego','Elisa','Felipe','Gabriela','Heitor','Isabela','João',
+                 'Karina','Lucas','Mariana','Nicolas','Olívia','Paulo','Rafaela','Samuel','Tainá','Vitor'];
+  const LAST = ['Silva','Santos','Oliveira','Souza','Lima','Pereira','Costa','Almeida','Rocha','Teixeira'];
+  const CITY = ['Fortaleza','Sobral','Juazeiro do Norte','Crato','Quixadá','Itapipoca'];
+  const MOTHER = ['Maria','Rita','Joana','Cleide','Vera'];
+  const OUTCOMES = [
+    {label: 'written', cls: 'ok'},
+    {label: 'no seat', cls: 'warn'},
+    {label: 'no write needed', cls: 'mute'},
+  ];
+
+  // One snapshot: every group, every participant, with the values held at apply time.
+  const groups = Array.from({length: TOTAL_GROUPS}, (_, i) => {
+    // Two groups deliberately exceed one member window, so the per-section
+    // control that walks the rest is visible in the prototype.
+    const size = i === 0 ? 47 : (i === 2 ? 28 : 3 + Math.floor(rnd() * 9));
+    const city = pick(CITY);
+    return {
+      id: 100 + i,
+      name: 'Group ' + String(i + 1).padStart(2, '0'),
+      seats: size + (i % 5 === 1 ? -1 : 3),
+      deleted: i === 6,
+      members: Array.from({length: size}, (_, j) => ({
+        rowid: i * 100 + j,
+        // A pseudonymised participant keeps their row but loses name and values.
+        removed: rnd() < 0.03,
+        name: pick(FIRST) + ' ' + pick(LAST) + ' ' + pick(LAST),
+        city: rnd() < 0.88 ? city : pick(CITY),
+        mother: pick(MOTHER),
+        outcome: rnd() < 0.92 ? OUTCOMES[0] : pick(OUTCOMES),
+      })),
+    };
+  });
+  // The no-group bucket: unassigned and already-seated participants land here.
+  groups.push({
+    id: 0, name: 'Without a group', seats: null, nogroup: true, deleted: false,
+    members: Array.from({length: 6}, (_, j) => ({
+      rowid: 9000 + j, removed: false,
+      name: pick(FIRST) + ' ' + pick(LAST), city: pick(CITY), mother: pick(MOTHER),
+      outcome: j % 2 ? OUTCOMES[1] : OUTCOMES[2],
+    })),
+  });
+
+  const everyone = groups.flatMap(g => g.members.map(m => ({...m, group: g})));
+  const norm = s => s.toLowerCase();
+
+  /* Counts and peer lists are facts about the WHOLE run, never about the page:
+     a page-local count would read as correct and be wrong. */
+  const sameValueInGroup = (member, group) =>
+    group.members.filter(m => !m.removed && m.city === member.city).length - 1;
+  const apartPeers = member =>
+    everyone.filter(o => !o.removed && o.mother === member.mother && o.rowid !== member.rowid);
+
+  function whyLines(member, group) {
+    const lines = [];
+    if (!member.removed) {
+      lines.push({
+        text: 'Rule 1 · Keep together · City: value "' + member.city + '" — placed with '
+              + Math.max(0, sameValueInGroup(member, group)) + ' more of the same value.',
+      });
+      // Rule 2's source is masked for this reader, so its values never show.
+      lines.push({text: 'Rule 2 · Mother’s name: value hidden from you.', muted: true});
+      const peers = apartPeers(member);
+      const elsewhere = peers.filter(p => p.group.id !== group.id);
+      const sameGroup = peers.filter(p => p.group.id === group.id && group.id !== 0);
+      if (elsewhere.length) {
+        const named = elsewhere.slice(0, PEER_CAP)
+          .map(p => p.name + ' (' + p.group.name + ')').join(', ');
+        lines.push({text: 'Rule 2 · Keep apart · Mother’s name: separated from ' + named
+          + (elsewhere.length > PEER_CAP ? ', …' : '') + '.'});
+      }
+      if (sameGroup.length) {
+        lines.push({
+          text: 'Rule 2 · Keep apart · Mother’s name: shares the group with '
+                + sameGroup.slice(0, PEER_CAP).map(p => p.name).join(', ')
+                + (sameGroup.length > PEER_CAP ? ', …' : '') + '.',
+          warn: true,
+        });
+      }
+    }
+    if (!lines.length) {
+      lines.push({text: 'No rule constrained this participant.', muted: true});
+    }
+    return lines;
+  }
+
+  const state = {page: 0, uq: '', gq: '', pinned: null, shown: new Map()};
+
+  const matchingMembers = group => {
+    if (!state.uq) { return group.members; }
+    return group.members.filter(m => !m.removed && norm(m.name).includes(norm(state.uq)));
+  };
+
+  function visibleSections() {
+    if (state.pinned !== null) {
+      return groups.filter(g => g.id === state.pinned);
+    }
+    return groups.filter(g => {
+      if (g.nogroup && !g.members.length) { return false; }
+      if (state.uq && matchingMembers(g).length === 0) { return false; }
+      if (state.gq && !norm(g.name).includes(norm(state.gq))) { return false; }
+      return true;
+    });
+  }
+
+  const el = (tag, cls, html) => {
+    const n = document.createElement(tag);
+    if (cls) { n.className = cls; }
+    if (html !== undefined) { n.innerHTML = html; }
+    return n;
+  };
+
+  function memberNode(member, group) {
+    const li = document.createElement('li');
+    const row = el('div', 'mrow');
+    const who = el('div', 'who');
+    if (member.removed) {
+      who.innerHTML = '<span class="removed">Removed participant</span>';
+    } else {
+      who.innerHTML = '<a href="#" target="_blank" rel="noopener">' + member.name
+        + '<span class="newtab"> (Opens in new window)</span></a>';
+    }
+    row.appendChild(who);
+    row.appendChild(el('span', 'out badge ' + member.outcome.cls, member.outcome.label));
+    li.appendChild(row);
+
+    const det = el('details', 'why');
+    det.appendChild(el('summary', null, 'Why here?'));
+    const ul = document.createElement('ul');
+    whyLines(member, group).forEach(l => {
+      ul.appendChild(el('li', l.muted ? 'mutedline' : (l.warn ? 'warnline' : ''), l.text));
+    });
+    det.appendChild(ul);
+    li.appendChild(det);
+    return li;
+  }
+
+  function sectionNode(group) {
+    const members = matchingMembers(group);
+    const shown = Math.min(state.shown.get(group.id) || MEMBERS_PER_PAGE, members.length);
+    const card = el('article', 'card gsec');
+
+    const head = el('div', 'ghead');
+    const h = el('h3');
+    const link = el('a', null, group.name);
+    link.href = '#';
+    link.title = 'Open this group on its own page';
+    link.addEventListener('click', ev => {
+      ev.preventDefault();
+      // The no-JS route: audit.php?id=…&run=…&group=<id>, its own paged view.
+      state.pinned = group.id;
+      state.page = 0;
+      state.shown.clear();
+      render();
+    });
+    h.appendChild(link);
+    head.appendChild(h);
+    if (group.deleted) { head.appendChild(el('span', 'badge mute', 'group since deleted')); }
+    head.appendChild(el('span', 'count', members.length + (group.seats ? ' / ' + group.seats : '')));
+    card.appendChild(head);
+
+    const ul = el('ul', 'members');
+    members.slice(0, shown).forEach(m => ul.appendChild(memberNode(m, group)));
+    card.appendChild(ul);
+
+    if (shown < members.length) {
+      const more = el('div', 'more');
+      const a = el('a', null, 'Show ' + (members.length - shown) + ' more');
+      a.href = '#';
+      a.addEventListener('click', ev => {
+        ev.preventDefault();
+        // Appends one more window, exactly as the members web service does.
+        state.shown.set(group.id, shown + MEMBERS_PER_PAGE);
+        render();
+      });
+      more.appendChild(a);
+      card.appendChild(more);
+    }
+    return card;
+  }
+
+  function pagingNode(total, page, perpage, onto) {
+    const bar = document.getElementById(onto);
+    bar.innerHTML = '';
+    const pages = Math.ceil(total / perpage);
+    if (pages <= 1) { return; }
+    for (let i = 0; i < pages; i++) {
+      if (i === page) {
+        bar.appendChild(el('span', 'cur', String(i + 1)));
+        continue;
+      }
+      if (i > 1 && i < pages - 2 && Math.abs(i - page) > 2) {
+        if (bar.lastChild && bar.lastChild.className !== 'dots') { bar.appendChild(el('span', 'dots', '…')); }
+        continue;
+      }
+      const a = el('a', null, String(i + 1));
+      a.href = '#';
+      a.addEventListener('click', ev => { ev.preventDefault(); state.page = i; render(); });
+      bar.appendChild(a);
+    }
+  }
+
+  function render() {
+    const sections = visibleSections();
+    const totalmembers = sections.reduce((n, g) => n + matchingMembers(g).length, 0);
+    const start = state.page * SECTIONS_PER_PAGE;
+    const window_ = sections.slice(start, start + SECTIONS_PER_PAGE);
+
+    const host = document.getElementById('sections');
+    host.innerHTML = '';
+    window_.forEach(g => host.appendChild(sectionNode(g)));
+
+    document.getElementById('empty').hidden = sections.length > 0;
+    document.getElementById('counter').textContent = state.pinned !== null
+      ? 'Showing ' + Math.min(totalmembers, MEMBERS_PER_PAGE) + ' of ' + totalmembers + ' participants'
+      : 'Showing ' + Math.min(sections.length, start + SECTIONS_PER_PAGE) + ' of ' + sections.length
+        + ' groups · ' + totalmembers + ' participants';
+    document.getElementById('clearfilters').hidden = !(state.uq || state.gq);
+    document.getElementById('pinnednote').hidden = state.pinned === null;
+    document.getElementById('gqfield').hidden = state.pinned !== null;
+    pagingNode(sections.length, state.page, SECTIONS_PER_PAGE, 'paging');
+  }
+
+  // Live search: debounced, and it always returns to the first page.
+  let timer = null;
+  const onSearch = () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      state.uq = document.getElementById('uq').value.trim();
+      state.gq = document.getElementById('gq').value.trim();
+      state.page = 0;
+      state.shown.clear();
+      render();
+    }, 250);
+  };
+  document.getElementById('uq').addEventListener('input', onSearch);
+  document.getElementById('gq').addEventListener('input', onSearch);
+  document.getElementById('filters').addEventListener('submit', onSearch);
+  document.getElementById('clearfilters').addEventListener('click', ev => {
+    ev.preventDefault();
+    document.getElementById('uq').value = '';
+    document.getElementById('gq').value = '';
+    onSearch();
+  });
+  document.getElementById('allgroups').addEventListener('click', ev => {
+    ev.preventDefault();
+    state.pinned = null;
+    state.page = 0;
+    render();
+  });
+
+  // ── Run list ──────────────────────────────────────────────────────
+  const RUNS = [
+    {when: '13/08/26, 10:42', by: 'Terry Teacher', rules: [1, 2], written: 2000, total: 2000, status: {label: 'Completed', cls: 'ok'}, restored: true},
+    {when: '02/08/26, 09:15', by: 'Terry Teacher', rules: [1], written: 431, total: 448, status: {label: 'Partial', cls: 'warn'}},
+    {when: '28/07/26, 16:30', by: 'Removed participant', rules: [], written: 0, total: 120, status: {label: 'Aborted', cls: 'danger'}},
+  ];
+  const rows = document.getElementById('runrows');
+  RUNS.forEach(run => {
+    const tr = document.createElement('tr');
+    const chips = run.rules.length
+      ? run.rules.map(i => '<span class="prio' + (i === 2 ? ' apart' : '') + '">' + i + '</span>').join(' ')
+      : '<span class="masked">—</span>';
+    const by = run.by === 'Removed participant'
+      ? '<span class="removed">Removed participant</span>'
+      : '<a href="#" target="_blank" rel="noopener">' + run.by + '<span class="newtab"> (Opens in new window)</span></a>';
+    tr.innerHTML = '<td class="nowrap">' + run.when + '</td><td>' + by + '</td><td>' + chips
+      + '</td><td class="nowrap">' + run.written + ' / ' + run.total
+      + '</td><td><span class="badge ' + run.status.cls + '">' + run.status.label + '</span>'
+      + (run.restored ? ' <span class="badge mute">Restored from backup</span>' : '')
+      + '</td><td><a href="#" data-view="1">View</a></td>';
+    tr.querySelector('[data-view]').addEventListener('click', ev => {
+      ev.preventDefault();
+      showScreen('detail');
+    });
+    rows.appendChild(tr);
+  });
+  pagingNode(3, 0, 20, 'listpaging');
+
+  function showScreen(which) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 'screen-' + which));
+    document.querySelectorAll('.switch button').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.screen === which)));
+    window.scrollTo({top: 0});
+  }
+  document.querySelectorAll('.switch button').forEach(b =>
+    b.addEventListener('click', () => showScreen(b.dataset.screen)));
+
+  render();
+})();
+</script>

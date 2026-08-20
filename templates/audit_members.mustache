@@ -1,0 +1,84 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_groupdist/audit_members
+
+    One window of participants of an audit run section, as a list of its own:
+    a group longer than one window ends up carrying several such lists, which
+    is what lets a window be appended without re-rendering the ones already on
+    screen. Each row shows the name (linked to
+    the profile in a new tab when there is an account to reach), the write
+    outcome and the collapsed "why here?" explanation. Rendered server-side
+    for the first window and by the audit AMD module for every window loaded
+    after it, so both paths produce identical markup.
+
+    Context variables required for this template:
+    * members - array of entries: name, removed, profileurl (empty when the
+      participant has no reachable profile), groupname, outcome (label,
+      class) and why (array of text, muted, warn)
+
+    Example context (json):
+    {
+        "members": [
+            {
+                "name": "Ana Souza",
+                "removed": false,
+                "profileurl": "https://example.com/user/view.php?id=7&course=2",
+                "groupname": "Group 01",
+                "outcome": {"label": "written", "class": "success"},
+                "why": [
+                    {"text": "Rule 1 - Keep together - City: value \"Fortaleza\" - placed with 3 more.", "muted": false, "warn": false}
+                ]
+            },
+            {
+                "name": "Removed participant",
+                "removed": true,
+                "profileurl": "",
+                "groupname": "Group 01",
+                "outcome": {"label": "written", "class": "success"},
+                "why": [
+                    {"text": "No rule constrained this participant.", "muted": true, "warn": false}
+                ]
+            }
+        ]
+    }
+}}
+<ul class="list-unstyled mb-0">
+    {{#members}}
+    <li class="border-top py-1 local-groupdist-auditmember">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <i class="fa fa-user-circle-o text-muted" aria-hidden="true"></i>
+            {{#profileurl}}
+            <a href="{{profileurl}}" target="_blank" rel="noopener">{{name}}<span
+                class="visually-hidden"> {{#str}} opensinnewwindowbracketed, core {{/str}}</span></a>
+            {{/profileurl}}
+            {{^profileurl}}
+            <span {{#removed}}class="fst-italic text-muted"{{/removed}}>{{name}}</span>
+            {{/profileurl}}
+            <span class="ms-auto badge text-bg-{{outcome.class}} fw-normal">{{outcome.label}}</span>
+        </div>
+        <details class="small local-groupdist-auditdisclosure">
+            <summary>{{#str}} auditwhy, local_groupdist {{/str}}<span class="visually-hidden"> {{name}}</span></summary>
+            <ul class="mb-1 mt-1 local-groupdist-auditwhy">
+                {{#why}}
+                <li class="{{#muted}}text-muted{{/muted}}{{#warn}}text-danger{{/warn}}">{{text}}</li>
+                {{/why}}
+            </ul>
+        </details>
+    </li>
+    {{/members}}
+</ul>

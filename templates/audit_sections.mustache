@@ -1,0 +1,87 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_groupdist/audit_sections
+
+    One page of audit run group sections. Each card carries the group as it
+    was at apply time, its participant count and the first window of its
+    participants; the rest of a long group is reached through the card's own
+    control, which is a real link so it works without JavaScript.
+
+    Context variables required for this template:
+    * sections - array of cards: id, name, nogroup, deleted, seats, hasseats,
+      membertotal, shown, hasmore, remaining, canpin, moreurl and a members
+      array (see the audit_members template)
+
+    Example context (json):
+    {
+        "sections": [
+            {
+                "id": 12,
+                "name": "Group 01",
+                "nogroup": false,
+                "deleted": true,
+                "seats": 12,
+                "hasseats": true,
+                "membertotal": 43,
+                "shown": 1,
+                "hasmore": true,
+                "remaining": 42,
+                "canpin": true,
+                "moreurl": "https://example.com/local/groupdist/audit.php?id=2&run=7&group=12",
+                "members": [
+                    {
+                        "name": "Ana Souza",
+                        "removed": false,
+                        "profileurl": "https://example.com/user/view.php?id=7&course=2",
+                        "groupname": "Group 01",
+                        "outcome": {"label": "written", "class": "success"},
+                        "why": [
+                            {"text": "No rule constrained this participant.", "muted": true, "warn": false}
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}}
+{{#sections}}
+<div class="card mb-2 local-groupdist-auditsection" data-region="section" data-groupid="{{id}}"
+     data-shown="{{shown}}" data-total="{{membertotal}}">
+    <div class="card-body py-3">
+        <div class="d-flex flex-wrap align-items-baseline gap-2 mb-2">
+            <h3 class="h6 mb-0">{{name}}</h3>
+            {{#deleted}}
+            <span class="badge bg-light text-dark border fw-normal">{{#str}} auditgroupdeleted, local_groupdist {{/str}}</span>
+            {{/deleted}}
+            <span class="ms-auto small text-muted" data-region="sectioncount">
+                {{membertotal}}{{#hasseats}} / {{seats}}{{/hasseats}}
+            </span>
+        </div>
+        <div data-region="members">
+            {{> local_groupdist/audit_members }}
+        </div>
+        {{#hasmore}}
+        <div class="border-top pt-2 mt-1 text-center" data-region="sectionmore">
+            <a class="btn btn-link btn-sm" href="{{moreurl}}" data-action="loadmembers" data-groupid="{{id}}">
+                {{#str}} auditshowmoremembers, local_groupdist, {{remaining}} {{/str}}
+            </a>
+        </div>
+        {{/hasmore}}
+    </div>
+</div>
+{{/sections}}

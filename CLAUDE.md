@@ -42,7 +42,9 @@ distribute.php               Step 1+2 controller: options form POST target and
 apply.php                    Step 3: fingerprint re-check, inline vs adhoc
 status.php                   Background apply progress (core task_indicator)
 audit.php                    Distribution log course report: run list + run
-                             detail from the snapshot (gate: viewauditlog)
+                             detail from the snapshot, both paged, with the
+                             two searches and a pinned-group view (gate:
+                             viewauditlog)
 bulkedit.php                 Bulk edit table of the selected groups' custom
                              fields (gate: moodle/course:managegroups)
 lib.php                      local_groupdist_user_preferences() (column prefs)
@@ -52,6 +54,8 @@ classes/
   local/ruleset.php          Ordered affinity ruleset value object (pure; the
                              POST transport is affinityrulesources[]/modes[])
   local/candidates.php       One-query candidate fetch (enrol+role+cohort+affinity)
+  local/auditreader.php      Paged/searchable reader over one run's snapshot
+                             (windows + the "why here?" peer facts)
   local/allocator.php        Pure deterministic engine (no DB) + typed warnings
   local/allocation.php       Allocator result value object
   local/distribution.php     Builder: groups+fields+counts+allocation+fingerprint
@@ -59,6 +63,9 @@ classes/
   local/fields.php           Group custom field provisioning + bulk readers
   local/profilefields.php    Affinity field enumeration (visibility-filtered)
   external/get_preview.php   Paged preview WS (recomputes per call)
+  external/get_audit_sections.php One page of a run's group sections (search)
+  external/get_audit_members.php One window of one section's participants
+  external/audit_ws.php      Shared audit WS preamble + member return shape
   external/search_cohorts.php Cohort search for the rule builder (cohorts are
                              never enumerated; menu <= 10, search beyond)
   external/save_group_fields.php Chunked bulk-edit save (dirty cells only,
@@ -70,6 +77,8 @@ classes/
   event/distribution_applied.php One event per applied run (no objecttable)
 amd/src/index_button.js      Injected formaction submit button on group/index
 amd/src/preview.js           Preview hydration + lazy load (pages of 5, cap 25)
+amd/src/audit.js             Audit report: debounced live search, paging bar
+                             intercepted in place, per-section member windows
 templates/                   preview shell, stats tiles, group cards, skeleton,
                              sticky footer actions, selected-groups chips
 docs/                        Approved HTML mockups + design decisions (export-ignored)
@@ -165,12 +174,44 @@ docs/                        Approved HTML mockups + design decisions (export-ig
 - **WS return structure is an allowlist**: preview data is rendered client-side
   only, from `get_preview` — a field added to the payload must be added to
   `execute_returns()` or `clean_returnvalue` silently strips it.
+- **Bulk edit has no cancel, on purpose.** Saving writes through the web
+  service as it goes, so a cancel in the footer would undo nothing — the
+  control is "Back to groups", and `bulkedit.js` confirms before leaving
+  while cells are still dirty. The sticky footer carries action buttons
+  only; the unsaved-changes counter is page status and lives in the toolbar.
+- **`bootstrap_compat_test` is the only gate that reads a class name.**
+  Badge backgrounds must state a text utility (BS5 defaults `.badge` to
+  white, so `bg-light` alone renders ~1.05:1), no Bootstrap 4 spelling may
+  survive, and `--mds-*` is core's namespace. Colours come from theme tokens
+  with a fallback chain, never a literal: 5.1 and 5.2 ship dark mode, and a
+  hardcoded accent that passes on white can fail on `--bs-body-bg` #1d2125.
 - **Bulk edit saves are payload-bounded by design**: only dirty cells travel,
   the client slices sequential chunks of 100 and `save_group_fields` rejects
   calls above `MAX_CHANGES` (200). Partial cell saves are safe because
   customfield data controllers early-return on absent `customfield_<shortname>`
   properties (`data_controller::instance_form_save`, property_exists check) —
   never "helpfully" fill in the other fields' properties, that would wipe them.
+- **The audit report reads the snapshot through windows, and every number in
+  it is still a fact about the whole run.** `auditreader` pages group sections
+  and participants; the "why here?" lines are built for the displayed window
+  only, but the counts and peer lists behind them come from an exhaustive
+  pass, never from the window (a page-local count would read as correct and
+  be wrong). The peer pass keeps at most `PEER_CAP + 1` rows per
+  (rule, value, group) bucket — that cap is what removed the quadratic walk
+  the unpaged reader had, and `+ 1` is load-bearing: a member's own row sits
+  in its own bucket and is removed before the list is sliced, which is also
+  the only thing keeping a participant out of their own "separated from"
+  line in the no-group bucket. The scan runs the whole run only when a
+  keep-apart rule is in play, in keyset chunks (neither DB driver streams a
+  plain recordset). Searching participants is SQL over `{user}`; searching
+  groups is PHP over the snapshot — `valuesjson` is never searched, because
+  `json_encode` escaping (`/` → `\/`, non-ASCII → `\uXXXX`) makes a portable
+  LIKE silently wrong.
+- **Anything the audit report displays is `format_string(..., escape => false)`
+  first.** Values land in a Mustache double stash and in `PARAM_TEXT` web
+  service fields: the default escaping would be encoded twice on screen, and
+  an unstripped `<` makes `clean_returnvalue()` throw, so the page renders
+  and then dies on the first search keystroke.
 - **The audit log is a snapshot, never a reference**: `runlog` stores rule
   labels, per-user values and group names as they were at apply time; the
   audit UI derives explanations from these stored facts, never by replaying

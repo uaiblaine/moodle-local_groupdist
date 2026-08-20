@@ -71,9 +71,9 @@ final class fields_test extends \advanced_testcase {
      * "Vagas & Lugares" reached the bulk edit page as "Vagas &amp;amp;
      * Lugares" and read "Vagas &amp; Lugares" on screen.
      *
-     * The fixture needs an ampersand and nothing else will do: format_string's
-     * escape flag only rewrites ampersands, and it strips tags before it
-     * escapes, so angle brackets prove nothing.
+     * Measured: format_string's escape flag rewrites & and any < or > that
+     * survives strip_tags(), so a bare ampersand is a valid fixture while a
+     * tag-shaped one is not — <b>x</b> is stripped identically in both modes.
      *
      * @return void
      */

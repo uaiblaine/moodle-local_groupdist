@@ -62,8 +62,8 @@ final class profilefields_test extends \advanced_testcase {
      * cohort named "Ciencias & Letras" as "Ciencias &amp; Letras" on the first
      * screen of the flow.
      *
-     * An ampersand is the only fixture that can reveal this: format_string's
-     * escape flag rewrites nothing else, and it strips tags before escaping.
+     * A bare ampersand is a valid fixture; a tag-shaped one would not be,
+     * since format_string strips tags identically in both escape modes.
      *
      * @return void
      */

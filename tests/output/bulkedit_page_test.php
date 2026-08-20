@@ -49,11 +49,10 @@ final class bulkedit_page_test extends \advanced_testcase {
         $this->assertSame('Ana & Bruno', $row['name']);
         $this->assertStringNotContainsString('&amp;', $row['name']);
         $this->assertSame('A', $row['initial']);
-        /* No escaping assertion on the initial: format_string's escape flag
-           only rewrites ampersands (replace_ampersands_not_followed_by_entity
-           in lib/classes/formatting.php), and '&' is still '&' after it, so
-           the first character cannot differ between the two spellings. A test
-           claiming to guard it would be vacuous. */
+        /* The initial is asserted separately below, with a fixture whose
+           FIRST character actually differs between the two spellings. An
+           ampersand does not: '&' escapes to '&amp;', which still starts
+           with '&'. */
     }
 
     /**
@@ -95,6 +94,34 @@ final class bulkedit_page_test extends \advanced_testcase {
         $this->assertStringContainsString('Vagas &amp; Lugares', $html);
         $this->assertStringContainsString('Ana &amp; Bruno', $html);
         $this->assertStringNotContainsString('&amp;amp;', $html, 'A name reached the page escaped twice.');
+    }
+
+    /**
+     * The avatar initial is sliced from the same unescaped name, so it is
+     * never the first character of an entity instead of the first character
+     * of the name.
+     *
+     * The fixture leads with a greater-than sign because that is a character
+     * whose FIRST-character spelling actually differs: escaping turns it into
+     * "&gt;". An ampersand cannot show this — "&" escapes to "&amp;", which
+     * still starts with "&" — and a tag-shaped fixture cannot either, since
+     * format_string strips tags in both modes.
+     *
+     * @return void
+     */
+    public function test_the_initial_comes_from_the_unescaped_name(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $group = $this->getDataGenerator()->create_group([
+            'courseid' => $course->id,
+            'name' => '> Alpha squad',
+        ]);
+
+        $row = bulkedit_page::build_row($group, [], [], 0);
+
+        $this->assertSame('> Alpha squad', $row['name']);
+        $this->assertSame('>', $row['initial']);
     }
 
     /**

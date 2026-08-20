@@ -8,6 +8,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The distribution audit log scales to runs with hundreds of groups and
+  thousands of participants. The run detail no longer loads the whole run:
+  group sections are paged (`$OUTPUT->paging_bar`), each section carries one
+  window of participants with a link to that group's own page for the rest,
+  and two search boxes filter by participant name (SQL, through
+  `\core_user\fields::get_sql_fullname()` so the site's own name format is
+  what gets matched) and by group name (matched in PHP against the run's
+  stored snapshot — `valuesjson` is never searched, its `json_encode`
+  escaping makes a portable LIKE impossible to get right). A new AMD module
+  (`local_groupdist/audit`) turns the search into a debounced live filter and
+  swaps paged sections in place through two new read web services
+  (`local_groupdist_get_audit_sections`, `local_groupdist_get_audit_members`),
+  keeping one page of the run in the document at a time; every control it
+  drives is a plain form, link or paging bar first, so the report still works,
+  and stays bookmarkable, with JavaScript off.
+- The "why here?" explanations are now derived for the displayed window only,
+  which removes a quadratic blow-up: peers of a value were walked in full for
+  every member, and a cohort rule gives every participant the same value, so
+  one bucket held the whole run (measured: ~106 s of `fullname()` calls alone
+  at 3000 participants). Counts and peer lists remain facts about the whole
+  run, not about the window — a keep-together line on page two still reports
+  every participant sharing the value.
+- Participant names in the audit report link to the user profile and open in
+  a new tab, in the run list ("Applied by") and on every participant row.
+  Pseudonymised rows and users whose account is gone keep the removed marker
+  and carry no link.
+- Audit report privacy and rendering fixes found while reworking it: the
+  "did not fit one group" warning printed the keep-together value even when
+  the rule's source was masked for the reader, and now shows the masked
+  placeholder whenever any keep-together rule is masked; the "value hidden
+  from you" note is emitted for every participant of a masked rule rather
+  than only for those holding a value, which by its presence disclosed who
+  had one; group names and rule values are formatted with `escape => false`
+  so they are not entity-encoded twice on the way to the screen (a group
+  called "R&D" read "R&amp;D"), which also keeps a value containing markup
+  passable through the web services' `PARAM_TEXT` fields.
+
 - Affinity now travels as an ordered ruleset (`\local_groupdist\local\ruleset`,
   new value object) instead of the `affinityfield`/`affinitymode` scalar pair,
   across the options object, the preview web service (typed `affinityrules`

@@ -86,12 +86,18 @@
     vertical-align: -2px;
 }
 
+/*
+   The unsaved-changes accent reads from the theme's own emphasis token, which
+   flips with dark mode. The literal it falls back to measures 4.67:1 on the
+   light body but only 3.30:1 on the 5.2 dark body (--bs-body-bg #1d2125),
+   under the 4.5:1 AA floor for text this size.
+*/
 .local-groupdist-dot {
     display: inline-block;
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 50%;
-    background: #b25e09;
+    background: var(--bs-warning-text-emphasis, #b25e09);
     vertical-align: 1px;
 }
 
@@ -140,7 +146,7 @@
 }
 
 .local-groupdist-dirtycount {
-    color: #b25e09;
+    color: var(--bs-warning-text-emphasis, #b25e09);
 }
 
 .local-groupdist-colhidden {
@@ -213,4 +219,21 @@
     .local-groupdist-gcell {
         max-width: none;
     }
+}
+
+/* Distribution audit report. */
+
+.local-groupdist-auditdetail .local-groupdist-auditwhy {
+    padding-left: 1.6rem;
+}
+
+.local-groupdist-auditdisclosure summary {
+    cursor: pointer;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.local-groupdist-auditsection[aria-busy="true"],
+.local-groupdist-auditdetail [data-region="sections"][aria-busy="true"] {
+    opacity: 0.55;
+    transition: opacity 150ms ease-in-out;
 }

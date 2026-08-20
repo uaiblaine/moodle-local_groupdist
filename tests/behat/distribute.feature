@@ -63,6 +63,29 @@ Feature: Distribute participants into selected groups
     Then I should see "Applied by: Terry Teacher"
     And I should see "Group A"
     And I should see "written"
+    And I should see "Showing 2 of 2 groups"
+
+  Scenario: The audit log searches the run by participant and by group name
+    Given I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (0),Group B (0)"
+    And I click on "Distribute participants" "button"
+    And I press "Preview distribution"
+    And I click on "Apply distribution" "button"
+    And I am on the "Course 1" "course" page
+    And I navigate to "Reports" in current page administration
+    And I click on "Distribution log" "link"
+    And I click on "View" "link"
+    Then I should see "Sam One"
+    And I should see "Sue Two"
+    When I set the field "Search participants" to "Sam"
+    And I press "Search"
+    Then I should see "Sam One"
+    And I should not see "Sue Two"
+    When I set the field "Search participants" to ""
+    And I set the field "Search groups" to "Group B"
+    And I press "Search"
+    Then I should see "Group B"
+    And I should not see "Group A"
 
   Scenario: Build field and cohort affinity rules and see them echoed in the preview recap
     Given I am on the "Course 1" "groups" page logged in as "teacher1"

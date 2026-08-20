@@ -17,26 +17,32 @@
 {{!
     @template local_groupdist/audit_detail
 
-    One audit run rendered from its stored snapshot: header, rules as of
-    apply time, warnings, and the groups with per-participant outcomes and
-    "why here?" explanations (plain details/summary, no JS). Masked rules
-    show their label but never their values.
+    One audit run rendered from its stored snapshot: header, rules as of apply
+    time, warnings, the two search boxes and one page of group sections. The
+    search form and the paging bar are plain server-side controls, so the
+    report works with JavaScript off; the audit AMD module intercepts them and
+    loads further pages in place. Masked rules show their label but never
+    their values.
 
     Context variables required for this template:
-    * heading / byname / meta - header texts
+    * heading / byname / byprofileurl / meta - header texts
     * status - label and class
     * restored - whether the run was recreated by a course restore
     * hasrules / rules - chips: index, mode, label, apart, masked
     * warnings - array of message entries
-    * groups - array: name, nogroup, deleted, seats, membercount, members
-      (name, removed, outcome {label, class}, why list {text, muted, warn})
+    * pinned / pinnedgroup - whether one group is being walked on its own
+    * userquery / groupquery / hasfilters / formaction / clearurl / courseid /
+      runid - the search form state
+    * sections / hassections / counter / pagingbar - the body
+    * configjson - JSON consumed by the AMD module
     * backurl - the run list URL
 
     Example context (json):
     {
         "heading": "Run of 13/08/26, 10:42",
         "byname": "Terry Teacher",
-        "meta": "seed 3941 · plugin 2026081305 · 43 participants, 43 written",
+        "byprofileurl": "https://example.com/user/view.php?id=3&course=2",
+        "meta": "seed 3941 - plugin 2026081305 - 43 participants, 43 written",
         "status": {"label": "Completed", "class": "success"},
         "restored": true,
         "hasrules": true,
@@ -46,20 +52,42 @@
         "warnings": [
             {"message": "3 participants have no value in \"City\"."}
         ],
-        "groups": [
+        "pinned": false,
+        "pinnedgroup": "",
+        "userquery": "",
+        "groupquery": "",
+        "hasfilters": false,
+        "formaction": "https://example.com/local/groupdist/audit.php",
+        "clearurl": "https://example.com/local/groupdist/audit.php?id=2&run=7",
+        "courseid": 2,
+        "runid": 7,
+        "counter": "8 of 42 groups - 431 participants",
+        "hassections": true,
+        "pagingbar": "<nav></nav>",
+        "configjson": "{\"runid\":7}",
+        "sections": [
             {
+                "id": 12,
                 "name": "Group 01",
                 "nogroup": false,
-                "deleted": true,
+                "deleted": false,
                 "seats": 12,
-                "membercount": 1,
+                "hasseats": true,
+                "membertotal": 1,
+                "shown": 1,
+                "hasmore": false,
+                "remaining": 0,
+                "canpin": true,
+                "moreurl": "https://example.com/local/groupdist/audit.php?id=2&run=7&group=12",
                 "members": [
                     {
                         "name": "Ana Souza",
                         "removed": false,
+                        "profileurl": "https://example.com/user/view.php?id=7&course=2",
+                        "groupname": "Group 01",
                         "outcome": {"label": "written", "class": "success"},
                         "why": [
-                            {"text": "Rule 1 · Keep together · City: value \"Fortaleza\" — placed with 3 more.", "muted": false, "warn": false}
+                            {"text": "No rule constrained this participant.", "muted": true, "warn": false}
                         ]
                     }
                 ]
@@ -68,7 +96,7 @@
         "backurl": "https://example.com/local/groupdist/audit.php?id=2"
     }
 }}
-<div class="local-groupdist-auditdetail">
+<div class="local-groupdist-auditdetail" data-region="local-groupdist-audit" data-config="{{configjson}}">
     <div class="d-flex flex-wrap align-items-baseline gap-2 mb-1">
         <h2 class="h4 mb-0">{{heading}}</h2>
         <span class="badge text-bg-{{status.class}}">{{status.label}}</span>
@@ -76,7 +104,15 @@
         <span class="badge bg-light text-dark border fw-normal">{{#str}} auditrestored, local_groupdist {{/str}}</span>
         {{/restored}}
     </div>
-    <p class="text-muted mb-3">{{#str}} auditby, local_groupdist {{/str}}: {{byname}} · {{meta}}</p>
+    {{!
+        The label and the name stay on one source line: a behat "I should see"
+        is an XPath contains() over the raw string value, which keeps every
+        newline and indent between them.
+    }}
+    <p class="text-muted mb-3">
+        {{#str}} auditby, local_groupdist {{/str}}: {{#byprofileurl}}<a href="{{byprofileurl}}" target="_blank" rel="noopener">{{byname}}<span class="visually-hidden"> {{#str}} opensinnewwindowbracketed, core {{/str}}</span></a>{{/byprofileurl}}{{^byprofileurl}}{{byname}}{{/byprofileurl}}
+        &middot; {{meta}}
+    </p>
 
     <div class="alert alert-info d-flex gap-2" role="note">
         <i class="fa fa-camera mt-1" aria-hidden="true"></i>
@@ -101,38 +137,52 @@
     <div class="alert alert-warning py-2 small" role="alert">{{message}}</div>
     {{/warnings}}
 
-    {{#groups}}
-    <div class="card mb-2">
-        <div class="card-body py-3">
-            <div class="d-flex flex-wrap align-items-baseline gap-2 mb-2">
-                <h3 class="h6 mb-0">{{name}}</h3>
-                {{#deleted}}
-                <span class="badge bg-light text-dark border fw-normal">{{#str}} auditgroupdeleted, local_groupdist {{/str}}</span>
-                {{/deleted}}
-                <span class="ms-auto small text-muted">{{membercount}}{{#seats}} / {{.}}{{/seats}}</span>
+    <form method="get" action="{{formaction}}" class="mb-3" data-region="filters">
+        <input type="hidden" name="id" value="{{courseid}}">
+        <input type="hidden" name="run" value="{{runid}}">
+        {{#pinned}}<input type="hidden" name="group" value="{{pinnedgroup}}">{{/pinned}}
+        <div class="d-flex flex-wrap align-items-end gap-2">
+            <div>
+                <label class="form-label small text-muted mb-1" for="local-groupdist-auditsearchuser">
+                    {{#str}} auditsearchparticipant, local_groupdist {{/str}}
+                </label>
+                <input type="search" class="form-control form-control-sm" id="local-groupdist-auditsearchuser"
+                       name="uq" value="{{userquery}}" data-region="userquery" autocomplete="off">
             </div>
-            <ul class="list-unstyled mb-0">
-                {{#members}}
-                <li class="border-top py-1">
-                    <details>
-                        <summary class="d-flex align-items-center gap-2 local-groupdist-auditmember">
-                            <i class="fa fa-user-circle-o text-muted" aria-hidden="true"></i>
-                            <span {{#removed}}class="fst-italic text-muted"{{/removed}}>{{name}}</span>
-                            <span class="ms-auto badge text-bg-{{outcome.class}} fw-normal">{{outcome.label}}</span>
-                            <span class="badge bg-light text-dark border fw-normal">{{#str}} auditwhy, local_groupdist {{/str}}</span>
-                        </summary>
-                        <ul class="small mb-1 mt-1 local-groupdist-auditwhy">
-                            {{#why}}
-                            <li class="{{#muted}}text-muted{{/muted}}{{#warn}}text-danger{{/warn}}">{{text}}</li>
-                            {{/why}}
-                        </ul>
-                    </details>
-                </li>
-                {{/members}}
-            </ul>
+            {{^pinned}}
+            <div>
+                <label class="form-label small text-muted mb-1" for="local-groupdist-auditsearchgroup">
+                    {{#str}} auditsearchgroup, local_groupdist {{/str}}
+                </label>
+                <input type="search" class="form-control form-control-sm" id="local-groupdist-auditsearchgroup"
+                       name="gq" value="{{groupquery}}" data-region="groupquery" autocomplete="off">
+            </div>
+            {{/pinned}}
+            <button type="submit" class="btn btn-secondary btn-sm" data-region="filtersubmit">
+                {{#str}} search, core {{/str}}
+            </button>
+            {{#hasfilters}}
+            <a class="btn btn-link btn-sm" href="{{clearurl}}" data-action="clearfilters">
+                {{#str}} auditclearfilters, local_groupdist {{/str}}
+            </a>
+            {{/hasfilters}}
+            <span class="ms-auto small text-muted" data-region="counter" aria-live="polite">{{counter}}</span>
         </div>
+    </form>
+
+    {{#pinned}}
+    <p><a href="{{clearurl}}">{{#str}} auditallgroups, local_groupdist {{/str}}</a></p>
+    {{/pinned}}
+
+    <div data-region="sections">
+        {{> local_groupdist/audit_sections }}
     </div>
-    {{/groups}}
+
+    <div data-region="empty" class="alert alert-info" role="status" {{#hassections}}hidden{{/hassections}}>
+        {{#str}} auditnomatches, local_groupdist {{/str}}
+    </div>
+
+    <div data-region="pagingbar">{{{pagingbar}}}</div>
 
     <a class="btn btn-secondary mt-2" href="{{backurl}}">{{#str}} back, core {{/str}}</a>
 </div>

@@ -25,6 +25,20 @@
 defined('MOODLE_INTERNAL') || die();
 
 $functions = [
+    'local_groupdist_get_audit_sections' => [
+        'classname' => 'local_groupdist\external\get_audit_sections',
+        'description' => 'One page of group sections of an applied distribution run (searchable).',
+        'type' => 'read',
+        'ajax' => true,
+        'capabilities' => 'local/groupdist:viewauditlog',
+    ],
+    'local_groupdist_get_audit_members' => [
+        'classname' => 'local_groupdist\external\get_audit_members',
+        'description' => 'One window of participants inside a section of an applied distribution run.',
+        'type' => 'read',
+        'ajax' => true,
+        'capabilities' => 'local/groupdist:viewauditlog',
+    ],
     'local_groupdist_get_preview' => [
         'classname' => 'local_groupdist\external\get_preview',
         'description' => 'Compute a deterministic distribution preview page. Nothing is written.',

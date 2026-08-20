@@ -198,8 +198,13 @@ echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('distributeparticipants', 'local_groupdist'));
 echo $OUTPUT->render_from_template('local_groupdist/selected_groups', [
     'groups' => array_map(
-        function (int $groupid) use ($coursegroups): array {
-            return ['name' => format_string($coursegroups[$groupid]->name)];
+        function (int $groupid) use ($coursegroups, $context): array {
+            // Escaped once by the template's double stash, so not here too.
+            $name = format_string($coursegroups[$groupid]->name, true, [
+                'context' => $context,
+                'escape' => false,
+            ]);
+            return ['name' => $name];
         },
         array_slice($groupids, 0, 8)
     ),

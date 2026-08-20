@@ -17,6 +17,7 @@
 namespace local_groupdist\external;
 
 use core_external\external_api;
+use local_groupdist\local\fields;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -105,6 +106,37 @@ final class get_preview_test extends \externallib_advanced_testcase {
         foreach ($page1['groups'] as $group) {
             $this->assertLessThanOrEqual(get_preview::MEMBER_SAMPLE, count($group['members']));
         }
+    }
+
+    /**
+     * The location label survives the web service unescaped.
+     *
+     * This is the one path where the escape => false rule could have gone the
+     * other way: the value is declared PARAM_TEXT, so it passes through
+     * clean_returnvalue() before the client sees it. PARAM_TEXT only handles
+     * tags and multilang markup (core\param::clean_param_value_text) and never
+     * touches entities, so an ampersand arrives intact — and it has to, because
+     * preview.js hands the value to a Mustache double stash and writes warning
+     * messages with textContent, both of which escape for themselves.
+     *
+     * @return void
+     */
+    public function test_the_location_label_crosses_the_web_service_unescaped(): void {
+        global $DB;
+        $this->resetAfterTest();
+        [$course, , $args] = $this->make_course(2, 4);
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $this->setAdminUser();
+        fields::reset_field_cache();
+        fields::ensure_fields_exist();
+        fields::reset_field_cache();
+        $DB->set_field('customfield_field', 'name', 'Local & Sala', ['id' => fields::get_location_field()->get('id')]);
+        fields::reset_field_cache();
+        $this->setUser($teacher);
+
+        $response = $this->call($args + ['limitfrom' => 0, 'limitnum' => 2]);
+
+        $this->assertSame('Local & Sala', $response['locationlabel']);
     }
 
     /**

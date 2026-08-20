@@ -84,7 +84,7 @@ class fields {
      */
     public static function get_seats_label(): string {
         $field = self::get_seats_field();
-        return $field ? format_string($field->get('name')) : get_string('fieldseats', 'local_groupdist');
+        return $field ? self::plain($field->get('name')) : get_string('fieldseats', 'local_groupdist');
     }
 
     /**
@@ -94,7 +94,33 @@ class fields {
      */
     public static function get_location_label(): string {
         $field = self::get_location_field();
-        return $field ? format_string($field->get('name')) : get_string('fieldlocation', 'local_groupdist');
+        return $field ? self::plain($field->get('name')) : get_string('fieldlocation', 'local_groupdist');
+    }
+
+    /**
+     * Format a stored field name for output, unescaped.
+     *
+     * Every consumer escapes for itself and would otherwise escape a second
+     * time, so a field an admin named "Vagas & Lugares" reads "Vagas &amp;
+     * Lugares" on screen. Measured on 5.2: the label reaches a
+     * {{#str}} parameter, which the string helper renders through a double
+     * stash before substituting it, and the lambda's own return is inserted
+     * unescaped — so the page carried "Vagas &amp;amp; Lugares" while the
+     * column header beside it, already fixed, carried "Vagas &amp; Lugares".
+     *
+     * The system context is deliberate: group custom fields are defined
+     * site-wide (group_handler::get_configuration_context()), not per course.
+     * The lang-pack fallback above needs no equivalent — a lang string is
+     * never escaped on the way out either.
+     *
+     * @param string $name The stored field name.
+     * @return string The formatted name, not HTML-escaped.
+     */
+    private static function plain(string $name): string {
+        return format_string($name, true, [
+            'context' => \core\context\system::instance(),
+            'escape' => false,
+        ]);
     }
 
     /**

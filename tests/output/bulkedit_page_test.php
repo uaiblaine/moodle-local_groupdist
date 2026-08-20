@@ -57,6 +57,47 @@ final class bulkedit_page_test extends \advanced_testcase {
     }
 
     /**
+     * The whole page renders with each name escaped exactly once.
+     *
+     * This is the assertion that would have caught the defect the unit tests
+     * above miss by construction: the seats label does not reach the template
+     * through a plain double stash but as a {{#str}} parameter, and the string
+     * helper renders that parameter through a double stash of its own before
+     * substituting it, while the lambda's return is inserted unescaped. Only a
+     * real render exercises that. It also covers any consumer added later —
+     * a new template line escaping an already-escaped label fails here without
+     * anyone having to remember this rule.
+     *
+     * @return void
+     */
+    public function test_the_rendered_page_escapes_every_name_exactly_once(): void {
+        global $DB, $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $group = $this->getDataGenerator()->create_group([
+            'courseid' => $course->id,
+            'name' => 'Ana & Bruno',
+        ]);
+
+        fields::reset_field_cache();
+        fields::ensure_fields_exist();
+        fields::reset_field_cache();
+        $DB->set_field('customfield_field', 'name', 'Vagas & Lugares', ['id' => fields::get_seats_field()->get('id')]);
+        fields::reset_field_cache();
+
+        $PAGE->set_url('/local/groupdist/bulkedit.php');
+        $PAGE->set_context(\core\context\course::instance($course->id));
+        $renderer = $PAGE->get_renderer('core');
+        $page = new bulkedit_page($course, [$group]);
+        $html = $renderer->render_from_template('local_groupdist/bulkedit', $page->export_for_template($renderer));
+
+        $this->assertStringContainsString('Vagas &amp; Lugares', $html);
+        $this->assertStringContainsString('Ana &amp; Bruno', $html);
+        $this->assertStringNotContainsString('&amp;amp;', $html, 'A name reached the page escaped twice.');
+    }
+
+    /**
      * Column headers come from admin-editable field names and carry the same
      * rule.
      *

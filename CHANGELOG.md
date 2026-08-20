@@ -8,6 +8,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The seats and location field labels are no longer escaped twice either,
+  finishing the sweep the bulk edit row fix started. Measured on 5.2 with a
+  field named "Vagas & Lugares": the page carried `Vagas &amp;amp; Lugares`
+  in the mass-apply label, the empty-seats filter, the column menu and both
+  legend entries, while the column header beside them — fixed in the previous
+  change — already carried `Vagas &amp; Lugares`. The same two spellings on
+  one screen. The label reaches those five lines as a `{{#str}}` parameter,
+  which the string helper renders through a double stash of its own before
+  substituting it, and the lambda's return is then inserted unescaped; only a
+  real render exercises that, so there is now a test that renders the whole
+  page and asserts no name reaches it escaped twice. The selected-groups chips
+  on the distribution page had the same defect and are fixed with them.
+- The labels are formatted in the system context now, not whatever context the
+  page happened to be in. Group custom fields are defined site-wide
+  (`group_handler::get_configuration_context()`), so a course-level filter
+  override has no business rewriting a global field's name.
+- The location label crosses the preview web service unescaped, which is safe
+  and was worth confirming rather than assuming: it is declared `PARAM_TEXT`,
+  and `clean_param_value_text()` only handles tags and multilang markup — it
+  never decodes, re-escapes or doubles an entity. Measured both spellings
+  through `clean_returnvalue()`; both pass through byte-identical.
 - The bulk edit table's ID number cell now refreshes when the settings modal
   changes it, instead of showing the old value until the page is reloaded.
   The badge exists only when the group has an ID number, so all three

@@ -8,6 +8,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The group settings modal on the bulk edit page now carries **every** element
+  of core's group edit form. It was missing the enrolment key, the group
+  membership visibility menu and its participation checkbox, the current
+  picture and the new-picture upload — so any job that touched one of them
+  still had to be finished on `group/group.php`. There was no technical
+  obstacle: a `filepicker` posts a draft item id in a hidden input rather than
+  a file, and `moodleform::save_temp_file()` reads that draft area, so the
+  urlencoded dynamic-form payload carries it intact; the YUI picker and the
+  `passwordunmask` widget both initialise because the dynamic-form web service
+  renders inside `start_collecting_javascript_requirements()` and the client
+  replays the collected footer. Verified live in the modal on 5.2.
+- Two defects fell out of the same work. The modal never read the stored group
+  messaging state, so the menu always showed "No" and saving an untouched
+  form silently disabled an enabled group conversation. And it saved the group
+  custom fields twice per submit, once itself and once inside
+  `groups_update_group()`, which has always done it; the modal's own call is
+  gone and the update now passes `$editform` so core writes the picture.
+- Core's rule that a group with members cannot change its visibility or
+  participation is reproduced, not bypassed. Core enforces it twice — the form
+  freezes both elements, `core_group_update_groups` throws — and this modal is
+  reached from a bulk flow where most groups already have members, so it
+  freezes them exactly as core does and leaves them editable when the group is
+  empty.
+- The picture upload is validated, which core's group form does not do. Core
+  accepts any file, then lets `process_new_icon()` fail inside
+  `groups_update_group_icon()`, and that failure path **deletes the group's
+  existing picture**. The upload is now checked twice: the picker offers only
+  the extensions `process_new_icon()` decodes (GIF, JPEG, PNG), and validation
+  reads the file's own image info before accepting it. Both halves are load-
+  bearing. The obvious spelling — core's `web_image` file-type group — is
+  wrong: it carries `svg`, `svgz` and `webp`, which GD cannot write here, so
+  the picker would have advertised three formats that destroy the picture on
+  save (`optimised_image` carries `webp` too). And the picker's own check is
+  extension-only, so a text file renamed to `.png` still reached the deletion
+  path. Both traps are covered by tests that were mutation-checked against the
+  naive allowlist, so neither can be quietly simplified back.
+- The enrolment key field is capped at 50 characters, the width of the
+  `{groups}.enrolmentkey` column, and the length is re-checked server-side.
+  Core's form says `maxlength="254"`, and since the modal is a web service
+  endpoint the DOM cap is trivially bypassed — an over-long key would reach
+  the column as a raw DML failure instead of a field error.
+- The bulk edit table's avatar now refreshes when the modal changes the group
+  picture. The two states are different elements — an `img` when there is a
+  picture, a span holding the initial when there is not — so the row swaps the
+  node rather than setting a `src`.
+
 - Bulk edit no longer offers "Cancel". Cells are written through the web
   service as they are saved, so by the time the footer is reached there is
   nothing a cancel could undo — the control now reads "Back to groups", and

@@ -25,8 +25,8 @@ aborts the apply if enrolments changed since the preview. Large runs
 
 A **Bulk edit groups** action complements the flow: a table of the selected
 groups for editing seats, location and any other group custom field inline,
-with mass-apply, overbooking indicators and a per-row modal wrapping the
-group settings.
+with mass-apply, overbooking indicators and a per-row modal carrying every
+setting of core's own group edit form.
 
 Before the button appears
 -------------------------
@@ -68,8 +68,12 @@ group custom field) with inline editing, a mass-apply control for the seats
 field, an empty-seats filter, per-user collapsible columns and a dynamic
 red indicator when a group's member count exceeds its seats. Saves travel
 through a chunked web service — only changed cells are sent, at most 200 per
-request. The per-row **Edit** button opens the group's settings (name, ID
-number, description, messaging and all custom fields) in a modal.
+request. The per-row **Edit** button opens the group's settings in a modal
+carrying every element of core's own group edit form: name, ID number,
+description, enrolment key, group membership visibility and participation,
+messaging, the current picture and a new-picture upload, plus all custom
+fields. As on core's form, visibility and participation are read-only once
+the group has members.
 
 ### Distribute participants
 

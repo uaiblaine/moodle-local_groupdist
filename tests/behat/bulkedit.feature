@@ -66,3 +66,37 @@ Feature: Bulk edit group custom fields
     And I set the field "Group name" to "Group Alpha"
     And I click on "Save changes" "button" in the "Group settings — Group A" "dialogue"
     Then I should see "Group Alpha"
+
+  Scenario: The settings modal offers every native group setting
+    Given I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (0)"
+    And I click on "Bulk edit groups" "button"
+    And I click on "Edit" "button" in the "Group A" "table_row"
+    Then I should see "Enrolment key" in the "Group settings — Group A" "dialogue"
+    And I should see "Group membership visibility" in the "Group settings — Group A" "dialogue"
+    And I should see "Current picture" in the "Group settings — Group A" "dialogue"
+    And I should see "New picture" in the "Group settings — Group A" "dialogue"
+    When I set the field "Group membership visibility" to "Only visible to members"
+    And I click on "Save changes" "button" in the "Group settings — Group A" "dialogue"
+    And I click on "Edit" "button" in the "Group A" "table_row"
+    Then the field "Group membership visibility" matches value "Only visible to members"
+
+  Scenario: A group that already has members cannot have its visibility changed
+    Given the following "users" exist:
+      | username | firstname | lastname |
+      | student1 | Sam       | Student  |
+    And the following "course enrolments" exist:
+      | user     | course | role    |
+      | student1 | C1     | student |
+    And the following "group members" exist:
+      | user     | group |
+      | student1 | GA    |
+    And I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (1),Group B (0)"
+    And I click on "Bulk edit groups" "button"
+    And I click on "Edit" "button" in the "Group A" "table_row"
+    Then I should see "Group membership visibility" in the "Group settings — Group A" "dialogue"
+    And "Group membership visibility" "select" should not exist in the "Group settings — Group A" "dialogue"
+    When I click on "Cancel" "button" in the "Group settings — Group A" "dialogue"
+    And I click on "Edit" "button" in the "Group B" "table_row"
+    Then "Group membership visibility" "select" should exist in the "Group settings — Group B" "dialogue"

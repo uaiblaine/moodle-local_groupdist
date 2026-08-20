@@ -260,6 +260,8 @@
     font-size: .95rem; font-weight: 700; color: var(--ink);
     border-top: 1px solid var(--line); margin-top: .6rem; padding-top: .8rem;
   }
+  .modal .inlinecheck { display: flex; gap: .45rem; align-items: flex-start; text-align: left; font-size: .9rem; padding-top: .35rem; }
+  .modal .curpic { font-size: .9rem; padding-top: .35rem; color: var(--ink-2); }
   .modal .filedrop {
     border: 1px dashed var(--line); border-radius: .4rem; padding: .8rem;
     font-size: .82rem; color: var(--ink-2); text-align: center; max-width: 24rem;
@@ -391,21 +393,33 @@
   <div class="modal">
     <header>
       <h2 id="modaltitle">Group settings</h2>
-      <button class="close" type="button" data-action="closemodal" aria-label="Fechar">×</button>
+      <button class="close" type="button" data-action="closemodal" aria-label="Close">×</button>
     </header>
     <div class="body">
       <div class="frow"><label for="m-name">Group name</label><input type="text" id="m-name" value="Group 03"></div>
       <div class="frow"><label for="m-idnumber">ID number</label><input type="text" id="m-idnumber" value="ENG-G03"></div>
       <div class="frow"><label for="m-desc">Description</label><textarea id="m-desc">Networking lab team.</textarea></div>
+      <div class="frow"><label for="m-key">Enrolment key</label><input type="text" id="m-key" value=""></div>
+      <div class="frow"><label for="m-vis">Group membership visibility</label>
+        <select id="m-vis">
+          <option selected>Visible</option>
+          <option>Only visible to members</option>
+          <option>Only see own membership</option>
+          <option>Hidden</option>
+        </select></div>
+      <div class="frow"><label></label>
+        <label class="inlinecheck"><input type="checkbox" checked>
+          Show group in dropdown menu for activities in group mode</label></div>
       <div class="frow"><label for="m-msg">Group messaging</label>
-        <select id="m-msg"><option>No</option><option selected>Sim</option></select></div>
-      <div class="frow"><label>Image</label><div class="filedrop">Drag an image here or click to choose (core form)</div></div>
+        <select id="m-msg"><option>No</option><option selected>Yes</option></select></div>
+      <div class="frow"><label>Current picture</label><div class="curpic">None</div></div>
+      <div class="frow"><label>New picture</label><div class="filedrop">Drag an image here or click to choose (core filepicker)</div></div>
       <div class="sechead">Distribution</div>
       <div class="frow"><label for="m-seats">Seats</label><input type="text" id="m-seats" value="12"></div>
       <div class="frow"><label for="m-local">Location</label><input type="text" id="m-local" value="Networking lab"></div>
     </div>
     <footer>
-      <span class="modalnote">Wraps core's own group settings form, loaded into the modal as a fragment.</span>
+      <span class="modalnote">Every element of core's own group settings form, loaded into the modal as a fragment. Visibility and participation are frozen once the group has members, as core requires.</span>
       <button class="btn" type="button" data-action="closemodal">Back to groups</button>
       <button class="btn primary" type="button" id="modalsave">Save</button>
     </footer>

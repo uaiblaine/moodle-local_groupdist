@@ -175,19 +175,11 @@ docs/                        Approved HTML mockups + design decisions (export-ig
 - **WS return structure is an allowlist**: preview data is rendered client-side
   only, from `get_preview` — a field added to the payload must be added to
   `execute_returns()` or `clean_returnvalue` silently strips it.
-- **The settings modal is full core parity, and the parts that look
-  impossible are not.** Every element of `group/group_form.php` is here —
-  including the enrolment key, visibility, participation, and the picture.
-  A `filepicker` never posts a file: it posts a **draft item id** in a hidden
-  input (`lib/form/filepicker.php`), and `get_new_filename()`/`save_file()`
-  both branch on `MoodleQuickForm_filepicker` and read the draft area, never
-  `$_FILES` — so the urlencoded dynamic-form payload carries it intact and
-  `groups_update_group_icon()` works unchanged. The YUI picker and the
-  `passwordunmask` AMD module both initialise because
-  `\core_form\external\dynamic_form::execute()` renders inside
-  `start_collecting_javascript_requirements()` and the client replays that
-  footer through `Fragment.processCollectedJavascript`. `hideIf` rides the
-  same mechanism. Three rules follow:
+- **The settings modal is full core parity** — every element of
+  `group/group_form.php`, including the enrolment key, visibility,
+  participation and the picture. Why a file upload and the YUI picker work at
+  all inside a `dynamic_form` is fleet-general and lives in `~/dev/CLAUDE.md`
+  ("Modal forms"). What is specific here:
   - `groups_update_group($data, $this)` takes **two** arguments. `$editform`
     is what writes the picture; a third (`$editoroptions`) would re-run the
     `file_postupdate_standard_editor()` this form already did. It also calls
@@ -258,21 +250,16 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   service fields: the default escaping would be encoded twice on screen, and
   an unstripped `<` makes `clean_returnvalue()` throw, so the page renders
   and then dies on the first search keystroke.
-- **Admin-set names come in two spellings and picking the wrong one is
-  invisible.** Group names, custom field names and cohort names all pass
-  through `format_string`, whose `escape` flag rewrites ampersands and nothing
-  else. Almost every sink here escapes for itself — Mustache double stashes,
-  `textContent` in the AMD modules, `PARAM_TEXT` web service fields (which are
-  transparent to entities) — so those take the PLAIN spelling, and the default
-  `escape => true` shows `&amp;` on screen. The exceptions are core's own form
-  templates: an element label is `{{{label}}}`, a static element is
-  `{{{element.html}}}` and a select's options are `{{{text}}}`, so anything
-  reaching a moodleform needs the ESCAPED spelling. `fields::get_seats_label()`
-  carries an `$escape` switch for exactly that split (core does the same in
-  `field_controller::get_formatted_name()`), and `options_form` holds both
-  cases a few lines apart: its `cohortid` select must stay escaped while the
-  rule builder's cohort list must not. Tests pin both directions; prose did
-  not, and the plain spelling was shipped into a triple stash once already.
+- **Admin-set names come in two spellings here, and both are in use.** The
+  general rule — which sinks need PLAIN, which need ESCAPED, and why an
+  ampersand is the only fixture that reveals a mistake — is in `~/dev/CLAUDE.md`
+  ("Escaping an admin-set name"). This plugin's map: everything takes the plain
+  spelling (`bulkedit_page::plain()`, `fields::plain()`,
+  `profilefields::plain()`, `auditreader::display_value()`, the `get_preview`
+  payload, `distribute.php`'s selected-group chips) EXCEPT two form sinks —
+  `options_form`'s `cohortid` select and, via `fields::get_seats_label(true)`,
+  its "use seats" label and no-seats note. `options_form` therefore holds both
+  cases a few lines apart, and `options_form_test` pins both directions.
 - **The audit log is a snapshot, never a reference**: `runlog` stores rule
   labels, per-user values and group names as they were at apply time; the
   audit UI derives explanations from these stored facts, never by replaying

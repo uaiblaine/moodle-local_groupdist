@@ -70,7 +70,7 @@ class profilefields {
             if (!$allowed) {
                 continue;
             }
-            $result['profile_' . (int) $field->id] = format_string($field->name);
+            $result['profile_' . (int) $field->id] = self::plain($field->name, \core\context\system::instance());
         }
         return $result;
     }
@@ -97,6 +97,31 @@ class profilefields {
     }
 
     /**
+     * Format an admin-set name for output, unescaped.
+     *
+     * Every consumer of these labels escapes for itself — the rule builder
+     * prints them through Mustache double stashes and rules.js writes search
+     * results with textContent — so the default escaping would show a cohort
+     * named "Ciencias & Letras" as "Ciencias &amp; Letras" on the first screen
+     * of the flow. The context is explicit rather than left to fall back on
+     * $PAGE->context, which is not merely tidier: get_label() is reached from
+     * runlog::create() and so runs inside the adhoc apply task, where the
+     * fallback would throw.
+     *
+     * Note what does NOT come through here: options_form's cohortid select.
+     * Core renders a select's options through a TRIPLE stash
+     * (lib/form/templates/element-select.mustache), so that one label must
+     * stay escaped and builds its own format_string call.
+     *
+     * @param string $name The stored name.
+     * @param \core\context $context The context to format in.
+     * @return string The formatted name, not HTML-escaped.
+     */
+    private static function plain(string $name, \core\context $context): string {
+        return format_string($name, true, ['context' => $context, 'escape' => false]);
+    }
+
+    /**
      * Human-readable label of a source key.
      *
      * @param string $key The source encoding.
@@ -110,11 +135,12 @@ class profilefields {
             require_once($CFG->dirroot . '/cohort/lib.php');
             // The authorization helper returns a partial record (id, contextid,
             // visible) — the name needs its own lookup.
-            if (!cohort_get_cohort($cohortid, $context)) {
+            if (!$cohort = cohort_get_cohort($cohortid, $context)) {
                 return '';
             }
             $name = (string) $DB->get_field('cohort', 'name', ['id' => $cohortid]);
-            return get_string('cohortsourcelabel', 'local_groupdist', format_string($name));
+            $cohortcontext = \core\context::instance_by_id($cohort->contextid);
+            return get_string('cohortsourcelabel', 'local_groupdist', self::plain($name, $cohortcontext));
         }
         return self::get_fields($context)[$key] ?? '';
     }

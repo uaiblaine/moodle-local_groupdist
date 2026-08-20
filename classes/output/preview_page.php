@@ -72,7 +72,8 @@ class preview_page implements \renderable, \templatable {
             if (cohort_get_cohort($options->cohortid, $this->context)) {
                 global $DB;
                 $name = (string) $DB->get_field('cohort', 'name', ['id' => $options->cohortid]);
-                $memberchips[] = ['text' => get_string('recapcohort', 'local_groupdist', format_string($name))];
+                $cohortname = format_string($name, true, ['context' => $this->context, 'escape' => false]);
+                $memberchips[] = ['text' => get_string('recapcohort', 'local_groupdist', $cohortname)];
             }
         }
         if ($options->onlyactive) {

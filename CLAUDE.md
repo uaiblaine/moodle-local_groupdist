@@ -258,13 +258,32 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   service fields: the default escaping would be encoded twice on screen, and
   an unstripped `<` makes `clean_returnvalue()` throw, so the page renders
   and then dies on the first search keystroke.
+- **Admin-set names come in two spellings and picking the wrong one is
+  invisible.** Group names, custom field names and cohort names all pass
+  through `format_string`, whose `escape` flag rewrites ampersands and nothing
+  else. Almost every sink here escapes for itself — Mustache double stashes,
+  `textContent` in the AMD modules, `PARAM_TEXT` web service fields (which are
+  transparent to entities) — so those take the PLAIN spelling, and the default
+  `escape => true` shows `&amp;` on screen. The exceptions are core's own form
+  templates: an element label is `{{{label}}}`, a static element is
+  `{{{element.html}}}` and a select's options are `{{{text}}}`, so anything
+  reaching a moodleform needs the ESCAPED spelling. `fields::get_seats_label()`
+  carries an `$escape` switch for exactly that split (core does the same in
+  `field_controller::get_formatted_name()`), and `options_form` holds both
+  cases a few lines apart: its `cohortid` select must stay escaped while the
+  rule builder's cohort list must not. Tests pin both directions; prose did
+  not, and the plain spelling was shipped into a triple stash once already.
 - **The audit log is a snapshot, never a reference**: `runlog` stores rule
   labels, per-user values and group names as they were at apply time; the
   audit UI derives explanations from these stored facts, never by replaying
   the engine. Deletion pseudonymises (userid 0, values blanked) instead of
   removing rows; course deletion purges via observer (the recycle bin keeps
   a backup file, not the course). Retention = `auditretentiondays` setting +
-  daily `cleanup_audit` task. `applier::apply()` requires the runid — the
+  daily `cleanup_audit` task. Because it is a snapshot, rows written before a
+  formatting change keep the old spelling — a rule label escaped by the older
+  code stays escaped, and no migration can undo it, since `format_string`'s
+  escaping is not injective (an escaped "A & B" and a field genuinely named
+  "A &amp; B" are the same bytes). `applier::apply()` requires the runid — the
   `distribution_applied` event carries it as objectid.
 - **The privacy provider is a full provider**: the audit tables (metadata +
   export + pseudonymising deletes + userlist) plus the collapsible-columns

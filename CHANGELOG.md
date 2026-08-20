@@ -8,6 +8,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Cohort names and rule-source labels are no longer escaped twice, finishing
+  the sweep. The most visible instance was the affinity rule builder, the
+  first screen of the flow: `rules.js` writes search results with
+  `option.textContent`, which does not interpret entities, so a cohort named
+  "Ciencias & Letras" was shown to the teacher literally as
+  "Ciencias &amp; Letras". The same labels reach the preview payload, the
+  recap chips and the audit snapshot, all through Mustache double stashes.
+- **Correcting a regression from the previous release entry.** Flipping
+  `fields::get_seats_label()` put a raw ampersand into the two places that
+  render it unescaped: the "use seats" checkbox label and the no-seats note,
+  which core prints through `{{{label}}}` and `{{{element.html}}}`. Measured
+  in the rendered form. The label now takes an `$escape` switch — the shape
+  core itself uses in `field_controller::get_formatted_name()`, and for the
+  same reason — and the options form asks for the escaped spelling. Both
+  directions are pinned by tests, because the two spellings are one line
+  apart and each looks wrong from the other's point of view.
+- The cohort menu on the options form keeps its escaped label on purpose and
+  now has a test saying so. It is a real `select`, and core renders a
+  select's options through a triple stash, so it needs the opposite treatment
+  from the rule-builder list a few lines below it in the same file.
+- Existing audit rows keep the escaped spelling of a rule label, and that is
+  deliberate. The run log is a snapshot of what things were called at apply
+  time, never replayed and never rewritten, and no migration could tell an
+  escaped "A & B" from a field genuinely named "A &amp; B" — the escaping is
+  not injective. Only labels containing an ampersand are affected, and only
+  cosmetically.
 - One participant could break the whole distribution preview. Affinity values
   reached the payload straight from `{user_info_data}` with no `format_string()`
   anywhere on the path, into return fields declared `PARAM_TEXT`, whose cleaner

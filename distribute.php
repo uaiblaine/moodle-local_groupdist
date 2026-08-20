@@ -86,7 +86,6 @@ $form = new \local_groupdist\form\options_form(null, [
     'groupids' => $groupids,
     'roles' => $rolenames,
     'noseats' => $noseats,
-    'seatslabel' => \local_groupdist\local\fields::get_seats_label(),
     // Fresh entry: empty. Redisplays (validation error, back from preview)
     // repopulate the builder from the flattened POST arrays.
     'initialrules' => \local_groupdist\local\options::rules_from_post(),

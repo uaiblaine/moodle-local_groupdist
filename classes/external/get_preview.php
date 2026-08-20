@@ -257,7 +257,7 @@ class get_preview extends external_api {
             $denominator = ($seats !== null) ? max(1, $seats + $overflow) : 0;
             $groupspayload[] = [
                 'id' => $group['id'],
-                'name' => format_string($group['name'], true, ['context' => $context]),
+                'name' => format_string($group['name'], true, ['context' => $context, 'escape' => false]),
                 'location' => format_string((string) ($group['location'] ?? ''), true, [
                     'context' => $context,
                     'escape' => false,
@@ -498,7 +498,10 @@ class get_preview extends external_api {
 
         $groupnames = [];
         foreach ($distribution->groups as $group) {
-            $groupnames[$group['id']] = format_string($group['name'], true, ['context' => $context]);
+            $groupnames[$group['id']] = format_string($group['name'], true, [
+                'context' => $context,
+                'escape' => false,
+            ]);
         }
 
         $violations = [];

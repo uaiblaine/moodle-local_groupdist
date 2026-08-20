@@ -407,6 +407,50 @@ final class get_preview_test extends \externallib_advanced_testcase {
     }
 
     /**
+     * Group names and rule labels cross the preview payload unescaped. Both
+     * land in Mustache double stashes client-side (preview_groups.mustache
+     * for the card heading and the per-rule footer, preview_rulereport for
+     * the section title and the destination list), so escaping them here
+     * showed a group called "Turma A & B" as "Turma A &amp; B".
+     *
+     * @return void
+     */
+    public function test_group_names_and_rule_labels_cross_the_payload_unescaped(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/user/profile/lib.php');
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $generator = $this->getDataGenerator();
+        $group = $generator->create_group(['courseid' => $course->id, 'name' => 'Turma A & B']);
+        $field = $generator->create_custom_profile_field([
+            'datatype' => 'text',
+            'shortname' => 'ampf',
+            'name' => 'Turno & Sala',
+        ]);
+        for ($i = 0; $i < 2; $i++) {
+            $user = $generator->create_and_enrol($course);
+            profile_save_data((object) ['id' => $user->id, 'profile_field_ampf' => 'Manha & Tarde']);
+        }
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $result = $this->call([
+            'courseid' => (int) $course->id,
+            'groupids' => (string) $group->id,
+            'seed' => 7,
+            'roleid' => (int) current(get_archetype_roles('student'))->id,
+            'affinityrules' => [['source' => 'profile_' . $field->id, 'mode' => 'together']],
+        ]);
+
+        $this->assertSame('Turma A & B', $result['groups'][0]['name']);
+        $this->assertSame('Turno & Sala', $result['rulereport'][0]['label']);
+        // The destination list is the joined group names.
+        $this->assertStringContainsString('Turma A & B', $result['rulereport'][0]['entries'][0]['groups']);
+        $this->assertStringNotContainsString('&amp;', json_encode($result));
+    }
+
+    /**
      * A hidden cohort as a RULE source is rejected — same oracle rule as the
      * cohort member filter. A visible cohort passes (control).
      */

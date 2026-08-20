@@ -55,6 +55,52 @@ final class profilefields_test extends \advanced_testcase {
     }
 
     /**
+     * Field and cohort labels reach callers unescaped. Every consumer escapes
+     * for itself: the rule builder prints them through Mustache double
+     * stashes, rules.js writes search results with textContent, and the
+     * preview payload lands in double stashes too. Escaping here showed a
+     * cohort named "Ciencias & Letras" as "Ciencias &amp; Letras" on the first
+     * screen of the flow.
+     *
+     * An ampersand is the only fixture that can reveal this: format_string's
+     * escape flag rewrites nothing else, and it strips tags before escaping.
+     *
+     * @return void
+     */
+    public function test_labels_are_not_pre_escaped(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/cohort/lib.php');
+        require_once($CFG->dirroot . '/user/profile/lib.php');
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $context = \core\context\course::instance($course->id);
+
+        $field = $this->getDataGenerator()->create_custom_profile_field([
+            'shortname' => 'ampfield',
+            'name' => 'Turma A & B',
+            'datatype' => 'text',
+            'visible' => PROFILE_VISIBLE_ALL,
+        ]);
+        $cohort = $this->getDataGenerator()->create_cohort([
+            'contextid' => \core\context\system::instance()->id,
+            'name' => 'Ciencias & Letras',
+        ]);
+
+        $fields = profilefields::get_fields($context);
+        $this->assertSame('Turma A & B', $fields['profile_' . $field->id]);
+        $this->assertSame('Turma A & B', profilefields::get_label('profile_' . $field->id, $context));
+        $this->assertStringContainsString(
+            'Ciencias & Letras',
+            profilefields::get_label('cohort_' . $cohort->id, $context)
+        );
+        $this->assertStringNotContainsString(
+            'Ciencias &amp; Letras',
+            profilefields::get_label('cohort_' . $cohort->id, $context)
+        );
+    }
+
+    /**
      * An editing teacher sees ALL and TEACHERS fields, never private/hidden ones.
      */
     public function test_editingteacher_sees_teacher_visible_fields_only(): void {

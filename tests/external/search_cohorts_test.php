@@ -69,6 +69,31 @@ final class search_cohorts_test extends \externallib_advanced_testcase {
     }
 
     /**
+     * The returned label is plain: rules.js writes each match with
+     * option.textContent, which does not interpret entities, so an escaped
+     * name would be shown to the teacher literally.
+     *
+     * @return void
+     */
+    public function test_the_returned_label_is_not_pre_escaped(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/cohort/lib.php');
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $this->getDataGenerator()->create_cohort([
+            'contextid' => \core\context\system::instance()->id,
+            'name' => 'Ciencias & Letras',
+        ]);
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $result = $this->call(['courseid' => (int) $course->id, 'query' => 'Ciencias']);
+
+        $labels = array_column($result['cohorts'], 'label');
+        $this->assertSame(['Ciencias & Letras'], $labels);
+    }
+
+    /**
      * The capability gate is real: a student is rejected.
      */
     public function test_search_requires_capability(): void {

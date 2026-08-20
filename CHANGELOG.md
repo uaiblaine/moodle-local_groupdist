@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The bulk edit table's ID number cell now refreshes when the settings modal
+  changes it, instead of showing the old value until the page is reloaded.
+  The badge exists only when the group has an ID number, so all three
+  transitions — changed, cleared, newly set — go through one path that
+  replaces the node and re-initialises its tooltip; Bootstrap moves a
+  tooltip's title into its own state at init, so updating the attribute in
+  place would have left the old text in the tooltip.
 - Group names and custom field labels are no longer escaped twice in the bulk
   edit table. `bulkedit_page` formatted them with `format_string()`'s default
   escaping and then handed them to Mustache double stashes, so a group called

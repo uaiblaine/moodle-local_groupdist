@@ -64,8 +64,11 @@ Feature: Bulk edit group custom fields
     And I click on "Bulk edit groups" "button"
     And I click on "Edit" "button" in the "Group A" "table_row"
     And I set the field "Group name" to "Group Alpha"
+    And I set the field "Group ID number" to "ZED-9"
     And I click on "Save changes" "button" in the "Group settings — Group A" "dialogue"
     Then I should see "Group Alpha"
+    And I should see "ZED-9" in the "Group Alpha" "table_row"
+    And I should not see "GA" in the "Group Alpha" "table_row"
 
   Scenario: The settings modal offers every native group setting
     Given I am on the "Course 1" "groups" page logged in as "teacher1"

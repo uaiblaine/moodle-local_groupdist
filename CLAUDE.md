@@ -174,6 +174,17 @@ docs/                        Approved HTML mockups + design decisions (export-ig
 - **WS return structure is an allowlist**: preview data is rendered client-side
   only, from `get_preview` — a field added to the payload must be added to
   `execute_returns()` or `clean_returnvalue` silently strips it.
+- **Bulk edit has no cancel, on purpose.** Saving writes through the web
+  service as it goes, so a cancel in the footer would undo nothing — the
+  control is "Back to groups", and `bulkedit.js` confirms before leaving
+  while cells are still dirty. The sticky footer carries action buttons
+  only; the unsaved-changes counter is page status and lives in the toolbar.
+- **`bootstrap_compat_test` is the only gate that reads a class name.**
+  Badge backgrounds must state a text utility (BS5 defaults `.badge` to
+  white, so `bg-light` alone renders ~1.05:1), no Bootstrap 4 spelling may
+  survive, and `--mds-*` is core's namespace. Colours come from theme tokens
+  with a fallback chain, never a literal: 5.1 and 5.2 ship dark mode, and a
+  hardcoded accent that passes on white can fail on `--bs-body-bg` #1d2125.
 - **Bulk edit saves are payload-bounded by design**: only dirty cells travel,
   the client slices sequential chunks of 100 and `save_group_fields` rejects
   calls above `MAX_CHANGES` (200). Partial cell saves are safe because

@@ -8,6 +8,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Bulk edit no longer offers "Cancel". Cells are written through the web
+  service as they are saved, so by the time the footer is reached there is
+  nothing a cancel could undo — the control now reads "Back to groups", and
+  leaving with cells still unsaved asks first rather than discarding them
+  silently. The unsaved-changes counter moved out of the sticky footer into
+  the toolbar, where page status belongs; the footer carries action buttons
+  only. The remaining "Cancel" on the preview page, which really does cancel
+  something, and the new "Back to groups" are both `btn-secondary` rather
+  than `btn-link`.
+- Contrast fixes in the bulk edit table. The over-capacity badge carried
+  `bg-light` with no text utility: Bootstrap 5 defaults `.badge` to white, so
+  it rendered white on #f8f9fa at 1.05:1 against the 4.5:1 AA floor (15.37:1
+  with `text-dark`). The unsaved-changes accent was the hardcoded `#b25e09`,
+  which measures 4.67:1 on the light body but 3.30:1 on the 5.2 dark body;
+  it now reads `--bs-warning-text-emphasis`, which flips with the theme
+  (8.87:1 and 10.94:1).
+- New `bootstrap_compat_test`, the observer none of the existing gates can
+  be: phpcs reads PHP, the mustache lint reads structure and stylelint reads
+  CSS, so a class name that is illegible or deprecated passes every one of
+  them. It asserts that every background utility on a badge states its text
+  colour, that no Bootstrap 4 spelling survives (they resolve on 5.x only
+  through `bs4-compat.scss`, which Moodle 6.0 removes), and that the plugin
+  declares no `--mds-*` property in core's design-system namespace. Each
+  assertion was mutation-tested against the defect it exists for.
+
 - The distribution audit log scales to runs with hundreds of groups and
   thousands of participants. The run detail no longer loads the whole run:
   group sections are paged (`$OUTPUT->paging_bar`), each section carries one

@@ -34,6 +34,30 @@ Feature: Bulk edit group custom fields
     Then "//tr[contains(., 'Group A')]//input[@data-fieldtype='number'][@value='9']" "xpath_element" should exist
     And "//tr[contains(., 'Group B')]//input[@data-fieldtype='number'][@value='9']" "xpath_element" should exist
 
+  Scenario: Leaving with unsaved cells is confirmed, and saved work is not
+    Given I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (0),Group B (0)"
+    And I click on "Bulk edit groups" "button"
+    And I set the field "local-groupdist-massvalue" to "4"
+    And I click on "Apply to all" "button"
+    Then I should see "2 group(s) with unsaved changes"
+    When I click on "Back to groups" "link"
+    Then I should see "Unsaved changes"
+    When I click on "Leave and discard" "button" in the "Unsaved changes" "dialogue"
+    Then I should see "Bulk edit groups"
+
+  Scenario: Once saved, the way back does not ask again
+    Given I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (0)"
+    And I click on "Bulk edit groups" "button"
+    And I set the field "local-groupdist-massvalue" to "6"
+    And I click on "Apply to all" "button"
+    And I click on "Save changes" "button"
+    Then I should see "Saved 1 changes."
+    When I click on "Back to groups" "link"
+    Then I should see "Groups"
+    And I should not see "Unsaved changes"
+
   Scenario: Edit one group's settings through the modal
     Given I am on the "Course 1" "groups" page logged in as "teacher1"
     When I set the field "Groups" to "Group A (0)"

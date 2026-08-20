@@ -77,7 +77,7 @@ echo $OUTPUT->render_from_template(
 );
 
 $stickycontent = $OUTPUT->render_from_template('local_groupdist/bulkedit_footer', [
-    'cancelurl' => $returnurl->out(false),
+    'returnurl' => $returnurl->out(false),
 ]);
 echo $OUTPUT->render(new \core\output\sticky_footer($stickycontent));
 

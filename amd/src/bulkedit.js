@@ -45,6 +45,7 @@ const SELECTORS = {
     HIDDENCOUNT: '[data-region="hiddencount"]',
     EDITGROUP: '[data-action="editgroup"]',
     SAVE: '[data-action="save"]',
+    BACK: '[data-action="backtogroups"]',
     DIRTYCOUNT: '[data-region="dirtycount"]',
     TOOLTIPS: '[data-bs-toggle="tooltip"]',
 };
@@ -169,6 +170,24 @@ const setColumnVisible = (key, visible, persist) => {
         setUserPreference(PREFERENCE, [...state.hiddencols].join(','))
             .catch(Notification.exception);
     }
+};
+
+/**
+ * Confirm leaving the page while cells are still unsaved.
+ *
+ * @param {String} url Where to go once the reader confirms.
+ * @returns {Promise<void>}
+ */
+const confirmLeave = async(url) => {
+    const groups = new Set([...state.dirty.keys()].map((key) => key.split(':')[0]));
+    const [title, question, leave] = await Promise.all([
+        getString('unsavedtitle', 'local_groupdist'),
+        getString('unsavedleave', 'local_groupdist', groups.size),
+        getString('unsavedleavebutton', 'local_groupdist'),
+    ]);
+    Notification.saveCancel(title, question, leave, () => {
+        window.location.href = url;
+    });
 };
 
 /**
@@ -341,4 +360,18 @@ export const init = async() => {
     document.querySelector(SELECTORS.SAVE).addEventListener('click', () => {
         save().catch(Notification.exception);
     });
+
+    /* Cells are written as they are saved, so leaving discards only what has
+       not been saved yet — which is worth one confirmation, because the
+       control that leaves no longer reads as "cancel". */
+    const back = document.querySelector(SELECTORS.BACK);
+    if (back) {
+        back.addEventListener('click', (event) => {
+            if (state.dirty.size === 0) {
+                return;
+            }
+            event.preventDefault();
+            confirmLeave(back.href).catch(Notification.exception);
+        });
+    }
 };

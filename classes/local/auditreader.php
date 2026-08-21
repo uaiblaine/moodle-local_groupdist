@@ -90,8 +90,8 @@ class auditreader {
     /** @var array Names the group search matches against, by group id. */
     protected array $searchnames;
 
-    /** @var array|null Live groups of the course, loaded on first use. */
-    protected ?array $livegroups = null;
+    /** @var array|null Ids of the course's live groups, loaded on first use. */
+    protected ?array $livegroupids = null;
 
     /** @var array|null Country name list, loaded on first use. */
     protected ?array $countries = null;
@@ -227,7 +227,7 @@ class auditreader {
                 'id' => $groupid,
                 'name' => $this->groupnames[$groupid] ?? '',
                 'nogroup' => ($groupid === 0),
-                'deleted' => ($groupid !== 0 && !isset($this->live_groups()[$groupid])),
+                'deleted' => ($groupid !== 0 && !isset($this->live_group_ids()[$groupid])),
                 'seats' => $section['seats'],
                 'membertotal' => $membertotal,
                 'shown' => count($shown),
@@ -271,7 +271,7 @@ class auditreader {
             'id' => $groupid,
             'name' => $this->groupnames[$groupid] ?? '',
             'nogroup' => ($groupid === 0),
-            'deleted' => ($groupid !== 0 && !isset($this->live_groups()[$groupid])),
+            'deleted' => ($groupid !== 0 && !isset($this->live_group_ids()[$groupid])),
             'seats' => $seats,
             'membertotal' => 0,
             'shown' => 0,
@@ -866,14 +866,29 @@ class auditreader {
     }
 
     /**
-     * The course's live groups, for the deleted-group marker.
+     * Ids of the course's still-existing groups, for the deleted-group marker.
      *
-     * @return array Groups by id.
+     * Read straight from the table. groups_get_all_groups() cannot answer this
+     * question: it is visibility-filtered — it uses its cache only when
+     * visibility::can_view_all_groups() is true, and otherwise returns a group
+     * only when its visibility is ALL, or the reader is a member and it is
+     * MEMBERS or OWN. A live NONE-visibility group is therefore missing from it
+     * for every reader lacking moodle/course:viewhiddengroups, and the run would
+     * be reported as having written into a group "since deleted" while the group
+     * and its memberships are intact — a false fact in a permanent record, and
+     * one that changed with the reader. Whether a group still exists is a fact
+     * about the course, not a display decision, and filtering it buys no privacy
+     * here: the group's name and its members are rendered from the run snapshot
+     * beside the badge either way.
+     *
+     * @return array Set of live group ids, keyed by id.
      */
-    protected function live_groups(): array {
-        if ($this->livegroups === null) {
-            $this->livegroups = groups_get_all_groups((int) $this->run->courseid);
+    protected function live_group_ids(): array {
+        global $DB;
+        if ($this->livegroupids === null) {
+            $ids = $DB->get_fieldset_select('groups', 'id', 'courseid = ?', [(int) $this->run->courseid]);
+            $this->livegroupids = array_flip(array_map('intval', $ids));
         }
-        return $this->livegroups;
+        return $this->livegroupids;
     }
 }

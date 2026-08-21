@@ -155,8 +155,19 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   replays member-by-member WITHOUT a transaction. `groups_add_member` returns
   true for already-members (idempotent re-runs). In the replay, a caught
   `dml_write_exception` is ambiguous (duplicate key vs deadlock/lock timeout —
-  same exception type): re-check `groups_is_member()` before counting it as
-  added.
+  same exception type): re-check before counting it as added, and re-check
+  with a **direct `$DB->record_exists('groups_members', ...)`**, never
+  `groups_is_member()`. That helper is visibility-filtered — it short-circuits
+  to `record_exists()` only when `visibility::can_view_all_groups()` is true,
+  and otherwise admits another participant's row only for an ALL-visibility
+  group (or MEMBERS with the viewer a member) — so on an OWN or NONE group it
+  denies a row that exists and a successful write is audited as a failure.
+  The two blindnesses compound: core's `groups_add_member()` guards its insert
+  with the same helper, so it is also what raises the duplicate key that
+  enters the replay. A write-side integrity check asks the table; visibility
+  filtering is right on the DISPLAY side only, where dropping it would leak
+  membership of hidden groups. Pinned by
+  `applier_test::test_apply_counts_existing_membership_in_hidden_group`.
 - **Affinity source visibility mirrors core** (`profile_field_base::is_visible`,
   listing case): ALL → everyone; TEACHERS → `moodle/site:viewuseridentity` at
   the course; PRIVATE/NONE → `moodle/user:viewalldetails` (NOT
@@ -253,6 +264,19 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   The column count is capped by a percentage flex-basis with a 19rem floor, not
   by a grid or a media query: only a percentage basis caps the count, and only
   a container-driven rule survives the block drawer narrowing `#region-main`.
+- **The "group since deleted" marker asks the table, never
+  `groups_get_all_groups()`.** `auditreader::live_group_ids()` reads
+  `{groups}` by courseid directly. The helper is visibility-filtered on the
+  same rule as `groups_is_member()` — cache only when
+  `visibility::can_view_all_groups()` is true, otherwise ALL, or MEMBERS/OWN
+  with the reader a member — so a live NONE-visibility group is missing from
+  it for every reader lacking `moodle/course:viewhiddengroups`, and the run
+  would permanently claim it had written into a deleted group. Existence is a
+  fact about the course, not a display decision, and filtering it protects
+  nothing here: the name and members beside the badge come from the snapshot
+  either way. Pinned by
+  `auditreader_test::test_hidden_group_is_not_reported_deleted`, which carries
+  a control that deletes the group for real.
 - **The outcome badge is painted only when `outcome.notable`.** Every row of a
   healthy run says "written", so the reader learns nothing from it; the label
   still travels in the web service payload, and `audit_ws` declares `notable`

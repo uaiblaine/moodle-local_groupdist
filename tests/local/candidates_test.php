@@ -215,6 +215,77 @@ final class candidates_test extends \advanced_testcase {
     }
 
     /**
+     * A course group rule yields the same binary membership column.
+     */
+    public function test_group_rule_column(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+
+        $member = $generator->create_and_enrol($course);
+        $outsider = $generator->create_and_enrol($course);
+        $source = $generator->create_group(['courseid' => $course->id, 'name' => 'Lab team']);
+        $generator->create_group_member(['groupid' => $source->id, 'userid' => $member->id]);
+
+        $this->setAdminUser();
+        $result = candidates::fetch($this->make_options($course->id, [
+            'affinityrules' => [['source' => 'group_' . $source->id, 'mode' => options::AFFINITY_APART]],
+        ]), $context);
+
+        $this->assertSame('1', $result[(int) $member->id]->affinity0);
+        $this->assertNull($result[(int) $outsider->id]->affinity0);
+    }
+
+    /**
+     * A membership this same run wrote is invisible to the value column.
+     *
+     * This is what lets an interrupted adhoc apply resume: every recompute
+     * must skip rows stamped (component = local_groupdist, itemid = seed), or
+     * the retry reads different values, the fingerprint shifts and the task
+     * aborts as stale with the remainder unwritten. It can only bite when the
+     * source group is also one of the destinations, which is what this seeds.
+     */
+    public function test_group_rule_column_ignores_this_runs_own_writes(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+
+        $ourwrite = $generator->create_and_enrol($course);
+        $preexisting = $generator->create_and_enrol($course);
+        $group = $generator->create_group(['courseid' => $course->id, 'name' => 'Destination']);
+
+        // One row written by this very run, one that was already there.
+        groups_add_member($group->id, $ourwrite->id, 'local_groupdist', 4242);
+        groups_add_member($group->id, $preexisting->id);
+
+        $this->setAdminUser();
+        /* ignoregrouped off, so both users survive the candidate filter and
+           the value column is the only thing under test. */
+        $result = candidates::fetch($this->make_options($course->id, [
+            'groupids' => [(int) $group->id],
+            'ignoregrouped' => false,
+            'seed' => 4242,
+            'affinityrules' => [['source' => 'group_' . $group->id, 'mode' => options::AFFINITY_APART]],
+        ]), $context);
+
+        // The control: a membership this run did not write is still seen, so a
+        // failure above is the seed clause and not an empty query.
+        $this->assertSame('1', $result[(int) $preexisting->id]->affinity0);
+        $this->assertNull($result[(int) $ourwrite->id]->affinity0);
+
+        // ...and under a different seed that same row becomes visible again.
+        $other = candidates::fetch($this->make_options($course->id, [
+            'groupids' => [(int) $group->id],
+            'ignoregrouped' => false,
+            'seed' => 99,
+            'affinityrules' => [['source' => 'group_' . $group->id, 'mode' => options::AFFINITY_APART]],
+        ]), $context);
+        $this->assertSame('1', $other[(int) $ourwrite->id]->affinity0);
+    }
+
+    /**
      * "Ignore grouped" excludes members of the SELECTED groups only.
      */
     public function test_ignoregrouped_scoped_to_selected_groups(): void {

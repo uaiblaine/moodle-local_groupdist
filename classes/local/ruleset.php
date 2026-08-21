@@ -51,6 +51,9 @@ class ruleset {
     /** @var string Source kind: cohort membership (cohort_<id>). */
     public const KIND_COHORT = 'cohort';
 
+    /** @var string Source kind: course group membership (group_<id>). */
+    public const KIND_GROUP = 'group';
+
     /** @var array Ordered list of rules ('source' and 'mode' keys); position = priority. */
     private array $rules = [];
 
@@ -185,6 +188,9 @@ class ruleset {
         if (preg_match('/^cohort_\d+$/', $source)) {
             return self::KIND_COHORT;
         }
+        if (preg_match('/^group_\d+$/', $source)) {
+            return self::KIND_GROUP;
+        }
         return '';
     }
 
@@ -212,5 +218,43 @@ class ruleset {
             return (int) $matches[1];
         }
         return 0;
+    }
+
+    /**
+     * The group id of a course-group source.
+     *
+     * The pattern is anchored on both ends, so 'grouping_7' can never be read
+     * as a group source (nor 'group_7x', 'group_-1' or 'Group_7'). Groupings
+     * are deliberately not part of this vocabulary: their value is which group
+     * of the grouping a participant is in, which is keyed and — since
+     * {groupings_groups} has no unique constraint on (groupingid, groupid) —
+     * potentially set-valued, and the allocator holds one scalar per
+     * (rule, participant). See docs/mockups/rule-source-groups.html.
+     *
+     * @param string $source The source key.
+     * @return int The group id, or 0 when the source is not a course group.
+     */
+    public static function source_groupid(string $source): int {
+        if (preg_match('/^group_(\d+)$/', $source, $matches)) {
+            return (int) $matches[1];
+        }
+        return 0;
+    }
+
+    /**
+     * Whether a source's value is binary membership rather than a field value.
+     *
+     * Cohort and group sources both store '1' for members and an empty value
+     * for everyone else, so every consumer that turns a stored value into
+     * display text has to substitute the rule's label instead of printing the
+     * raw '1'. Keeping the test in one place stops the two kinds drifting
+     * apart as further membership sources are added.
+     *
+     * @param string $source The source key.
+     * @return bool True for a membership source.
+     */
+    public static function is_membership_source(string $source): bool {
+        $kind = self::source_kind($source);
+        return $kind === self::KIND_COHORT || $kind === self::KIND_GROUP;
     }
 }

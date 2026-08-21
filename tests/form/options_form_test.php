@@ -18,6 +18,7 @@ namespace local_groupdist\form;
 
 use local_groupdist\local\fields;
 use local_groupdist\local\options;
+use local_groupdist\local\profilefields;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
@@ -35,6 +36,9 @@ final class options_form_test extends \advanced_testcase {
 
     /** @var array Ids of the cohorts seeded with no member enrolled in the course. */
     private array $offroster = [];
+
+    /** @var int Id of the group the last rendered form distributes into. */
+    private int $destination = 0;
 
     /**
      * A course, a cohort whose name contains an ampersand, and the rendered
@@ -83,7 +87,11 @@ final class options_form_test extends \advanced_testcase {
             $this->offroster[] = (int) $off->id;
         }
         $this->context = $context;
-        $group = $this->getDataGenerator()->create_group(['courseid' => $course->id]);
+        $group = $this->getDataGenerator()->create_group([
+            'courseid' => $course->id,
+            'name' => 'Turma A & B',
+        ]);
+        $this->destination = (int) $group->id;
 
         fields::reset_field_cache();
         fields::ensure_fields_exist();
@@ -403,5 +411,178 @@ final class options_form_test extends \advanced_testcase {
         ]);
         $data = $form->get_data();
         return (int) ($data->cohortid ?? 0);
+    }
+    /**
+     * The rule builder's GROUP list must arrive plain, for exactly the same
+     * reason the cohort list beside it does — same template, same double
+     * stash. A group name reproduces the escaping split of this file: plain
+     * here, escaped in the cohortid select above.
+     */
+    public function test_the_rule_builder_group_list_is_not_pre_escaped(): void {
+        $html = $this->render_with_cohort();
+
+        $this->assertMatchesRegularExpression('/data-groups="[^"]*Turma A &amp; B/', $html);
+        $this->assertStringNotContainsString('Turma A &amp;amp; B', $html);
+    }
+
+    /**
+     * The builder is told which groups this run writes into, so it can mark
+     * and disable them as rule sources without a round trip.
+     */
+    public function test_the_builder_receives_the_destination_ids(): void {
+        $html = $this->render_with_cohort();
+
+        $this->assertMatchesRegularExpression(
+            '/data-destinations="\[' . $this->destination . '\]"/',
+            $html,
+            'The destination ids did not reach the rule builder.'
+        );
+    }
+
+    /**
+     * A destination group used as its own rule source is rejected while the
+     * ignore filter is on — and accepted the moment it is off.
+     *
+     * The two halves are the whole point: this is a conjunction, not a ban on
+     * the source. With the filter on, candidates::fetch() has already removed
+     * every user who could carry the value, so the rule matches nobody; with
+     * it off those members take part and the rule is real.
+     */
+    public function test_a_destination_group_is_rejected_as_its_own_source(): void {
+        $this->render_with_cohort();
+
+        $rules = [
+            'affinityrulesources' => ['group_' . $this->destination],
+            'affinityrulemodes' => [options::AFFINITY_APART],
+        ];
+
+        $errors = $this->validate_with($rules, ['ignoregrouped' => 1]);
+        $this->assertArrayHasKey('affinityruleserr', $errors);
+        /* The message has to name the rule and the group: the generic
+           "Data submitted is invalid" beside it cannot tell the teacher which
+           of four different problems they have. And it must carry the ESCAPED
+           spelling — core renders a form element's error through a triple
+           stash, so this is the opposite direction from the rule builder's
+           data attribute a few tests above, and the same direction as the
+           cohortid select. */
+        $this->assertStringContainsString('Turma A &amp; B', $errors['affinityruleserr']);
+        $this->assertStringNotContainsString('Turma A & B', $errors['affinityruleserr']);
+        $this->assertStringContainsString('1', $errors['affinityruleserr']);
+
+        // Control: the same rule with the filter off is accepted.
+        $errors = $this->validate_with($rules, []);
+        $this->assertArrayNotHasKey('affinityruleserr', $errors);
+    }
+
+    /**
+     * A group of another course never passes validation, filter or no filter.
+     */
+    public function test_validation_rejects_a_group_from_another_course(): void {
+        $this->render_with_cohort();
+        $other = $this->getDataGenerator()->create_course();
+        $theirs = $this->getDataGenerator()->create_group(['courseid' => $other->id, 'name' => 'Theirs']);
+
+        $errors = $this->validate_with([
+            'affinityrulesources' => ['group_' . $theirs->id],
+            'affinityrulemodes' => [options::AFFINITY_APART],
+        ], []);
+        $this->assertArrayHasKey('affinityruleserr', $errors);
+
+        // Control: a group of this course passes on the same path.
+        $mine = $this->getDataGenerator()->create_group(['courseid' => $this->context->instanceid, 'name' => 'Mine']);
+        $errors = $this->validate_with([
+            'affinityrulesources' => ['group_' . $mine->id],
+            'affinityrulemodes' => [options::AFFINITY_APART],
+        ], []);
+        $this->assertArrayNotHasKey('affinityruleserr', $errors);
+    }
+
+    /**
+     * The group picker is a menu at the limit and a search past it.
+     *
+     * This is the only branch in the new form code, and both sides of it are
+     * silent: over the limit the menu is deliberately EMPTY (data-groups="[]")
+     * and the client switches to the search web service, which reads exactly
+     * like a picker that lost its options.
+     */
+    public function test_the_group_picker_switches_to_a_search_past_the_limit(): void {
+        $this->render_with_cohort();
+        $courseid = (int) $this->context->instanceid;
+
+        // One group already exists (the destination); fill up to the limit.
+        for ($i = count(profilefields::get_source_groups($this->context)); $i < options_form::GROUP_MENU_LIMIT; $i++) {
+            $this->getDataGenerator()->create_group([
+                'courseid' => $courseid,
+                'name' => sprintf('Filler group %02d', $i),
+            ]);
+        }
+        $this->assertCount(
+            options_form::GROUP_MENU_LIMIT,
+            profilefields::get_source_groups($this->context),
+            'The fixtures did not produce the group count this test reasons about.'
+        );
+
+        $html = $this->render_form();
+        $this->assertStringContainsString('data-groupsearch="0"', $html);
+        $this->assertStringContainsString('Filler group 01', $html);
+
+        // One more flips it.
+        $this->getDataGenerator()->create_group(['courseid' => $courseid, 'name' => 'One too many']);
+        $html = $this->render_form();
+        $this->assertStringContainsString('data-groupsearch="1"', $html);
+        $this->assertStringContainsString('data-groups="[]"', $html);
+        $this->assertStringNotContainsString('One too many', $html);
+    }
+
+    /**
+     * Render the options form again over the current fixture course.
+     *
+     * @return string The rendered HTML.
+     */
+    private function render_form(): string {
+        global $PAGE;
+
+        $PAGE->set_context($this->context);
+        $form = new options_form(null, [
+            'context' => $this->context,
+            'courseid' => (int) $this->context->instanceid,
+            'groupids' => [$this->destination],
+            'roles' => [],
+            'noseats' => 0,
+            'initialrules' => [],
+        ]);
+        return $form->render();
+    }
+
+    /**
+     * Run validation() against a flattened rule POST.
+     *
+     * The builder's rows are not registered form elements, so they never reach
+     * $data — options::rules_from_post() reads them straight from the
+     * superglobal, which is what this has to seed.
+     *
+     * @param array $rules The affinityrulesources/affinityrulemodes arrays.
+     * @param array $data The $data validation() is called with.
+     * @return array The errors.
+     */
+    private function validate_with(array $rules, array $data): array {
+        global $PAGE;
+
+        $_POST['affinityrulesources'] = $rules['affinityrulesources'];
+        $_POST['affinityrulemodes'] = $rules['affinityrulemodes'];
+        $PAGE->set_context($this->context);
+        $form = new options_form(null, [
+            'context' => $this->context,
+            'courseid' => (int) $this->context->instanceid,
+            'groupids' => [$this->destination],
+            'roles' => [],
+            'noseats' => 0,
+            'initialrules' => [],
+        ]);
+        try {
+            return $form->validation($data + ['groupids' => [$this->destination]], []);
+        } finally {
+            unset($_POST['affinityrulesources'], $_POST['affinityrulemodes']);
+        }
     }
 }

@@ -127,18 +127,25 @@ class candidates {
         $affinityselects = [];
         $profilerules = [];
         $cohortrules = [];
+        $grouprules = [];
         foreach ($options->affinityrules->get_rules() as $i => $rule) {
             $kind = ruleset::source_kind($rule['source']);
             if ($kind === ruleset::KIND_NATIVE) {
                 // The column name is validated against the native whitelist in the ruleset.
                 $affinityselects[] = 'u.' . $rule['source'] . ' AS affinity' . $i;
-            } else {
-                $affinityselects[] = 'NULL AS affinity' . $i;
-                if ($kind === ruleset::KIND_PROFILE) {
-                    $profilerules[$i] = ruleset::source_profile_fieldid($rule['source']);
-                } else {
-                    $cohortrules[$i] = ruleset::source_cohortid($rule['source']);
-                }
+                continue;
+            }
+            $affinityselects[] = 'NULL AS affinity' . $i;
+            /* One explicit arm per kind, and no else: a catch-all here would
+               silently route any future source key into the cohort lookup,
+               where it resolves to cohort 0, matches nobody and yields an
+               all-empty column with no exception and nothing in the log. */
+            if ($kind === ruleset::KIND_PROFILE) {
+                $profilerules[$i] = ruleset::source_profile_fieldid($rule['source']);
+            } else if ($kind === ruleset::KIND_COHORT) {
+                $cohortrules[$i] = ruleset::source_cohortid($rule['source']);
+            } else if ($kind === ruleset::KIND_GROUP) {
+                $grouprules[$i] = ruleset::source_groupid($rule['source']);
             }
         }
         $affinitysql = $affinityselects ? (', ' . implode(', ', $affinityselects)) : '';
@@ -195,6 +202,38 @@ class candidates {
                    FROM {cohort_members} cm
                   WHERE cm.cohortid = :cscohortid AND cm.userid ' . $insql,
                 $inparams + ['cscohortid' => $cohortid]
+            );
+            foreach ($users as $user) {
+                $user->{'affinity' . $i} = isset($members[$user->id]) ? '1' : null;
+            }
+        }
+
+        foreach ($grouprules as $i => $groupid) {
+            if (!$users) {
+                break;
+            }
+            /* Binary source: '1' for members, empty otherwise — the same shape
+               as a cohort source, so keep-apart separates group mates pairwise
+               and keep-together clusters them.
+
+               The seed exclusion is the same rule the ignoregrouped predicate
+               and distribution::build() apply: a membership this very run wrote
+               (component + itemid = seed) must be invisible to every recompute,
+               or a resumed adhoc apply reads different values, the fingerprint
+               shifts and the task aborts as stale with the remainder unwritten.
+               It can only ever match when the source group is also one of the
+               destinations; for any other source group the predicate is inert.
+               It is written unconditionally anyway, because "this source group
+               happens not to be a destination" is a property of one run's
+               options, not of the query — and the version of this clause that
+               is only correct sometimes is the one that rots. */
+            [$insql, $inparams] = $DB->get_in_or_equal(array_keys($users), SQL_PARAMS_NAMED, 'gs');
+            $members = $DB->get_records_sql_menu(
+                "SELECT gm.userid, 1 AS member
+                   FROM {groups_members} gm
+                  WHERE gm.groupid = :gsgroupid AND gm.userid {$insql}
+                        AND (gm.component <> 'local_groupdist' OR gm.itemid <> :gsownseed)",
+                $inparams + ['gsgroupid' => $groupid, 'gsownseed' => $options->seed]
             );
             foreach ($users as $user) {
                 $user->{'affinity' . $i} = isset($members[$user->id]) ? '1' : null;

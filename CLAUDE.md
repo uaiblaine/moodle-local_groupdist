@@ -8,8 +8,9 @@ repeat them here. This file keeps only what is true for this plugin.
 Plugin context: a Moodle **local** plugin ("Group distribution") that adds a
 "Distribute participants" bulk action to the course group management page,
 distributing enrolled users into the SELECTED existing groups with role/cohort
-filters, autogroup-style allocation orders, profile-field affinity
-(keep-together / keep-apart) and per-group seat capacity + overbooking. It
+filters, autogroup-style allocation orders, affinity rules over a profile
+field, a cohort or an existing course group (keep-together / keep-apart) and
+per-group seat capacity + overbooking. It
 owns **two database tables** — the audit log (`local_groupdist_run` +
 `local_groupdist_run_user`), a per-apply snapshot of who ran it, the rules
 with labels resolved at the time and each participant's rule values and
@@ -61,13 +62,16 @@ classes/
   local/distribution.php     Builder: groups+fields+counts+allocation+fingerprint
   local/applier.php          Chunked transactional writes via groups_add_member
   local/fields.php           Group custom field provisioning + bulk readers
-  local/profilefields.php    Affinity field enumeration (visibility-filtered)
+  local/profilefields.php    Affinity source enumeration and authorization —
+                             fields, cohorts and course groups (visibility-filtered)
   external/get_preview.php   Paged preview WS (recomputes per call)
   external/get_audit_sections.php One page of a run's group sections (search)
   external/get_audit_members.php One window of one section's participants
   external/audit_ws.php      Shared audit WS preamble + member return shape
   external/search_cohorts.php Cohort search for the rule builder (cohorts are
                              never enumerated; menu <= 10, search beyond)
+  external/search_groups.php Course group search for the rule builder (groups
+                             ARE enumerated; menu <= 25, search beyond)
   external/save_group_fields.php Chunked bulk-edit save (dirty cells only,
                              MAX_CHANGES=200 per call; client chunks at 100)
   output/bulkedit_page.php   Table context builder (also refreshes one row
@@ -181,6 +185,55 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   menu up to `options_form::COHORT_MENU_LIMIT` and switches to the
   `local_groupdist_search_cohorts` WS beyond it, and per-rule authorization
   is always the O(1) `cohort_get_cohort()` check.
+- **A course group is the third rule source (`group_<id>`), and the
+  never-enumerate rule does NOT extend to it.** That rule is about cohorts
+  being site-level and numbering in the thousands; groups are course-bounded
+  and `distribute.php` already loads every group record of the course to
+  validate the destinations. `profilefields::get_source_groups()` is both the
+  picker's offer set and `is_allowed()`'s validator — one helper, so the two
+  can never drift — bounded at `options_form::GROUP_MENU_LIMIT` (25, the
+  preview's own `GROUP_CAP`) with `local_groupdist_search_groups` beyond it,
+  for usability rather than disclosure. Authorization is
+  `groups_get_all_groups()` with **all four visibility arms stated in the
+  plugin** — ALL to anyone, MEMBERS to a member, OWN and NONE only to a
+  `viewhiddengroups` holder — because being in that helper's result is not
+  permission to read the group's MEMBERSHIP, which is exactly what a source
+  exposes. Never reach for `groups_get_group()` (no course check, no
+  visibility check — a cross-course membership oracle) or
+  `groups_group_visible()` (that is the activity groupmode, a different axis
+  from the `visibility` column).
+- **Do NOT delegate that filtering to `groups_get_all_groups()`: it fails open
+  on a cold cache.** `core_group\visibility::can_view_all_groups()` warms the
+  `core/coursehiddengroups` entry, re-reads it and then **discards the value**,
+  so a missing entry evaluates `false > 0` and reports "no hidden groups";
+  `groups_get_all_groups()` then takes an unfiltered MUC shortcut and returns
+  every group of the course. Byte-identical on 405/501/502/503-dev, and
+  measured on m501: with that definition purged, one call returns the
+  NONE-visibility groups. The window is one call wide per course after each
+  purge — and `purge_all_caches()` runs on every plugin install and upgrade.
+  Core's own group/index.php escapes it only because it passes `$withmembers`,
+  which skips the shortcut. Pinned by
+  `profilefields_test::test_group_source_visibility_holds_on_a_cold_cache`,
+  which purges the definition first: `create_group()` warms it, and the warm
+  path hides the bug.
+- **A group source reads what the run writes, so it carries two extra
+  obligations.** The group value column applies the seed-stamped invisibility
+  clause like the other three sites, or a resumed adhoc apply reads different
+  values and aborts as stale. And a DESTINATION group used as its own source is
+  vacuous *exactly* while `ignoregrouped` is on — the candidate filter has
+  already removed everyone who could carry the value — so the builder disables
+  those options (watching the checkbox live) and `options_form::validation()`
+  backstops with `errorruleselfreference`. With the filter off the same rule is
+  real and is accepted: the gate is the conjunction, never the source alone.
+- **`ruleset::is_membership_source()` is the test every display path owes.**
+  Cohort and group values are both a bare `'1'`, so `get_preview`'s
+  `build_value_maps()` and `auditreader`'s per-rule `membership` flag must
+  substitute the rule label; keying either on `source_cohortid()` alone ships
+  green and renders a literal `1` everywhere. **Groupings are not a source and
+  the regexes are anchored so `grouping_7` cannot become group 7** — a
+  grouping's value is keyed AND set-valued while the allocator holds one
+  scalar per (rule, participant); the open modelling question is recorded in
+  `docs/mockups/rule-source-groups.html`.
 - **The member filter's cohort select is the deliberate exception to that
   rule — do not "fix" it to match.** `options_form::definition()` fetches it
   unbounded (`COHORT_WITH_ENROLLED_MEMBERS_ONLY`, limit 0), which is

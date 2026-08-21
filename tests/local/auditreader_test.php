@@ -397,4 +397,65 @@ final class auditreader_test extends \advanced_testcase {
             ->get_sections('', '', 0, auditreader::SECTIONS_PER_PAGE)['sections'];
         $this->assertTrue($after[0]['deleted']);
     }
+    /**
+     * A stored group rule renders its snapshot label, never the raw '1'.
+     *
+     * The reader keys this on the rule's SOURCE KIND rather than on the value,
+     * so any stored value on a membership rule resolves to the label frozen at
+     * apply time — which is what makes the log a snapshot and not a live
+     * lookup. The control below proves the same run does render a real value
+     * for a non-membership rule, so a failure above is the membership arm and
+     * not an empty why-list.
+     */
+    public function test_group_rule_renders_its_snapshot_label(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+        $destination = $generator->create_group(['courseid' => $course->id, 'name' => 'Turma 01']);
+        $source = $generator->create_group(['courseid' => $course->id, 'name' => 'Lab team 2026.1']);
+
+        foreach (['Alpha', 'Beta', 'Gamma'] as $lastname) {
+            $user = $generator->create_and_enrol($course);
+            $user->lastname = $lastname;
+            $user->city = 'Recife';
+            user_update_user($user, false);
+            $generator->create_group_member(['groupid' => $source->id, 'userid' => $user->id]);
+        }
+
+        $this->setAdminUser();
+        $options = options::from_array([
+            'courseid' => $course->id,
+            'groupids' => [(int) $destination->id],
+            'affinityrules' => [
+                ['source' => 'group_' . $source->id, 'mode' => options::AFFINITY_TOGETHER],
+                ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
+            ],
+            'roleid' => (int) current(get_archetype_roles('student'))->id,
+            'seed' => 42,
+        ]);
+        $runid = runlog::create(distribution::build($options, $context), (int) get_admin()->id, $context);
+        $run = $DB->get_record('local_groupdist_run', ['id' => $runid], '*', MUST_EXIST);
+
+        $reader = new auditreader($run, $context);
+        $sections = $reader->get_sections('', '', 0, auditreader::SECTIONS_PER_PAGE);
+        $lines = [];
+        foreach ($sections['sections'] as $section) {
+            foreach ($section['members'] as $member) {
+                foreach ($member['why'] as $why) {
+                    $lines[] = $why['text'];
+                }
+            }
+        }
+        $this->assertNotEmpty($lines, 'No "why here?" lines were built at all.');
+
+        $joined = implode(' | ', $lines);
+        $this->assertStringContainsString('Lab team 2026.1', $joined);
+        $this->assertStringNotContainsString('"1"', $joined, 'The raw membership flag reached the audit output.');
+        // Control: a plain field rule still shows its real value in the same run.
+        $this->assertStringContainsString('Recife', $joined);
+    }
 }

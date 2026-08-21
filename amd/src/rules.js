@@ -17,10 +17,19 @@
  * Affinity rule builder: repeatable rows summed with an explicit AND
  * connector, list position = priority, reorderable by drag or buttons.
  *
- * Each row picks a type first (profile field or cohort). Cohorts are a
- * bounded menu on small platforms and a debounced search (backed by the
- * local_groupdist_search_cohorts web service) beyond the menu limit, so
- * thousands of cohorts are never enumerated into the page.
+ * Each row picks a type first (profile field, cohort or course group).
+ * Cohorts are a bounded menu on small platforms and a debounced search
+ * (local_groupdist_search_cohorts) beyond the menu limit, so thousands of
+ * cohorts are never enumerated into the page. Course groups follow the same
+ * two-mode shape (local_groupdist_search_groups), but for a different reason:
+ * they are course-bounded and the server already holds the whole list, so the
+ * bound is about a usable picker rather than about disclosure.
+ *
+ * A group this run distributes INTO is offered but disabled while the "ignore
+ * users already in the selected groups" checkbox is ticked: that filter
+ * removes every user who could carry the value, so such a rule would match
+ * nobody. The checkbox is watched live, because it can be unticked after a
+ * rule was picked.
  *
  * The builder owns the rows and mirrors them into flattened hidden inputs
  * (affinityrulesources[i] / affinityrulemodes[i]) that the server reads via
@@ -46,17 +55,36 @@ const SELECTORS = {
     KIND: '[data-action="kind"]',
     SOURCE: '[data-action="source"]',
     MODE: '[data-action="mode"]',
-    COHORTSEARCH: '[data-action="cohortsearch"]',
-    COHORTRESULTS: '[data-region="cohortresults"]',
+    SOURCESEARCH: '[data-action="sourcesearch"]',
+    SOURCERESULTS: '[data-region="sourceresults"]',
+    IGNOREGROUPED: '[name="ignoregrouped"]',
+};
+
+/** @var {Object} Search web service per source kind. */
+const SEARCHMETHOD = {
+    cohort: {method: 'local_groupdist_search_cohorts', key: 'cohorts', empty: 'rulesearchnoresults'},
+    group: {method: 'local_groupdist_search_groups', key: 'groups', empty: 'rulesearchnogroups'},
 };
 
 const SEARCHDELAY = 300;
+
+/* The placeholder handed to getString() once at init, then swapped for each
+   group's own name at render time. Prefetching this way lets optionsFor() stay
+   synchronous while the WHOLE option label — word order and punctuation
+   included — stays in the language pack: a translation is free to put the
+   marker before the name, because the name is substituted INTO the string
+   rather than the string being appended to the name. */
+const NAMETOKEN = '%%name%%';
 
 const state = {
     root: null,
     fields: [],
     cohorts: [],
     cohortsearch: false,
+    groups: [],
+    groupsearch: false,
+    destinations: [],
+    destinationstrings: {blocked: '', also: ''},
     courseid: 0,
     maxrules: 10,
     rules: [],
@@ -106,22 +134,119 @@ const move = (from, to) => {
 };
 
 /**
- * Render the cohort suggestion list for one search row.
+ * Whether a source key names one of the groups this run distributes into.
+ *
+ * @param {String} source The source key.
+ * @returns {Boolean} True when it is a destination of this run.
+ */
+const isDestination = (source) => state.destinations.indexOf(source) !== -1;
+
+/**
+ * Whether the ignore-grouped filter is currently ticked.
+ *
+ * Read from the live checkbox rather than cached, because unticking it makes
+ * a destination group a usable source again without any page reload.
+ *
+ * @returns {Boolean} True when the filter is on.
+ */
+const ignoreGrouped = () => {
+    const checkbox = document.querySelector(SELECTORS.IGNOREGROUPED);
+    return checkbox ? checkbox.checked : true;
+};
+
+/**
+ * Whether a source key is a destination that cannot constrain anything.
+ *
+ * @param {String} source The source key.
+ * @returns {Boolean} True when the option must be disabled.
+ */
+const isBlockedDestination = (source) => isDestination(source) && ignoreGrouped();
+
+/**
+ * The option label for one source, marked when it is a destination of this run.
+ *
+ * @param {String} source The source key.
+ * @param {String} name The group's own name.
+ * @returns {String} The label to show.
+ */
+const optionLabel = (source, name) => {
+    if (!isDestination(source)) {
+        return name;
+    }
+    const template = ignoreGrouped() ? state.destinationstrings.blocked : state.destinationstrings.also;
+    return template.replace(NAMETOKEN, name);
+};
+
+/**
+ * Whether the picker for a source kind is a search box rather than a menu.
+ *
+ * @param {String} kind The row kind.
+ * @returns {Boolean} True in search mode.
+ */
+const searchModeFor = (kind) => {
+    if (kind === 'cohort') {
+        return state.cohortsearch;
+    }
+    if (kind === 'group') {
+        return state.groupsearch;
+    }
+    return false;
+};
+
+/**
+ * The select options for one row, decorated for the row's kind.
+ *
+ * @param {Object} rule The rule the row represents.
+ * @returns {Array} Option objects for the template.
+ */
+const optionsFor = (rule) => {
+    let source = state.fields;
+    if (rule.kind === 'cohort') {
+        source = state.cohorts;
+    } else if (rule.kind === 'group') {
+        source = state.groups;
+    }
+    return source.map((option) => ({
+        value: option.value,
+        label: optionLabel(option.value, option.label),
+        selected: option.value === rule.source,
+        /* A destination group stays VISIBLE and disabled rather than being
+           dropped: someone looking for "Group 02" has to find it and read why
+           it cannot be used, or the picker just looks broken. */
+        disabled: isBlockedDestination(option.value) && option.value !== rule.source,
+    }));
+};
+
+/**
+ * Render the suggestion list for one search row, whichever kind it is.
  *
  * @param {Element} row The row element.
  * @param {Number} index The rule index the row represents.
+ * @param {String} kind The row kind captured when the search was scheduled.
  * @param {String} query The search text.
  * @returns {Promise<void>}
  */
-const searchCohorts = async(row, index, query) => {
-    const results = row.querySelector(SELECTORS.COHORTRESULTS);
+const searchSources = async(row, index, kind, query) => {
+    /* The kind is captured when the keystroke is scheduled, not read here: by
+       the time the debounce fires, the row may have been deleted (state.rules
+       [index] undefined) or switched to another type, and resolving it now
+       would throw or query the other kind's service. A row that is gone or has
+       changed kind simply drops its stale result. */
+    const search = SEARCHMETHOD[kind];
+    if (!search || !state.rules[index] || state.rules[index].kind !== kind) {
+        return;
+    }
+    const results = row.querySelector(SELECTORS.SOURCERESULTS);
+    if (!results) {
+        return;
+    }
     let matches = [];
     try {
         const response = await Ajax.call([{
-            methodname: 'local_groupdist_search_cohorts',
+            methodname: search.method,
             args: {courseid: state.courseid, query},
         }])[0];
-        matches = response.cohorts;
+        matches = response[search.key];
     } catch (error) {
         Notification.exception(error);
         return;
@@ -131,7 +256,7 @@ const searchCohorts = async(row, index, query) => {
     if (!matches.length) {
         const empty = document.createElement('span');
         empty.className = 'list-group-item small text-muted';
-        empty.textContent = await getString('rulesearchnoresults', 'local_groupdist');
+        empty.textContent = await getString(search.empty, 'local_groupdist');
         results.appendChild(empty);
     }
     matches.forEach((match) => {
@@ -139,8 +264,13 @@ const searchCohorts = async(row, index, query) => {
         option.type = 'button';
         option.className = 'list-group-item list-group-item-action small';
         option.setAttribute('role', 'option');
-        option.textContent = match.label;
+        const blocked = isBlockedDestination(match.value);
+        option.disabled = blocked;
+        option.textContent = optionLabel(match.value, match.label);
         option.addEventListener('click', () => {
+            if (blocked || !state.rules[index] || state.rules[index].kind !== kind) {
+                return;
+            }
             state.rules[index].source = match.value;
             state.rules[index].label = match.label;
             render();
@@ -170,12 +300,13 @@ const wireRow = (row, index) => {
             render();
         });
     }
-    const search = row.querySelector(SELECTORS.COHORTSEARCH);
+    const search = row.querySelector(SELECTORS.SOURCESEARCH);
     if (search) {
+        const kind = state.rules[index].kind;
         search.addEventListener('input', (event) => {
             const query = event.target.value.trim();
             window.clearTimeout(state.searchtimer);
-            state.searchtimer = window.setTimeout(() => searchCohorts(row, index, query), SEARCHDELAY);
+            state.searchtimer = window.setTimeout(() => searchSources(row, index, kind, query), SEARCHDELAY);
         });
     }
     row.querySelector(SELECTORS.MODE).addEventListener('change', (event) => {
@@ -228,22 +359,15 @@ const render = async() => {
             notfirst: index > 0,
             isfirst: index === 0,
             islast: index === state.rules.length - 1,
+            isfield: rule.kind === 'field',
             iscohort: rule.kind === 'cohort',
-            cohortsearch: state.cohortsearch,
-            cohortlabel: (rule.kind === 'cohort' && rule.source !== '') ? rule.label : '',
-            cohortquery: '',
+            isgroup: rule.kind === 'group',
+            searchmode: searchModeFor(rule.kind),
+            chosenlabel: (searchModeFor(rule.kind) && rule.source !== '') ? rule.label : '',
+            query: '',
             together: rule.mode === 'together',
             apart: rule.mode === 'apart',
-            fields: state.fields.map((option) => ({
-                value: option.value,
-                label: option.label,
-                selected: option.value === rule.source,
-            })),
-            cohorts: state.cohorts.map((option) => ({
-                value: option.value,
-                label: option.label,
-                selected: option.value === rule.source,
-            })),
+            options: optionsFor(rule),
         }
     )));
 
@@ -261,10 +385,23 @@ const render = async() => {
 /**
  * Derive the row type of an initial rule from its source key.
  *
+ * A key this does not recognise falls back to 'field', which renders a select
+ * that does not contain it — so every source encoding the server accepts must
+ * appear here, or a stored rule silently loses its source on the first
+ * re-render.
+ *
  * @param {String} source The source key.
- * @returns {String} Either 'cohort' or 'field'.
+ * @returns {String} One of 'cohort', 'group' or 'field'.
  */
-const kindOf = (source) => source.startsWith('cohort_') ? 'cohort' : 'field';
+const kindOf = (source) => {
+    if (source.startsWith('cohort_')) {
+        return 'cohort';
+    }
+    if (source.startsWith('group_')) {
+        return 'group';
+    }
+    return 'field';
+};
 
 /**
  * Initialise the builder from its mount's data attributes.
@@ -279,6 +416,9 @@ export const init = async() => {
     state.fields = JSON.parse(state.root.dataset.fields);
     state.cohorts = JSON.parse(state.root.dataset.cohorts);
     state.cohortsearch = state.root.dataset.cohortsearch === '1';
+    state.groups = JSON.parse(state.root.dataset.groups);
+    state.groupsearch = state.root.dataset.groupsearch === '1';
+    state.destinations = JSON.parse(state.root.dataset.destinations).map((id) => 'group_' + id);
     state.courseid = parseInt(state.root.dataset.courseid, 10);
     state.maxrules = parseInt(state.root.dataset.maxrules, 10) || 10;
     state.rules = JSON.parse(state.root.dataset.rules).map((rule) => ({
@@ -288,9 +428,21 @@ export const init = async() => {
         label: rule.label || '',
     }));
 
+    const [blocked, also] = await Promise.all([
+        getString('rulegroupdestinationblocked', 'local_groupdist', NAMETOKEN),
+        getString('rulegroupdestinationalso', 'local_groupdist', NAMETOKEN),
+    ]);
+    state.destinationstrings = {blocked, also};
+
     state.root.querySelector(SELECTORS.ADD).addEventListener('click', () => {
         state.rules.push({kind: 'field', source: '', mode: 'together', label: ''});
         render();
     });
+    /* The ignore-grouped filter decides whether a destination group is a
+       usable source, so the picker has to follow it rather than read it once. */
+    const ignore = document.querySelector(SELECTORS.IGNOREGROUPED);
+    if (ignore) {
+        ignore.addEventListener('change', () => render());
+    }
     await render();
 };

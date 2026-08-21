@@ -23,9 +23,10 @@ Feature: Distribute participants into selected groups
       | student3 | C1     | student        |
       | student4 | C1     | student        |
     And the following "groups" exist:
-      | name    | course | idnumber |
-      | Group A | C1     | GA       |
-      | Group B | C1     | GB       |
+      | name     | course | idnumber |
+      | Group A  | C1     | GA       |
+      | Group B  | C1     | GB       |
+      | Lab team | C1     | LAB      |
     And the following "cohorts" exist:
       | name    | idnumber |
       | Mentors | ME       |
@@ -152,3 +153,46 @@ Feature: Distribute participants into selected groups
     Then I should see "1 · Keep apart: City"
     And I should see "2 · Keep together: Cohort: Mentors"
     And I should see "Rules report"
+
+  Scenario: Build a rule sourced from an existing course group and keep it across a round trip
+    Given the following "group members" exist:
+      | user     | group |
+      | student1 | LAB   |
+      | student2 | LAB   |
+    And I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (0),Group B (0)"
+    And I click on "Distribute participants" "button"
+    And I click on "Add rule" "button"
+    And I set the field "Rule 1 type" to "Group"
+    And I set the field "Rule 1 group" to "Lab team"
+    And I set the field "Rule 1 strategy" to "Keep apart"
+    And I press "Preview distribution"
+    Then I should see "1 · Keep apart: Group: Lab team"
+    And I should see "Rules report"
+    # Back and adjust re-hydrates the builder from the stored rules, which is
+    # the only path through kindOf(): a source key it does not recognise
+    # renders into the FIELD select, which does not contain it, and the rule
+    # silently loses its source.
+    When I press "Back and adjust"
+    Then the field "Rule 1 type" matches value "Group"
+    And the field "Rule 1 group" matches value "Lab team"
+    And the field "Rule 1 strategy" matches value "Keep apart"
+
+  Scenario: A group this run writes into cannot be its own rule source
+    Given I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (0),Group B (0)"
+    And I click on "Distribute participants" "button"
+    And I click on "Add rule" "button"
+    And I set the field "Rule 1 type" to "Group"
+    Then I should see "Group A — a destination of this run (unavailable)"
+    And I should see "Lab team"
+    # The marker is cosmetic; the guard is the disabled attribute. Core has no
+    # "option" selector and no negative form of this step, so both directions
+    # are asserted with xpath_element plus should be disabled/enabled.
+    And the "//select[@data-action='source']/option[contains(., 'a destination of this run (unavailable)')]" "xpath_element" should be disabled
+    And the "//select[@data-action='source']/option[contains(., 'Lab team')]" "xpath_element" should be enabled
+    # Unticking the filter makes those members take part, so the same group
+    # becomes a usable source and the picker has to follow it live.
+    When I set the field "Ignore users already in the selected groups" to "0"
+    Then I should see "Group A — also a destination of this run"
+    And the "//select[@data-action='source']/option[contains(., 'also a destination of this run')]" "xpath_element" should be enabled

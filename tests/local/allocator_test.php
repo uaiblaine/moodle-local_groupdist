@@ -468,6 +468,41 @@ final class allocator_test extends \basic_testcase {
     }
 
     /**
+     * A clustered member who already sits in the group the plan chose is
+     * neither added nor reported unplaced — a third outcome beside the two.
+     *
+     * This is what makes distribution::NOOP_ALLPLACED a distinct reason
+     * rather than a rounding error: the identity
+     * candidates == memberships + unassigned does not hold once
+     * "ignore users already in the selected groups" is off, because a member
+     * the allocator would only re-add is skipped instead. The preview used to
+     * render that as zeros with no explanation.
+     *
+     * Mutation: delete the already-a-member `continue` in place_cluster() and
+     * the two are assigned instead, so memberships becomes 2.
+     *
+     * @return void
+     */
+    public function test_cluster_members_already_in_the_target_are_skipped_not_unassigned(): void {
+        // One group that already holds 1 and 2; user 3 shares their value.
+        $groups = [$this->make_group(1, null, 2, [1, 2])];
+        $affinity = [1 => 'A', 2 => 'A', 3 => 'A'];
+        $options = $this->make_options([
+            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
+        ]);
+        $result = allocator::allocate([1, 2, 3], [$affinity], $groups, $options);
+
+        /* Control first: without it this passes on an allocator that places
+           nobody at all, which is the mutation the test exists to catch. */
+        $this->assertSame([3], $result->assignments[1]);
+        $this->assertSame(1, $result->count_memberships());
+
+        // 1 and 2 are in neither bucket, and nothing is reported about them.
+        $this->assertSame([], $result->unassigned);
+        $this->assertSame([], $result->warnings);
+    }
+
+    /**
      * Empty inputs produce an empty allocation.
      */
     public function test_empty_inputs(): void {

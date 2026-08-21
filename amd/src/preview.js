@@ -34,6 +34,9 @@ const SELECTORS = {
     WARNINGS: '[data-region="warnings"]',
     GROUPS: '[data-region="groups"]',
     RULEREPORT: '[data-region="rulereport"]',
+    EMPTY: '[data-region="empty"]',
+    EMPTYMESSAGE: '[data-region="emptymessage"]',
+    SAMPLES: '[data-region="samples"]',
     LOADMORE: '[data-action="loadmore"]',
     COUNTER: '[data-region="counter"]',
     CAPNOTE: '[data-region="capnote"]',
@@ -116,6 +119,18 @@ const renderHeader = async(root, data) => {
     document.querySelectorAll(SELECTORS.APPLY).forEach((button) => {
         button.disabled = data.totals.memberships === 0;
     });
+
+    // Say why Apply is greyed. The service reports one reason for every
+    // no-op, so this covers each of them rather than the empty roster alone.
+    const empty = root.querySelector(SELECTORS.EMPTY);
+    empty.querySelector(SELECTORS.EMPTYMESSAGE).textContent = data.noopmessage;
+    empty.hidden = data.noopreason === '';
+
+    /* Retire the sample grid only when there is nothing to sample from.
+       Under noroom and allplaced the cards ARE the evidence — full meters and
+       current rosters — so they stay, and so does the pager. */
+    root.querySelector(SELECTORS.SAMPLES).hidden =
+        data.noopreason === 'nocandidates' || data.noopreason === 'nogroups';
 };
 
 /**

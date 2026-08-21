@@ -34,6 +34,18 @@ class distribution {
     /** @var string Warning: communication subsystem makes each membership write expensive. */
     public const WARNING_COMMSLOW = 'commslow';
 
+    /** @var string No-op: every selected group has been deleted since the options were posted. */
+    public const NOOP_NOGROUPS = 'nogroups';
+
+    /** @var string No-op: no course participant matches the member filters. */
+    public const NOOP_NOCANDIDATES = 'nocandidates';
+
+    /** @var string No-op: participants match, but no group can take any of them. */
+    public const NOOP_NOROOM = 'noroom';
+
+    /** @var string No-op: everyone already belongs to the group the plan chose for them. */
+    public const NOOP_ALLPLACED = 'allplaced';
+
     /** @var options The options this distribution was computed from. */
     public options $options;
 
@@ -194,6 +206,68 @@ class distribution {
             'seatstotal' => $seatstotal,
             'overbooked' => $this->options->useseats ? $overbooked : 0,
         ];
+    }
+
+    /**
+     * Why this run would write nothing, or '' when it would write something.
+     *
+     * Keyed on memberships === 0 rather than on an empty candidate list,
+     * because that is the condition the preview's Apply button is disabled by
+     * and there is more than one way to reach it. The arms are exhaustive and
+     * ordered outermost first, so every no-op falls into exactly one of them
+     * and a state added later cannot land back in the silence this method
+     * exists to remove.
+     *
+     * Display only: nothing here feeds compute_fingerprint(), which must stay
+     * a function of the allocator's inputs alone.
+     *
+     * @return string One of the NOOP_* constants, or '' when memberships > 0.
+     */
+    public function noop_reason(): string {
+        if ($this->allocation->count_memberships() > 0) {
+            return '';
+        }
+        if (!$this->groups) {
+            // The web service re-intersects the selection against the course's
+            // live groups on every call, so a deletion mid-preview lands here.
+            return self::NOOP_NOGROUPS;
+        }
+        if (!$this->users) {
+            return self::NOOP_NOCANDIDATES;
+        }
+        if ($this->allocation->unassigned) {
+            return self::NOOP_NOROOM;
+        }
+        /* Candidates, groups, nobody unassigned and still nothing to write:
+           every one of them already sits in the group the plan chose. That is
+           a third outcome beside "placed" and "unplaced", not a miscount —
+           the allocator skips a member it would only re-add. */
+        return self::NOOP_ALLPLACED;
+    }
+
+    /**
+     * The teacher-facing explanation of a no-op run.
+     *
+     * A literal match, never a composed string id: the fleet rule bans
+     * get_string() on a built key. The keep-grouped hint is appended rather
+     * than folded in because it states that a filter is switched on, which is
+     * a fact, and not that the filter is the cause, which would need a probe.
+     *
+     * @return string The localised message, or '' when the run would write.
+     */
+    public function noop_message(): string {
+        $reason = $this->noop_reason();
+        $message = match ($reason) {
+            self::NOOP_NOGROUPS => get_string('noopnogroups', 'local_groupdist'),
+            self::NOOP_NOCANDIDATES => get_string('noopnocandidates', 'local_groupdist'),
+            self::NOOP_NOROOM => get_string('noopnoroom', 'local_groupdist'),
+            self::NOOP_ALLPLACED => get_string('noopallplaced', 'local_groupdist'),
+            default => '',
+        };
+        if ($reason === self::NOOP_NOCANDIDATES && $this->options->ignoregrouped) {
+            $message .= ' ' . get_string('noophintignoregrouped', 'local_groupdist');
+        }
+        return $message;
     }
 
     /**

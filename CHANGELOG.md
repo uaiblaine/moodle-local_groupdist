@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Fixed
+
+- **A preview that would write nothing now says why.** Zero candidates
+  rendered as a row of zeros, one "0 new members" card per selected group and
+  a greyed Apply, with no sentence anywhere — and that was only the commonest
+  of four ways to reach it. `distribution::noop_reason()` is keyed on
+  `memberships === 0`, the same condition that greys the button, and is a
+  total function over four disjoint arms, so no sibling state can be added
+  later and stay silent: `nocandidates`, `noroom` (matched but nowhere to put
+  them), `allplaced` (everyone already sits in the group the plan chose) and
+  `nogroups` (the selection was deleted while the preview was open — the web
+  service re-intersects against the live groups on every call, so this drifts
+  in mid-session). The explanation is a card in the page content, and the
+  sample grid is retired only under `nocandidates` and `nogroups`; under the
+  other two the cards are the evidence. `apply.php` appends the same reason to
+  its "nothing was applied" notice, so the route around the disabled button
+  gets it too. New `docs/mockups/step2-preview-empty.html` carries all four
+  states plus a control.
+
+- **The empty-roster message names the keep-grouped filter when it is on.**
+  A second run over the same groups empties the candidate list by
+  construction, which is by far the commonest way to see this screen. The hint
+  states that the filter is switched on — a fact — rather than claiming it is
+  the cause, which would need a probe.
+
+- **`warningunassigned` no longer blames capacity for something capacity
+  cannot fix.** It read "every group is at capacity. Increase seats or
+  overbooking", but the same warning fires when the blocker is that the
+  participants already belong to every selected group, where raising seats
+  changes nothing.
+
+- **The preview recap now names the filters that will actually run.**
+  `candidates::fetch()` forces only-active on for anyone without
+  `moodle/course:viewsuspendedusers` and makes the future-start relaxation
+  inert for them, so the recap omitted the one filter that had narrowed their
+  candidate list — which matters most in the state where that list came back
+  empty and the new explanation points at the recap.
+
 ### Changed
 
 - The options form's **member filter** keeps its unbounded

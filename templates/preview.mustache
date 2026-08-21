@@ -21,6 +21,12 @@
     and group cards are hydrated by the local_groupdist/preview AMD module from
     the preview web service, into the data-region containers below.
 
+    The empty region carries the explanation of a run that would write nothing
+    and is unhidden by the module when the web service reports a no-op reason;
+    the samples region wraps the heading, the cards and the pager together so
+    that one hidden attribute retires the whole grid when there is nothing to
+    sample from.
+
     Context variables required for this template:
     * groupcount - number of selected groups
     * optionsjson - JSON-encoded canonical options, consumed by the AMD module
@@ -72,14 +78,26 @@
     <div data-region="warnings" aria-live="polite"></div>
     <div data-region="rulereport"></div>
 
-    <h2 class="h6 text-muted mt-4">{{#str}} samplesheading, local_groupdist {{/str}}</h2>
-    <div data-region="groups"></div>
+    <div data-region="empty" class="card mb-3" role="status" hidden>
+        <div class="card-body py-3 d-flex gap-2">
+            <i class="fa fa-exclamation-circle text-warning mt-1" aria-hidden="true"></i>
+            <div>
+                <h2 class="h6 mb-1">{{#str}} noopheading, local_groupdist {{/str}}</h2>
+                <p class="mb-0 text-muted" data-region="emptymessage"></p>
+            </div>
+        </div>
+    </div>
 
-    <div class="d-flex flex-column align-items-center gap-1 my-3">
-        <button type="button" class="btn btn-secondary" data-action="loadmore" hidden>
-            {{#str}} loadmoregroups, local_groupdist {{/str}}
-        </button>
-        <div data-region="capnote" class="small text-muted" hidden></div>
-        <div data-region="counter" class="small text-muted"></div>
+    <div data-region="samples">
+        <h2 class="h6 text-muted mt-4">{{#str}} samplesheading, local_groupdist {{/str}}</h2>
+        <div data-region="groups"></div>
+
+        <div class="d-flex flex-column align-items-center gap-1 my-3">
+            <button type="button" class="btn btn-secondary" data-action="loadmore" hidden>
+                {{#str}} loadmoregroups, local_groupdist {{/str}}
+            </button>
+            <div data-region="capnote" class="small text-muted" hidden></div>
+            <div data-region="counter" class="small text-muted"></div>
+        </div>
     </div>
 </div>

@@ -288,6 +288,11 @@ class get_preview extends external_api {
                 'average' => $totals['groups'] ? format_float($totals['memberships'] / $totals['groups'], 1) : '0',
             ],
             'warnings' => self::format_warnings($distribution, $context, $valuemaps),
+            /* Why the run would write nothing, '' when it would write. Two
+               flat scalars rather than a nested structure, matching this
+               payload's other sentinels (seats -1, location ''). */
+            'noopreason' => $distribution->noop_reason(),
+            'noopmessage' => $distribution->noop_message(),
             'rulereport' => self::build_rule_report($distribution, $valuemaps, $context),
             'groups' => $groupspayload,
             'locationlabel' => \local_groupdist\local\fields::get_location_label(),
@@ -318,6 +323,8 @@ class get_preview extends external_api {
                 'type' => new external_value(PARAM_ALPHANUMEXT, 'Warning type'),
                 'message' => new external_value(PARAM_TEXT, 'Localised message'),
             ])),
+            'noopreason' => new external_value(PARAM_ALPHANUMEXT, 'Why the run would write nothing ("" when it would)'),
+            'noopmessage' => new external_value(PARAM_TEXT, 'Localised explanation of that ("" when the run would write)'),
             'rulereport' => new external_multiple_structure(new external_single_structure([
                 'index' => new external_value(PARAM_INT, '1-based rule priority'),
                 'label' => new external_value(PARAM_TEXT, 'Rule source label'),

@@ -155,8 +155,19 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   replays member-by-member WITHOUT a transaction. `groups_add_member` returns
   true for already-members (idempotent re-runs). In the replay, a caught
   `dml_write_exception` is ambiguous (duplicate key vs deadlock/lock timeout —
-  same exception type): re-check `groups_is_member()` before counting it as
-  added.
+  same exception type): re-check before counting it as added, and re-check
+  with a **direct `$DB->record_exists('groups_members', ...)`**, never
+  `groups_is_member()`. That helper is visibility-filtered — it short-circuits
+  to `record_exists()` only when `visibility::can_view_all_groups()` is true,
+  and otherwise admits another participant's row only for an ALL-visibility
+  group (or MEMBERS with the viewer a member) — so on an OWN or NONE group it
+  denies a row that exists and a successful write is audited as a failure.
+  The two blindnesses compound: core's `groups_add_member()` guards its insert
+  with the same helper, so it is also what raises the duplicate key that
+  enters the replay. A write-side integrity check asks the table; visibility
+  filtering is right on the DISPLAY side only, where dropping it would leak
+  membership of hidden groups. Pinned by
+  `applier_test::test_apply_counts_existing_membership_in_hidden_group`.
 - **Affinity source visibility mirrors core** (`profile_field_base::is_visible`,
   listing case): ALL → everyone; TEACHERS → `moodle/site:viewuseridentity` at
   the course; PRIVATE/NONE → `moodle/user:viewalldetails` (NOT

@@ -112,4 +112,83 @@ final class applier_test extends \advanced_testcase {
 
         $this->assertSame(1, $DB->count_records('groups_members', ['groupid' => $group->id]));
     }
+
+    /**
+     * An already-present membership is counted as written even when the target
+     * group is hidden from the person running the distribution.
+     *
+     * The replay path has to tell a duplicate key apart from a genuine write
+     * failure, and groups_is_member() cannot answer that: it is
+     * visibility-filtered, so for a GROUPS_VISIBILITY_OWN group it reports
+     * "not a member" for a row that plainly exists. The same blindness inside
+     * core's own groups_add_member() guard is what forces the duplicate here.
+     */
+    public function test_apply_counts_existing_membership_in_hidden_group(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+        $group = $generator->create_group([
+            'courseid' => $course->id,
+            'visibility' => GROUPS_VISIBILITY_OWN,
+        ]);
+        for ($i = 0; $i < 3; $i++) {
+            $generator->create_and_enrol($course);
+        }
+
+        $options = options::from_array([
+            'courseid' => $course->id,
+            'groupids' => [(int) $group->id],
+            'seed' => 42,
+        ]);
+        $distribution = distribution::build($options, $context);
+        $runid = runlog::create($distribution, (int) get_admin()->id, $context);
+
+        /* Someone adds one of the planned members by hand between the preview
+           and the apply — the race the replay path exists for. Inserted
+           directly so the plan built above still names this pair. */
+        $planned = $distribution->allocation->assignments[(int) $group->id];
+        $preexisting = (int) reset($planned);
+        $member = (object) [
+            'groupid' => (int) $group->id,
+            'userid' => $preexisting,
+            'timeadded' => time(),
+            'component' => '',
+            'itemid' => 0,
+        ];
+        $DB->insert_record('groups_members', $member);
+
+        // The distributor cannot see hidden groups: a custom role or, as here, an explicit prevent.
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $roleid = $DB->get_field('role', 'id', ['shortname' => 'editingteacher'], MUST_EXIST);
+        assign_capability('moodle/course:viewhiddengroups', CAP_PREVENT, $roleid, $context->id, true);
+        accesslib_clear_all_caches_for_unit_testing();
+        $this->setUser($teacher);
+
+        /* Preconditions. Without them this test passes by doing nothing: if the
+           distributor could see the group, core's own guard would report the
+           member, no duplicate key would be raised and the replay path — the
+           only place the probe lives — would never be entered. */
+        $this->assertFalse(has_capability('moodle/course:viewhiddengroups', $context));
+        $this->assertTrue(
+            $DB->record_exists('groups_members', ['groupid' => $group->id, 'userid' => $preexisting])
+        );
+        $this->assertFalse(groups_is_member($group->id, $preexisting));
+
+        $summary = applier::apply($distribution, null, $runid);
+
+        // The row that already existed is a success, not a failure.
+        $this->assertSame(3, $summary['added']);
+        $this->assertSame(0, $summary['failed']);
+        $this->assertSame([], $summary['failedpairs']);
+        $this->assertSame(3, $DB->count_records('groups_members', ['groupid' => $group->id]));
+
+        /* Only the two genuinely new rows carry this run's stamp: the
+           pre-existing one was recognised, not rewritten, which is what
+           proves the duplicate-key replay is the branch under test. */
+        $this->assertSame(2, $DB->count_records('groups_members', ['component' => 'local_groupdist', 'itemid' => 42]));
+    }
 }

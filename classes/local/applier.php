@@ -116,8 +116,24 @@ class applier {
                     } catch (\dml_write_exception $memberexception) {
                         /* dml_write_exception covers duplicate keys AND genuine
                            failures (deadlock victim, lock timeout) — they are
-                           indistinguishable by type, so ask the table. */
-                        if (groups_is_member($group->id, $user->id)) {
+                           indistinguishable by type, so ask the table.
+
+                           Ask it DIRECTLY. groups_is_member() is
+                           visibility-filtered: it short-circuits to a plain
+                           record_exists() only when can_view_all_groups() is
+                           true, and otherwise admits a row for another user
+                           only when the group's visibility is ALL, or MEMBERS
+                           with the viewer a member too. For a group that is
+                           OWN or NONE it answers false for a row that exists,
+                           and the membership would be counted as failed and
+                           logged as such. This is a write-side integrity
+                           check, not a display decision — visibility
+                           filtering is simply the wrong question here. */
+                        $landed = $DB->record_exists(
+                            'groups_members',
+                            ['groupid' => (int) $group->id, 'userid' => (int) $user->id]
+                        );
+                        if ($landed) {
                             $chunkadded++;
                         } else {
                             $chunkfailed++;

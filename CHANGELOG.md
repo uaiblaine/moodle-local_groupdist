@@ -35,6 +35,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A membership that already existed could be logged as a failure. The
+  non-transactional replay in `applier::apply()` — the path a caught
+  `dml_write_exception` falls into, where a duplicate key and a genuine write
+  failure (deadlock victim, lock timeout) are indistinguishable by type —
+  asked `groups_is_member()` whether the row had landed. That helper is
+  visibility-filtered: it short-circuits to a plain `record_exists()` only
+  when `\core_group\visibility::can_view_all_groups()` is true, and otherwise
+  admits another participant's row only for a group whose visibility is ALL,
+  or MEMBERS with the viewer a member too. On a group set to "Only visible to
+  members" or "Not visible" it answered "not a member" for a row that plainly
+  existed, so a successful write was scored as failed — in the run summary and
+  in the audit log. In a feature whose product is an auditable record, the
+  record was the thing that was wrong. The probe now reads `{groups_members}`
+  directly: this is a write-side integrity check, not a display decision, and
+  visibility filtering is the wrong question to ask of it. Display-side uses
+  of the helper are untouched — there the filtering is correct, and removing
+  it would leak membership of hidden groups.
+- The reachability is narrow, and worth stating plainly rather than
+  overselling. On a stock site the distributor holds
+  `moodle/course:viewhiddengroups` — `local/groupdist:distribute` defaults to
+  editingteacher and manager, and viewhiddengroups defaults to teacher,
+  editingteacher and manager — so `can_view_all_groups()` is true and the
+  plain path is taken. Reaching the filtered branch needs a custom role or an
+  explicit prevent, PLUS a target group whose visibility is not ALL, PLUS
+  actually entering the replay. What makes it worth fixing rather than noting
+  is that the last condition is not independent of the others: core's own
+  `groups_add_member()` guards its insert with the same `groups_is_member()`,
+  so the same blindness fails to see the existing row, inserts, and raises the
+  duplicate key that enters the replay. In that configuration every
+  pre-existing membership is mis-scored — not an occasional race, and exactly
+  what an interrupted adhoc apply re-attempts on resume.
 - Cohort names and rule-source labels are no longer escaped twice, finishing
   the sweep. The most visible instance was the affinity rule builder, the
   first screen of the flow: `rules.js` writes search results with

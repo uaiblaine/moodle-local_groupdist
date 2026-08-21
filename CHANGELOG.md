@@ -35,6 +35,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The distribution log no longer reports a live group as deleted. The
+  "group since deleted" marker asked `groups_get_all_groups()` whether the
+  group was still there, and that helper is visibility-filtered the same way
+  `groups_is_member()` is: it uses its cache only when
+  `can_view_all_groups()` is true, and otherwise returns a group only when its
+  visibility is ALL, or the reader is a member and it is MEMBERS or OWN. A
+  group set to "Not visible" is absent from it for **every** reader without
+  `moodle/course:viewhiddengroups`, member or not, so the report asserted that
+  a run had written into a group that no longer existed while the group and
+  its memberships were intact — and asserted it per reader, the same run
+  reading differently for a manager and for a teacher on a restricted role.
+  Whether a group still exists is a fact about the course, not a display
+  decision. It is now read straight from the table, which is also one lighter
+  query than loading every group record. Filtering bought no privacy here: the
+  group's name and its members are rendered from the run snapshot beside the
+  badge either way, so nothing that was hidden becomes visible. Found by
+  sweeping for the defect class behind the applier fix below, rather than
+  reported.
 - A membership that already existed could be logged as a failure. The
   non-transactional replay in `applier::apply()` — the path a caught
   `dml_write_exception` falls into, where a duplicate key and a genuine write

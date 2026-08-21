@@ -331,4 +331,68 @@ final class auditreader_test extends \advanced_testcase {
         $this->assertSame('', $removed[0]['profileurl']);
         $this->assertSame(get_string('auditremoved', 'local_groupdist'), $removed[0]['name']);
     }
+
+    /**
+     * A group that still exists is never reported as deleted merely because
+     * the person reading the log cannot see it.
+     *
+     * groups_get_all_groups() is visibility-filtered, so a live NONE-visibility
+     * group is absent from it for any reader without
+     * moodle/course:viewhiddengroups — and the marker would then assert, in a
+     * permanent record, that the run wrote into a group that had been deleted.
+     */
+    public function test_hidden_group_is_not_reported_deleted(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+        $group = $generator->create_group([
+            'courseid' => $course->id,
+            'name' => 'Turma reservada',
+            'visibility' => GROUPS_VISIBILITY_NONE,
+        ]);
+        for ($i = 0; $i < 3; $i++) {
+            $generator->create_and_enrol($course);
+        }
+
+        $this->setAdminUser();
+        $options = options::from_array([
+            'courseid' => $course->id,
+            'groupids' => [(int) $group->id],
+            'roleid' => (int) current(get_archetype_roles('student'))->id,
+            'seed' => 42,
+        ]);
+        $runid = runlog::create(distribution::build($options, $context), (int) get_admin()->id, $context);
+        $run = $DB->get_record('local_groupdist_run', ['id' => $runid], '*', MUST_EXIST);
+
+        // Someone entitled to read the log, but not to see hidden groups.
+        $auditor = $generator->create_and_enrol($course, 'editingteacher');
+        $roleid = $DB->get_field('role', 'id', ['shortname' => 'editingteacher'], MUST_EXIST);
+        assign_capability('moodle/course:viewhiddengroups', CAP_PREVENT, $roleid, $context->id, true);
+        accesslib_clear_all_caches_for_unit_testing();
+        $this->setUser($auditor);
+
+        /* Preconditions. The reader may open the report, the group is live, and
+           the filtered helper the marker used to ask denies it — without that
+           last one this test would pass against the bug it exists for. */
+        $this->assertTrue(has_capability('local/groupdist:viewauditlog', $context));
+        $this->assertFalse(has_capability('moodle/course:viewhiddengroups', $context));
+        $this->assertTrue($DB->record_exists('groups', ['id' => $group->id]));
+        $this->assertArrayNotHasKey((int) $group->id, groups_get_all_groups($course->id));
+
+        $sections = (new auditreader($run, $context))
+            ->get_sections('', '', 0, auditreader::SECTIONS_PER_PAGE)['sections'];
+        $this->assertCount(1, $sections);
+        $this->assertSame((int) $group->id, $sections[0]['id']);
+        $this->assertFalse($sections[0]['deleted']);
+
+        /* Control: the marker still has to fire for a group that really is
+           gone, or asserting false above would prove nothing. */
+        groups_delete_group($group->id);
+        $after = (new auditreader($run, $context))
+            ->get_sections('', '', 0, auditreader::SECTIONS_PER_PAGE)['sections'];
+        $this->assertTrue($after[0]['deleted']);
+    }
 }

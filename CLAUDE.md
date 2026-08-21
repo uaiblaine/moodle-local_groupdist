@@ -264,6 +264,19 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   The column count is capped by a percentage flex-basis with a 19rem floor, not
   by a grid or a media query: only a percentage basis caps the count, and only
   a container-driven rule survives the block drawer narrowing `#region-main`.
+- **The "group since deleted" marker asks the table, never
+  `groups_get_all_groups()`.** `auditreader::live_group_ids()` reads
+  `{groups}` by courseid directly. The helper is visibility-filtered on the
+  same rule as `groups_is_member()` — cache only when
+  `visibility::can_view_all_groups()` is true, otherwise ALL, or MEMBERS/OWN
+  with the reader a member — so a live NONE-visibility group is missing from
+  it for every reader lacking `moodle/course:viewhiddengroups`, and the run
+  would permanently claim it had written into a deleted group. Existence is a
+  fact about the course, not a display decision, and filtering it protects
+  nothing here: the name and members beside the badge come from the snapshot
+  either way. Pinned by
+  `auditreader_test::test_hidden_group_is_not_reported_deleted`, which carries
+  a control that deletes the group for real.
 - **The outcome badge is painted only when `outcome.notable`.** Every row of a
   healthy run says "written", so the reader learns nothing from it; the label
   still travels in the web service payload, and `audit_ws` declares `notable`

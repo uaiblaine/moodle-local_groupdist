@@ -176,11 +176,28 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   column) and raw `cohortid` inputs on the WS/apply are both validated with
   `cohort_get_cohort($id, $context)` so hidden cohorts cannot be used as a
   membership oracle — `profilefields::is_allowed()` owns the dispatch.
-  **Never enumerate cohorts** (platforms carry thousands):
+  **Never enumerate cohorts as RULE SOURCES** (platforms carry thousands):
   `profilefields::get_fields()` lists fields only; the builder shows a cohort
   menu up to `options_form::COHORT_MENU_LIMIT` and switches to the
   `local_groupdist_search_cohorts` WS beyond it, and per-rule authorization
   is always the O(1) `cohort_get_cohort()` check.
+- **The member filter's cohort select is the deliberate exception to that
+  rule — do not "fix" it to match.** `options_form::definition()` fetches it
+  unbounded (`COHORT_WITH_ENROLLED_MEMBERS_ONLY`, limit 0), which is
+  argument-for-argument core's own call in `group/autogroup_form.php`, reached
+  from the same group management page. The two calls select different sets:
+  the rule builder's is `COHORT_ALL`, while this one's `HAVING` admits only
+  cohorts overlapping the course's enrolment list. Capping it was measured and
+  rejected — core puts the grouping in a derived table and orders the outer
+  query, so a `LIMIT` never reaches the aggregate and buys no query time while
+  hiding valid choices. The full reasoning, including where the bound fails
+  (the front page: `get_enrolled_join()` skips the enrolment join at
+  `SITEID`), is in the block comment at the call, and
+  `options_form_test::test_the_member_filter_is_bounded_by_the_roster` goes
+  red if the mode is widened. `validation()` gates a submitted `cohortid` on
+  `cohort_get_cohort()` as well, so all four entry points (form, `apply.php`,
+  `get_preview`, `preview_page`) state the same check rather than leaning on
+  QuickForm dropping unknown option values.
 - **"Prevent last small group" is deliberately absent** — core disables it in
   fixed-group-count mode and this allocator balances within one member.
 - **WS return structure is an allowlist**: preview data is rendered client-side

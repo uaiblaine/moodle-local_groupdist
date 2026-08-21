@@ -67,6 +67,54 @@ class options_form extends \moodleform {
             $mform->setDefault('roleid', $student->id);
         }
 
+        /* Unbounded ON PURPOSE, and not the same posture as the rule builder
+           below — the two calls select different sets, and that difference is
+           the whole justification.
+
+           1. This is COHORT_WITH_ENROLLED_MEMBERS_ONLY, whose
+              "HAVING COUNT(DISTINCT u.id) > 0" (cohort/lib.php) admits a
+              cohort only when one of its members appears in this course's
+              enrolment list. Note that core builds that list with
+              get_enrolled_sql($context) and no only-active flag, so it counts
+              suspended users, disabled enrol instances and expired or future
+              enrolments — a looser roster than this plugin's own candidate
+              query, which defaults to active enrolments only. The bound is
+              therefore real but wider than the eventual candidate set: a
+              cohort whose sole overlap is a suspended enrolment is offered
+              here and yields nothing.
+              The rule builder's call below is COHORT_ALL, which is bounded
+              only by the course's context chain — hence the never-enumerate
+              rule there, and hence its search fallback beyond a small menu.
+           2. The call is argument-for-argument core's own in
+              group/autogroup_form.php, reached from the same group management
+              page this plugin's button sits on. A site pays here exactly what
+              core already charges it on the Auto-create groups form beside it.
+           3. A limit would not reduce that cost, which is the measured reason
+              for keeping the call as it stands rather than capping it.
+              cohort/lib.php puts the grouping and the HAVING in a derived
+              table, joins it back on cohort.id and orders the OUTER query, so
+              the LIMIT get_records_sql() appends to the finished outer string
+              cannot reach the aggregate — every membership row of every
+              visible cohort is scanned either way, and a run with LIMIT 11
+              showed no measurable saving over an unbounded one. Capping would
+              buy no query time, hide valid choices, and falsify the autogroup
+              parity this section claims; and the honest alternative, a
+              members-filtered search, would pay that same aggregate on every
+              keystroke instead of once per render. The aggregate is core's to
+              fix upstream, where autogroup_form gets the fix too.
+
+           Where the bound does NOT hold: the front page. get_enrolled_join()
+           skips the {user_enrolments} join entirely at SITEID (everyone counts
+           as enrolled there), so the HAVING degenerates to "the cohort has any
+           member whose account is not deleted". The site course's context
+           chain is itself plus system, so what that offers is every
+           system-context cohort — honest rather than misleading, since on the
+           front page each of them genuinely can yield participants, but
+           unbounded by anything course-shaped. It is the case to revisit first
+           if this decision is reopened.
+
+           Pinned by options_form_test::test_the_member_filter_is_bounded_by_the_roster,
+           which goes red if this mode is widened. */
         if ($cohorts = cohort_get_available_cohorts($context, COHORT_WITH_ENROLLED_MEMBERS_ONLY, 0, 0)) {
             $cohortoptions = [0 => get_string('anycohort', 'cohort')];
             foreach ($cohorts as $cohort) {
@@ -125,7 +173,7 @@ class options_form extends \moodleform {
         }
         $cohorts = [];
         $cohortsearch = false;
-        $sample = cohort_get_available_cohorts($context, 0, 0, self::COHORT_MENU_LIMIT + 1);
+        $sample = cohort_get_available_cohorts($context, COHORT_ALL, 0, self::COHORT_MENU_LIMIT + 1);
         if (count($sample) > self::COHORT_MENU_LIMIT) {
             $cohortsearch = true;
         } else {
@@ -216,6 +264,24 @@ class options_form extends \moodleform {
 
         if (($data['overbook'] ?? 0) < 0 || ($data['overbook'] ?? 0) > 99) {
             $errors['overbook'] = get_string('erroroverbookrange', 'local_groupdist');
+        }
+
+        /* Defence in depth, and deliberately unreachable today. The member
+           filter is a plain select, and HTML_QuickForm_select::exportValue()
+           silently drops a submitted value matching no registered option — so
+           a forged cohortid never reaches this method at all; the key is
+           absent from $data, which is why distribute.php needs its "?? 0".
+           That makes the option list, built from
+           cohort_get_available_cohorts(), an authorization allowlist by
+           accident of PEAR rather than by any decision this plugin wrote
+           down, and the accident evaporates the moment the element type
+           changes: an ajax autocomplete's exportValue() returns the submitted
+           value unchecked. Stating the check makes this form agree with the
+           other three entry points (apply.php, get_preview, preview_page),
+           all of which gate a raw cohortid on cohort_get_cohort() so a hidden
+           cohort can never be used as a membership oracle. */
+        if (!empty($data['cohortid']) && !cohort_get_cohort((int) $data['cohortid'], $context)) {
+            $errors['cohortid'] = get_string('invaliddata', 'error');
         }
 
         /* The builder's rows are not registered elements, so they arrive via

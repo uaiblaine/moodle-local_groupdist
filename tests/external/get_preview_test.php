@@ -479,4 +479,43 @@ final class get_preview_test extends \externallib_advanced_testcase {
         );
         $this->assertSame(4, $control['totals']['candidates']);
     }
+
+    /**
+     * The no-op reason and its message survive the return-structure allowlist
+     * and reach the client.
+     *
+     * clean_returnvalue() strips any key execute_returns() does not declare,
+     * so a payload field added without its declaration disappears in silence —
+     * which is how the preview came to render a page of zeros with nothing on
+     * it in the first place. The control leg is a run that WOULD write: it
+     * must carry the empty sentinel, not a reason.
+     *
+     * Mutation: remove either key from execute_returns() and the assertions
+     * below fail on the missing index.
+     *
+     * @return void
+     */
+    public function test_the_no_op_reason_reaches_the_client(): void {
+        $this->resetAfterTest();
+        [$course, , $args] = $this->make_course(2, 4);
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        // Control: this run writes, so there is no reason to report.
+        $writes = $this->call($args);
+        $this->assertGreaterThan(0, $writes['totals']['memberships']);
+        $this->assertSame('', $writes['noopreason']);
+        $this->assertSame('', $writes['noopmessage']);
+
+        // A role nobody holds empties the candidate list.
+        $role = $this->getDataGenerator()->create_role(['shortname' => 'nobodyhere']);
+        $empty = $this->call($args + ['roleid' => (int) $role, 'ignoregrouped' => 0]);
+        $this->assertSame(0, $empty['totals']['candidates']);
+        $this->assertSame('nocandidates', $empty['noopreason']);
+        $this->assertSame(
+            get_string('noopnocandidates', 'local_groupdist'),
+            $empty['noopmessage'],
+            'The keep-grouped hint is not appended when that filter is off.'
+        );
+    }
 }

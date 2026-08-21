@@ -78,4 +78,75 @@ final class preview_page_test extends \advanced_testcase {
         $this->assertStringContainsString('Turno & Sala', $joined);
         $this->assertStringNotContainsString('&amp;', $joined);
     }
+
+    /**
+     * The recap names the filters that will actually run, not the ones the
+     * form posted.
+     *
+     * candidates::fetch() forces only-active ON for anyone without
+     * moodle/course:viewsuspendedusers, and makes the future-start relaxation
+     * inert for them — so the recap used to omit the single filter that had
+     * narrowed their candidate list. That matters most in the state where the
+     * list came back empty, because the explanation points at this recap.
+     *
+     * Mutation: drop the capability mirroring in export_for_template() and
+     * rows 1 and 2 below stop differing.
+     *
+     * @return void
+     */
+    public function test_the_recap_shows_the_filters_that_will_actually_run(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $context = \core\context\course::instance($course->id);
+        $group = $this->getDataGenerator()->create_group(['courseid' => $course->id]);
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $roleid = $this->getDataGenerator()->create_role(['shortname' => 'nosuspended']);
+        $this->getDataGenerator()->enrol_user($teacher->id, $course->id, $roleid);
+        role_change_permission($roleid, $context, 'moodle/course:viewsuspendedusers', CAP_PROHIBIT);
+
+        $PAGE->set_url('/local/groupdist/distribute.php');
+        $PAGE->set_context($context);
+        $chips = function (int $onlyactive, int $includefuture) use ($course, $group, $context, $PAGE): string {
+            $options = options::from_array([
+                'courseid' => (int) $course->id,
+                'groupids' => [(int) $group->id],
+                'onlyactive' => $onlyactive,
+                'includefuture' => $includefuture,
+            ]);
+            $data = (new preview_page($options, $context, []))
+                ->export_for_template($PAGE->get_renderer('core'));
+            $texts = [];
+            foreach ($data['recap'] as $section) {
+                foreach ($section['items'] as $item) {
+                    $texts[] = $item['text'];
+                }
+            }
+            return implode(' | ', $texts);
+        };
+
+        $onlyactivelabel = get_string('includeonlyactiveenrol', 'group');
+        $futurelabel = get_string('includefutureenrol', 'local_groupdist');
+
+        /* Row 1 — no capability. The form cannot even render the only-active
+           checkbox for this teacher, so distribute.php posts 0; the candidate
+           query forces it back on, and the recap has to say so. A posted
+           future-start flag is inert for them and must not be advertised. */
+        $this->setUser($teacher);
+        $this->assertFalse(has_capability('moodle/course:viewsuspendedusers', $context));
+        $forced = $chips(0, 1);
+        $this->assertStringContainsString($onlyactivelabel, $forced, 'The forced filter is not named.');
+        $this->assertStringNotContainsString($futurelabel, $forced, 'An inert filter is reported as active.');
+
+        /* Row 2 — same input, with the capability. Only-active is genuinely
+           off now, so the chip must be gone: this is what proves row 1 is
+           reporting the forcing rather than always printing the chip. */
+        $this->setAdminUser();
+        $this->assertTrue(has_capability('moodle/course:viewsuspendedusers', $context));
+        $this->assertStringNotContainsString($onlyactivelabel, $chips(0, 1));
+
+        // Row 3 — future-start is reported once it can actually apply.
+        $this->assertStringContainsString($futurelabel, $chips(1, 1));
+    }
 }

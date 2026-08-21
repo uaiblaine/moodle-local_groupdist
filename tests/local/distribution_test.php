@@ -224,4 +224,150 @@ final class distribution_test extends \advanced_testcase {
         $after = distribution::build($options, $context);
         $this->assertNotSame($before->fingerprint, $after->fingerprint);
     }
+
+    /**
+     * Every way the preview can end up writing nothing reports a reason, and
+     * a run that would write reports none.
+     *
+     * noop_reason() is keyed on memberships === 0 rather than on an empty
+     * candidate list precisely so that the arms stay exhaustive: each case
+     * below reached the teacher as a page of zeros with no sentence on it.
+     *
+     * Mutation: delete any one arm and its case falls through to the next,
+     * returning the wrong reason.
+     *
+     * @return void
+     */
+    public function test_every_no_op_reports_its_reason(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        [$course, $context, $group1, $group2] = $this->make_course(4);
+        $groupids = [(int) $group1->id, (int) $group2->id];
+
+        $build = function (array $overrides) use ($course, $context, $groupids): distribution {
+            return distribution::build(options::from_array($overrides + [
+                'courseid' => $course->id,
+                'groupids' => $groupids,
+                'seed' => 5,
+            ]), $context);
+        };
+
+        // Control: a run that writes has no reason at all. Without this the
+        // assertions below pass on a method that returns a reason always.
+        $writes = $build([]);
+        $this->assertGreaterThan(0, $writes->totals()['memberships']);
+        $this->assertSame('', $writes->noop_reason());
+        $this->assertSame('', $writes->noop_message());
+
+        // No candidates: a role nobody in the course holds.
+        $managerrole = $this->getDataGenerator()->create_role(['shortname' => 'nobodyhere']);
+        $nocandidates = $build(['roleid' => (int) $managerrole]);
+        $this->assertSame(0, $nocandidates->totals()['candidates']);
+        $this->assertSame(distribution::NOOP_NOCANDIDATES, $nocandidates->noop_reason());
+
+        // No room: seats mode with every group already at its declared seats.
+        \core_group\customfield\group_handler::create()->instance_form_save((object) [
+            'id' => $group1->id,
+            'customfield_' . fields::SHORTNAME_SEATS => 0,
+        ]);
+        \core_group\customfield\group_handler::create()->instance_form_save((object) [
+            'id' => $group2->id,
+            'customfield_' . fields::SHORTNAME_SEATS => 0,
+        ]);
+        $noroom = $build(['useseats' => 1]);
+        $this->assertGreaterThan(0, $noroom->totals()['candidates']);
+        $this->assertGreaterThan(0, $noroom->totals()['unassigned']);
+        $this->assertSame(distribution::NOOP_NOROOM, $noroom->noop_reason());
+
+        // No groups: the selection is deleted while the preview is open. The
+        // web service re-intersects on every call, so this really is reachable.
+        groups_delete_group($group1->id);
+        groups_delete_group($group2->id);
+        $nogroups = distribution::build(options::from_array([
+            'courseid' => $course->id,
+            'groupids' => [],
+            'seed' => 5,
+        ]), $context);
+        $this->assertSame(0, $nogroups->totals()['groups']);
+        $this->assertSame(distribution::NOOP_NOGROUPS, $nogroups->noop_reason());
+    }
+
+    /**
+     * Everyone already sitting in the group the plan chose is its own reason,
+     * not a silent zero and not "no room".
+     *
+     * Reachable only with the keep-grouped filter off, which is what leaves a
+     * current member in the candidate list; a keep-together rule then routes
+     * the cluster at the group they are already in. Pinned at the allocator by
+     * allocator_test::test_cluster_members_already_in_the_target_are_skipped_not_unassigned.
+     *
+     * @return void
+     */
+    public function test_all_placed_is_its_own_reason(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+        $group = $generator->create_group(['courseid' => $course->id]);
+        foreach ([0, 1] as $ignored) {
+            // A shared, NON-EMPTY together value is what routes them through
+            // the cluster placement; empty values fall to the singleton pool
+            // instead and come back as unassigned, which is a different reason.
+            $user = $generator->create_and_enrol($course, 'student', ['city' => 'Fortaleza']);
+            $generator->create_group_member(['groupid' => $group->id, 'userid' => $user->id]);
+        }
+
+        $distribution = distribution::build(options::from_array([
+            'courseid' => $course->id,
+            'groupids' => [(int) $group->id],
+            'ignoregrouped' => 0,
+            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
+            'seed' => 5,
+        ]), $context);
+
+        $totals = $distribution->totals();
+        $this->assertSame(2, $totals['candidates']);
+        $this->assertSame(0, $totals['memberships']);
+        $this->assertSame(0, $totals['unassigned']);
+        $this->assertSame(distribution::NOOP_ALLPLACED, $distribution->noop_reason());
+        $this->assertNotSame('', $distribution->noop_message());
+    }
+
+    /**
+     * The empty-roster message names the keep-grouped filter when it is on,
+     * because a second run over the same groups is the commonest way to get
+     * here — and stays silent about it when it is off, so the hint never
+     * claims a cause that cannot apply.
+     *
+     * Mutation: delete the ignoregrouped branch in noop_message().
+     *
+     * @return void
+     */
+    public function test_the_empty_roster_message_names_the_keep_grouped_filter(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        [$course, $context, $group1] = $this->make_course(2);
+        $role = $this->getDataGenerator()->create_role(['shortname' => 'nobodyhere']);
+
+        $build = function (int $ignoregrouped) use ($course, $context, $group1, $role): distribution {
+            return distribution::build(options::from_array([
+                'courseid' => $course->id,
+                'groupids' => [(int) $group1->id],
+                'roleid' => (int) $role,
+                'ignoregrouped' => $ignoregrouped,
+                'seed' => 5,
+            ]), $context);
+        };
+
+        $hint = get_string('noophintignoregrouped', 'local_groupdist');
+        $on = $build(1);
+        $this->assertSame(distribution::NOOP_NOCANDIDATES, $on->noop_reason());
+        $this->assertStringContainsString($hint, $on->noop_message());
+
+        // Control: same reason, filter off, no hint.
+        $off = $build(0);
+        $this->assertSame(distribution::NOOP_NOCANDIDATES, $off->noop_reason());
+        $this->assertStringNotContainsString($hint, $off->noop_message());
+    }
 }

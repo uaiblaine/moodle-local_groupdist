@@ -48,6 +48,27 @@ Feature: Distribute participants into selected groups
     And I click on "Apply distribution" "button"
     Then I should see "Distribution applied: 4 memberships across 2 groups."
 
+  Scenario: A second run over the same groups says why it would add nobody
+    Given I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (0),Group B (0)"
+    And I click on "Distribute participants" "button"
+    And I press "Preview distribution"
+    # A run that writes must NOT show the explanation. Nothing else asserts
+    # that the card actually hides: PHPUnit sees the payload, not the DOM.
+    Then I should not see "This run would not add anyone"
+    And I click on "Apply distribution" "button"
+    Then I should see "Distribution applied: 4 memberships across 2 groups."
+    # Everyone now sits in a selected group and the keep-grouped filter is on
+    # by default, so the second run has an empty candidate list.
+    When I set the field "Groups" to "Group A (2),Group B (2)"
+    And I click on "Distribute participants" "button"
+    And I press "Preview distribution"
+    Then I should see "This run would not add anyone"
+    And I should see "there is nobody to distribute"
+    And I should see "so anyone a previous run already placed is left out"
+    And the "Apply distribution" "button" should be disabled
+    And I should not see "Distribution sample"
+
   Scenario: The audit log records an applied distribution under course reports
     Given I am on the "Course 1" "groups" page logged in as "teacher1"
     When I set the field "Groups" to "Group A (0),Group B (0)"

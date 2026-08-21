@@ -206,4 +206,57 @@ final class bootstrap_compat_test extends \basic_testcase {
             'Custom properties must carry the plugin\'s own frankenstyle prefix, not core\'s --mds-*'
         );
     }
+    /**
+     * The source-search suggestion list must be laid out by styles.css.
+     *
+     * It is rendered `position-absolute`, and it shipped with NO css rule at
+     * all: no z-index, no background, no width and no height bound. Up to 20
+     * matches then drew as a transparent column roughly a thousand pixels tall
+     * that ran under the sibling alert and off the fold — and an option
+     * painted beneath other content is not clickable, so a chosen cohort or
+     * group could not be changed at all, only removed with its whole rule.
+     * Nothing else in the pipeline reads a stylesheet against the markup that
+     * needs it, which is why this is asserted here.
+     */
+    public function test_the_source_suggestion_list_is_laid_out(): void {
+        $css = file_get_contents(__DIR__ . '/../../styles.css');
+        $this->assertSame(
+            1,
+            preg_match('/\.local-groupdist-sourceresults\s*\{(.*?)\}/s', $css, $matches),
+            'The suggestion list has no rule in styles.css at all.'
+        );
+        $rule = $matches[1];
+
+        foreach (['z-index', 'background', 'max-height', 'overflow-y'] as $property) {
+            $this->assertMatchesRegularExpression(
+                '/\b' . preg_quote($property, '/') . '\s*:/',
+                $rule,
+                $property . ' is missing: without it the list is unclickable, unbounded or see-through.'
+            );
+        }
+        // A positioned element only wins the stacking contest with a real number.
+        $this->assertDoesNotMatchRegularExpression('/z-index\s*:\s*auto/', $rule);
+        // Colours follow the theme, because 5.1 and 5.2 both ship dark mode.
+        $this->assertMatchesRegularExpression('/background\s*:\s*var\(--bs-/', $rule);
+    }
+
+    /**
+     * A chosen search value can be cleared, and it replaces the search box.
+     *
+     * Leaving the box beside the chip read as "nothing was selected", and with
+     * no clear control the only way out was deleting the rule.
+     */
+    public function test_a_chosen_search_value_can_be_cleared(): void {
+        $row = file_get_contents(__DIR__ . '/../../templates/rules_row.mustache');
+
+        $this->assertStringContainsString('data-action="clearsource"', $row);
+        // Chip and search box are exclusive: the box lives in the inverted
+        // section of the same variable that paints the chip.
+        $this->assertSame(
+            2,
+            preg_match_all('/\{\{\^chosenlabel\}\}/', $row),
+            'The search box must sit in an inverted chosenlabel section, once per searchable kind.'
+        );
+        $this->assertSame(2, preg_match_all('/\{\{#chosenlabel\}\}/', $row));
+    }
 }

@@ -20,9 +20,12 @@
     One affinity rule row, rendered by the local_groupdist/rules AMD module.
     The type select decides the second control, which is always driven by the
     same options list: a profile-field select, a cohort select or a course
-    group select — or, when that kind's picker is in search mode, a search box
-    whose suggestions the AMD module fills from the matching search web
-    service. A group option may arrive disabled: a group this run distributes
+    group select — or, when that kind's picker is in search mode, either a
+    search box whose suggestions the AMD module fills from the matching search
+    web service, or, once a value is chosen, that value as a chip with a clear
+    button. The two are exclusive: leaving the box beside the chip made it look
+    as though nothing had been selected, and there was no way back to the box
+    except deleting the whole rule. A group option may arrive disabled: a group this run distributes
     INTO cannot constrain anything while the "ignore users already in the
     selected groups" filter is on, because every member carrying the value has
     already been filtered out of the run. The priority number, labels and
@@ -36,7 +39,8 @@
     * isfirst / islast - disable the up/down buttons at the edges
     * isfield / iscohort / isgroup - which source type is selected (exactly one)
     * searchmode - whether the selected type's picker is a search box
-    * chosenlabel - label of the current pick, shown as a chip in search mode
+    * chosenlabel - label of the current pick; when set, search mode shows the
+      chip and its clear button instead of the search box
     * query - current search text
     * options - options for the source select (value, label, selected, disabled)
     * together / apart - selected flags for the mode select
@@ -109,17 +113,27 @@
     {{#searchmode}}
     <span class="position-relative flex-grow-1 local-groupdist-sourcepick" data-region="sourcepick">
         {{#chosenlabel}}
-        <span class="badge bg-light text-dark border fw-normal me-1" data-region="sourcechosen">{{.}}</span>
+        <span class="badge bg-light text-dark border fw-normal local-groupdist-sourcechosen"
+              data-region="sourcechosen">
+            <span class="text-truncate">{{.}}</span>
+            <button type="button" class="btn btn-link btn-sm p-0 local-groupdist-sourceclear"
+                    data-action="clearsource"
+                    aria-label="{{#str}} ruleclearsource, local_groupdist, {{index}} {{/str}}">
+                <i class="fa fa-times" aria-hidden="true"></i>
+            </button>
+        </span>
         {{/chosenlabel}}
+        {{^chosenlabel}}
         <label class="visually-hidden" for="local-groupdist-rulesearch-{{index}}">
             {{#str}} rulecohortsearchlabel, local_groupdist, {{index}} {{/str}}
         </label>
         <input type="text" id="local-groupdist-rulesearch-{{index}}"
-               class="form-control form-control-sm d-inline-block w-auto"
+               class="form-control form-control-sm w-100"
                data-action="sourcesearch" autocomplete="off"
                placeholder="{{#str}} rulechoosecohort, local_groupdist {{/str}}" value="{{query}}">
         <span class="list-group position-absolute local-groupdist-sourceresults" data-region="sourceresults"
               role="listbox" hidden></span>
+        {{/chosenlabel}}
     </span>
     {{/searchmode}}
     {{/iscohort}}
@@ -139,17 +153,27 @@
     {{#searchmode}}
     <span class="position-relative flex-grow-1 local-groupdist-sourcepick" data-region="sourcepick">
         {{#chosenlabel}}
-        <span class="badge bg-light text-dark border fw-normal me-1" data-region="sourcechosen">{{.}}</span>
+        <span class="badge bg-light text-dark border fw-normal local-groupdist-sourcechosen"
+              data-region="sourcechosen">
+            <span class="text-truncate">{{.}}</span>
+            <button type="button" class="btn btn-link btn-sm p-0 local-groupdist-sourceclear"
+                    data-action="clearsource"
+                    aria-label="{{#str}} ruleclearsource, local_groupdist, {{index}} {{/str}}">
+                <i class="fa fa-times" aria-hidden="true"></i>
+            </button>
+        </span>
         {{/chosenlabel}}
+        {{^chosenlabel}}
         <label class="visually-hidden" for="local-groupdist-rulesearch-{{index}}">
             {{#str}} rulegroupsearchlabel, local_groupdist, {{index}} {{/str}}
         </label>
         <input type="text" id="local-groupdist-rulesearch-{{index}}"
-               class="form-control form-control-sm d-inline-block w-auto"
+               class="form-control form-control-sm w-100"
                data-action="sourcesearch" autocomplete="off"
                placeholder="{{#str}} rulechoosegroup, local_groupdist {{/str}}" value="{{query}}">
         <span class="list-group position-absolute local-groupdist-sourceresults" data-region="sourceresults"
               role="listbox" hidden></span>
+        {{/chosenlabel}}
     </span>
     {{/searchmode}}
     {{/isgroup}}

@@ -162,6 +162,7 @@ $string['recaprule'] = '{$a->index} · {$a->mode}: {$a->label}';
 $string['rulechoosecohort'] = 'Choose the cohort…';
 $string['rulechoosefield'] = 'Choose the field…';
 $string['rulechoosegroup'] = 'Choose the group…';
+$string['ruleclearsource'] = 'Clear the source chosen for rule {$a}';
 $string['rulecohortlabel'] = 'Rule {$a} cohort';
 $string['rulecohortsearchlabel'] = 'Rule {$a} cohort search';
 $string['ruleconnector'] = 'and also';

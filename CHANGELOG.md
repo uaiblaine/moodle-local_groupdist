@@ -107,6 +107,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **The rule builder's search picker was unusable, and had been since it
+  shipped.** Its suggestion list is rendered `position-absolute` and had **no
+  CSS rule at all** — no `z-index`, no background, no width, no height bound —
+  so up to 20 matches drew as a transparent column roughly a thousand pixels
+  tall that ran under the sibling alert and off the fold. An option painted
+  beneath other content is not clickable, so on a site past the menu limit a
+  chosen cohort could not be changed at all: the only way out was deleting the
+  whole rule. Measured on a course with 300 groups and 1999 cohorts: every
+  suggestion reported `z-index: auto`, a transparent background, a 102px width
+  and no hit at its own centre point. `styles.css` now lays the list out —
+  layered, opaque, bounded at 14rem with its own scrollbar, and coloured from
+  the theme tokens because 5.1 and 5.2 both ship dark mode.
+  - Choosing a value now **replaces** the search box with that value and a
+    clear button, instead of leaving an empty box beside it that read as
+    "nothing was selected"; clearing brings the box back, so a pick can be
+    changed in place.
+  - The list closes on an outside click or Escape. Nothing had ever closed
+    one: it was shown and then left open until the next full re-render.
+  - Pinned by `bootstrap_compat_test`, which is the only gate that reads a
+    stylesheet against the markup that needs it, and mutation-checked against
+    removing the rule, the `z-index` alone and the `max-height` alone. The new
+    Behat scenario covers the pick/clear/re-pick flow but explicitly does NOT
+    cover the layout — measured: it still passes with the CSS removed, because
+    Moodle clicks through the driver rather than hit-testing the paint.
+
 - **Two mockups had dead JavaScript.** `docs/mockups/affinity-rules.html`
   carried an unescaped apostrophe in a field label (`'Mother's name'`), a hard
   parse error that killed the entire IIFE — so its rule builder, enrolment

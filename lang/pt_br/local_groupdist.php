@@ -162,6 +162,7 @@ $string['recaprule'] = '{$a->index} · {$a->mode}: {$a->label}';
 $string['rulechoosecohort'] = 'Escolha a coorte…';
 $string['rulechoosefield'] = 'Escolha o campo…';
 $string['rulechoosegroup'] = 'Escolha o grupo…';
+$string['ruleclearsource'] = 'Limpar a origem escolhida para a regra {$a}';
 $string['rulecohortlabel'] = 'Coorte da regra {$a}';
 $string['rulecohortsearchlabel'] = 'Pesquisa de coorte da regra {$a}';
 $string['ruleconnector'] = 'e também';

@@ -57,6 +57,8 @@ const SELECTORS = {
     MODE: '[data-action="mode"]',
     SOURCESEARCH: '[data-action="sourcesearch"]',
     SOURCERESULTS: '[data-region="sourceresults"]',
+    SOURCEPICK: '[data-region="sourcepick"]',
+    CLEARSOURCE: '[data-action="clearsource"]',
     IGNOREGROUPED: '[name="ignoregrouped"]',
 };
 
@@ -281,6 +283,22 @@ const searchSources = async(row, index, kind, query) => {
 };
 
 /**
+ * Hide every open suggestion list.
+ *
+ * Nothing else ever closed one: the list was shown and then left open until
+ * the next full re-render replaced the row, so it kept covering the page after
+ * the pointer had moved on.
+ */
+const closeResults = () => {
+    if (!state.root) {
+        return;
+    }
+    state.root.querySelectorAll(SELECTORS.SOURCERESULTS).forEach((list) => {
+        list.hidden = true;
+    });
+};
+
+/**
  * Wire one rendered row's controls to the state.
  *
  * @param {Element} row The row element.
@@ -307,6 +325,19 @@ const wireRow = (row, index) => {
             const query = event.target.value.trim();
             window.clearTimeout(state.searchtimer);
             state.searchtimer = window.setTimeout(() => searchSources(row, index, kind, query), SEARCHDELAY);
+        });
+        search.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeResults();
+            }
+        });
+    }
+    const clear = row.querySelector(SELECTORS.CLEARSOURCE);
+    if (clear) {
+        clear.addEventListener('click', () => {
+            state.rules[index].source = '';
+            state.rules[index].label = '';
+            render();
         });
     }
     row.querySelector(SELECTORS.MODE).addEventListener('change', (event) => {
@@ -444,5 +475,13 @@ export const init = async() => {
     if (ignore) {
         ignore.addEventListener('change', () => render());
     }
+    /* Clicking anywhere outside a picker closes its suggestion list. Bound
+       once on the document rather than per row, because render() rebuilds
+       every row and per-row handlers would accumulate. */
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest(SELECTORS.SOURCEPICK)) {
+            closeResults();
+        }
+    });
     await render();
 };

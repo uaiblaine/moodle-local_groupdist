@@ -16,14 +16,16 @@
 
 namespace local_groupdist\local;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+
 /**
  * Distribution builder tests: capacity math and fingerprint behaviour.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\local\distribution
  */
+#[CoversClass(\local_groupdist\local\distribution::class)]
 final class distribution_test extends \advanced_testcase {
     /**
      * Set up a course with two groups, seats on one, and enrolled users.

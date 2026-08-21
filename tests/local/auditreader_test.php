@@ -16,14 +16,16 @@
 
 namespace local_groupdist\local;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+
 /**
  * Paged audit reader: windows, searches and the explanations they carry.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\local\auditreader
  */
+#[CoversClass(\local_groupdist\local\auditreader::class)]
 final class auditreader_test extends \advanced_testcase {
     /**
      * Seed a run over the given groups and users.

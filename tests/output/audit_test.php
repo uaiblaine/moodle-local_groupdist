@@ -19,6 +19,7 @@ namespace local_groupdist\output;
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
 use local_groupdist\local\runlog;
+use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
  * Audit UI export tests: explanations from stored facts, reader-side masking,
@@ -27,9 +28,9 @@ use local_groupdist\local\runlog;
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\output\audit_detail
- * @covers     \local_groupdist\output\audit_list
  */
+#[CoversClass(\local_groupdist\output\audit_detail::class)]
+#[CoversClass(\local_groupdist\output\audit_list::class)]
 final class audit_test extends \advanced_testcase {
     /**
      * The page renderer (the exports do not use it, but the contract does).

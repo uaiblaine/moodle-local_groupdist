@@ -336,8 +336,19 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   gate turns into a failure. The enrolment key policy is **on by default**
   (`groupenrolmentkeypolicy`), so a test key must either be strong or the
   policy explicitly switched off.
-- The `@covers`-in-docblock PHPUnit deprecations match core 5.1/5.2 style;
-  they do not fail CI.
+- **PHPUnit metadata is PHP attributes, never doc-comments.** `#[CoversClass]`
+  on the class, `#[DataProvider]` on the method, imported from
+  `PHPUnit\Framework\Attributes\`. The fleet exception that keeps a
+  class-level `@covers` docblock applies only while `$plugin->supported`
+  includes 405, because moodle-cs on the 4.05 CI leg cannot see attributes —
+  this plugin is `[501, 502]`, so it does not apply. PHPUnit 11.5.55 (vendored
+  by 5.1/5.2) raises one test-runner deprecation per doc-comment annotation and
+  PHPUnit 12 drops the form entirely; a clean run reports no deprecation line
+  at all, so any reappearance is a regression.
+- `bootstrap_compat_test` is `#[CoversNothing]` on purpose: it scans
+  `templates/`, `amd/src/`, `classes/` and `styles.css` for class names, so
+  there is no class under test. It carried `@covers auditreader` until the
+  attribute conversion — a copy-paste artifact, not a claim about the reader.
 
 ## When in doubt
 

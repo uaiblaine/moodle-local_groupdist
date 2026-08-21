@@ -16,14 +16,16 @@
 
 namespace local_groupdist\local;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+
 /**
  * Allocator unit tests (pure logic, no database).
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\local\allocator
  */
+#[CoversClass(\local_groupdist\local\allocator::class)]
 final class allocator_test extends \basic_testcase {
     /**
      * Build an options object for allocator input.

@@ -32,6 +32,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   green badges told the reader nothing; `failed`, `no seat`, `no write needed`
   and `planned` still show. The label stays in the web service payload for
   anyone who needs it — the templates simply do not paint it.
+- PHPUnit metadata across `tests/` moved from doc-comments to **PHP
+  attributes** — `#[CoversClass]` on the class, imported from
+  `PHPUnit\Framework\Attributes\`. PHPUnit 11.5.55, which Moodle 5.1 and 5.2
+  vendor, raises one test-runner deprecation per doc-comment annotation, and
+  PHPUnit 12 drops the form outright; the suite reported 24 of them and now
+  reports none. The fleet exception that keeps a class-level `@covers` docblock
+  exists only because moodle-cs cannot read attributes on the 4.05 CI leg, and
+  this plugin supports 5.1+ only, so it does not apply. `bootstrap_compat_test`
+  became `#[CoversNothing]`: it scans `templates/`, `amd/src/`, `classes/` and
+  `styles.css`, so no class is under test, and the `@covers` it carried named
+  the audit reader — a copy-paste artifact rather than a claim. Verified by
+  mutation: a target pointed at a non-existent class raises one PHPUnit warning
+  per test, which `--fail-on-warning` turns into a build failure, so a mistyped
+  target cannot pass silently.
 
 ### Fixed
 

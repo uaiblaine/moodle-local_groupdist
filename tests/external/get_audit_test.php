@@ -21,6 +21,7 @@ use local_groupdist\local\auditreader;
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
 use local_groupdist\local\runlog;
+use PHPUnit\Framework\Attributes\CoversClass;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -33,10 +34,10 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\external\get_audit_sections
- * @covers     \local_groupdist\external\get_audit_members
- * @covers     \local_groupdist\external\audit_ws
  */
+#[CoversClass(\local_groupdist\external\get_audit_sections::class)]
+#[CoversClass(\local_groupdist\external\get_audit_members::class)]
+#[CoversClass(\local_groupdist\external\audit_ws::class)]
 final class get_audit_test extends \externallib_advanced_testcase {
     /**
      * Seed a run.

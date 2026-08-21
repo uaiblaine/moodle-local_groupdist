@@ -17,6 +17,7 @@
 namespace local_groupdist\output;
 
 use local_groupdist\local\fields;
+use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
  * Bulk edit row context tests.
@@ -24,8 +25,8 @@ use local_groupdist\local\fields;
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\output\bulkedit_page
  */
+#[CoversClass(\local_groupdist\output\bulkedit_page::class)]
 final class bulkedit_page_test extends \advanced_testcase {
     /**
      * Names reach the row context unescaped, because every consumer escapes

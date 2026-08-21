@@ -16,14 +16,16 @@
 
 namespace local_groupdist\local;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+
 /**
  * Candidate query tests.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\local\candidates
  */
+#[CoversClass(\local_groupdist\local\candidates::class)]
 final class candidates_test extends \advanced_testcase {
     /**
      * Base options for a course.

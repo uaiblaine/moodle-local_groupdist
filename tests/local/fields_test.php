@@ -16,14 +16,16 @@
 
 namespace local_groupdist\local;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+
 /**
  * Tests for the group custom field provisioning and bulk readers.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\local\fields
  */
+#[CoversClass(\local_groupdist\local\fields::class)]
 final class fields_test extends \advanced_testcase {
     /**
      * Provisioning creates both fields exactly once, no matter how often it runs.

@@ -322,6 +322,14 @@
     searchable, prototyped in <a href="distribution-log.html">distribution-log.html</a>.
     Section 3 below is the original exploration of that log and is kept as the design record.
   </p>
+  <p class="lede" style="font-size:.9rem;">
+    <b>Since then:</b> the rule builder's type picker gains a third kind — an existing course
+    <b>group</b> — prototyped separately in
+    <a href="rule-source-groups.html">rule-source-groups.html</a>, which also carries the
+    decisions that come with it (the picker's bound, a destination group used as its own source,
+    group visibility, and the wording a binary membership source needs). This file still shows
+    the two original types only.
+  </p>
 
   <div class="proto-banner">
     <span class="tag">Prototype</span>
@@ -352,7 +360,7 @@
             <span><b>Every rule applies at the same time (AND).</b> The order sets the <b>priority</b>: when two rules conflict, or when a cluster has to be split for lack of seats, the rule higher up wins and the violation is counted against the rule further down — always with a warning in the preview.</span>
           </div>
           <div class="summary">
-            <h3>Resumo (aparece no recap do preview)</h3>
+            <h3>Summary (appears in the preview recap)</h3>
             <div class="chips" id="rulechips"></div>
           </div>
         </div>
@@ -387,7 +395,7 @@
           <div style="margin-top:.8rem; border:1px dashed var(--line); border-radius:.45rem; padding:.55rem .9rem; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;">
             <button class="btn primary" type="button">Preview distribution</button>
             <button class="btn" type="button">Cancel</button>
-            <span style="font-size:.74rem; color:var(--ink-2); margin-left:auto;">mock do <code>sticky_footer</code>: action buttons only, no prose</span>
+            <span style="font-size:.74rem; color:var(--ink-2); margin-left:auto;">mock of <code>sticky_footer</code>: action buttons only, no prose</span>
           </div>
         </div>
       </fieldset>
@@ -401,7 +409,7 @@
       <span class="sub">the three compose; see the recommendation at the end</span>
     </div>
 
-    <div class="tabs" role="tablist" aria-label="Alternativas de preview">
+    <div class="tabs" role="tablist" aria-label="Preview alternatives">
       <button class="tab" role="tab" id="tab-a" aria-controls="panel-a" aria-selected="true">A · Badges on the card</button>
       <button class="tab" role="tab" id="tab-b" aria-controls="panel-b" aria-selected="false">B · "Why here?"</button>
       <button class="tab" role="tab" id="tab-c" aria-controls="panel-c" aria-selected="false">C · Per-rule report</button>
@@ -437,7 +445,7 @@
           <li class="mrow" style="color:var(--ink-2); font-size:.82rem; padding-left:2.25rem;">+ 6 members not shown in the sample</li>
         </ul>
         <div class="rulestatus" aria-label="Rule status in this group">
-          <span><span class="okmark">✓</span> R1 Departamento: Engenharia</span>
+          <span><span class="okmark">✓</span> R1 Department: Engenharia</span>
           <span><span class="warnmark">⚠</span> R2 Gender: unavoidable repeats (2 values, 12 members)</span>
           <span><span class="okmark">✓</span> R3 Mother's name: no siblings together</span>
           <span><span class="okmark">✓</span> R4 Managers: 1 in the group</span>
@@ -464,14 +472,14 @@
 
       <div class="procon">
         <div><b>Strength</b>An instant overview; almost no new data in the web service (per-rule values already travel to the preview).</div>
-        <div><b>Limite</b>Shows "what", not "why" — it does not say that Ana and Caio were separated on purpose.</div>
-        <div><b>Custo</b>Low. An extension of the current template plus one field per rule in the payload.</div>
+        <div><b>Limit</b>Shows "what", not "why" — it does not say that Ana and Caio were separated on purpose.</div>
+        <div><b>Cost</b>Low. An extension of the current template plus one field per rule in the payload.</div>
       </div>
     </div>
 
     <!-- ── B: why here ── -->
     <div class="card panel" role="tabpanel" id="panel-b" aria-labelledby="tab-b" hidden>
-      <p class="desc"><b>Auditoria individual.</b> Click a participant to see the reasoning: who they were placed with (and by which rule), who they were separated from, and which group was avoided. <b>Try Ana and Fátima.</b></p>
+      <p class="desc"><b>Individual audit.</b> Click a participant to see the reasoning: who they were placed with (and by which rule), who they were separated from, and which group was avoided. <b>Try Ana and Fátima.</b></p>
 
       <article class="group">
         <div class="g-head">
@@ -486,8 +494,8 @@
             </button>
             <div class="whybox" data-whybox="ana" hidden>
               <ul>
-                <li><span class="r">R1 · Manter juntos · Departamento:</span> joined Group 01 with 11 more participants from <b>Engenharia</b>.</li>
-                <li><span class="r">R3 · Keep apart · Mother's name:</span> separada de <b>Caio Souza Lima</b> (same value) — Caio went to <b>Group 03</b>. ✓ rule satisfied.</li>
+                <li><span class="r">R1 · Keep together · Department:</span> joined Group 01 with 11 more participants from <b>Engineering</b>.</li>
+                <li><span class="r">R3 · Keep apart · Mother's name:</span> separated from <b>Caio Souza Lima</b> (same value) — Caio went to <b>Group 03</b>. ✓ rule satisfied.</li>
                 <li class="na">R2 (Gender) and R4 (cohort Managers): no effect on Ana in this group.</li>
               </ul>
             </div>
@@ -499,7 +507,7 @@
             </button>
             <div class="whybox" data-whybox="bruno" hidden>
               <ul>
-                <li><span class="r">R1 · Manter juntos · Departamento:</span> placed with the cluster <b>Engenharia</b>.</li>
+                <li><span class="r">R1 · Keep together · Department:</span> placed with the cluster <b>Engineering</b>.</li>
                 <li class="na">No other rule constrained Bruno.</li>
               </ul>
             </div>
@@ -512,7 +520,7 @@
             <div class="whybox" data-whybox="fatima" hidden>
               <ul>
                 <li><span class="r">R4 · Keep apart · cohort Managers:</span> the only manager in Group 01. The <b>Group 02 was avoided</b> — already held 1 cohort member. ✓ rule satisfied.</li>
-                <li><span class="r">R1 · Manter juntos · Departamento:</span> placed with the cluster <b>Engenharia</b>.</li>
+                <li><span class="r">R1 · Keep together · Department:</span> placed with the cluster <b>Engineering</b>.</li>
               </ul>
             </div>
           </li>
@@ -521,20 +529,20 @@
 
       <div class="procon">
         <div><b>Strength</b>Answers exactly "what placed them / what blocked them" — the sibling case is verifiable in one click.</div>
-        <div><b>Limite</b>One participant at a time; it does not prove the rule held for the whole class.</div>
-        <div><b>Custo</b>Medium. Needs a per-member payload in the web service (decide the fields before freezing <code>execute_returns()</code>).</div>
+        <div><b>Limit</b>One participant at a time; it does not prove the rule held for the whole class.</div>
+        <div><b>Cost</b>Medium. Needs a per-member payload in the web service (decide the fields before freezing <code>execute_returns()</code>).</div>
       </div>
     </div>
 
     <!-- ── C: per-rule report ── -->
     <div class="card panel" role="tabpanel" id="panel-c" aria-labelledby="tab-c" hidden>
-      <p class="desc"><b>A global audit, one section per rule.</b> Proves that each rule held (or reports where it could not): clusters and destinations for keep-together; detected pairs and where they landed for keep-apart. Os dados são agregados que o allocator já computa.</p>
+      <p class="desc"><b>A global audit, one section per rule.</b> Proves that each rule held (or reports where it could not): clusters and destinations for keep-together; detected pairs and where they landed for keep-apart. The data are aggregates the allocator already computes.</p>
 
       <details class="rrule" open>
-        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip"><span class="dot"></span><b>R1</b> Manter juntos · Departamento</span><span class="rsum"><span class="warnmark">⚠</span> 1 cluster dividido</span></summary>
+        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip"><span class="dot"></span><b>R1</b> Keep together · Department</span><span class="rsum"><span class="warnmark">⚠</span> 1 cluster split</span></summary>
         <div class="rbody tablewrap">
           <table>
-            <tr><th>Value</th><th class="num">Participants</th><th>Destino</th></tr>
+            <tr><th>Value</th><th class="num">Participants</th><th>Destination</th></tr>
             <tr><td>Engenharia</td><td class="num">19</td><td>Group 01 (12) + Group 03 (7) <span class="fv apart" style="margin-left:.3rem">⚠ split — did not fit one group</span></td></tr>
             <tr><td>Administration</td><td class="num">11</td><td>Group 02</td></tr>
             <tr><td>Direito</td><td class="num">9</td><td>Group 04</td></tr>
@@ -547,7 +555,7 @@
       <details class="rrule">
         <summary><span class="chev" aria-hidden="true">▶</span><span class="chip apart"><span class="dot"></span><b>R2</b> Keep apart · Gender</span><span class="rsum"><span class="warnmark">⚠</span> unavoidable repeat</span></summary>
         <div class="rbody">
-          <p style="margin:.2rem 0 0">São <b>2 values across 43 participants in 4 groups</b> — repeating is mathematically unavoidable (the pigeonhole principle). The rule becomes <b>balanceamento</b>: the values were spread evenly and the repeats are counted as a warning, never hidden.</p>
+          <p style="margin:.2rem 0 0">There are <b>2 values across 43 participants in 4 groups</b> — repeating is mathematically unavoidable (the pigeonhole principle). The rule becomes <b>balancing</b>: the values were spread evenly and the repeats are counted as a warning, never hidden.</p>
           <p class="foot">When the holders of a value outnumber the groups, the preview warns instead of pretending it separated them.</p>
         </div>
       </details>
@@ -574,13 +582,13 @@
 
       <div class="procon">
         <div><b>Strength</b>A global proof of every rule; this is where the warnings (split, pigeonhole, contradiction) gain context.</div>
-        <div><b>Limite</b>Pair lists can grow — they need paging or a per-rule cap.</div>
-        <div><b>Custo</b>Low to medium. Aggregates the allocator already computes; a small, pageable payload.</div>
+        <div><b>Limit</b>Pair lists can grow — they need paging or a per-rule cap.</div>
+        <div><b>Cost</b>Low to medium. Aggregates the allocator already computes; a small, pageable payload.</div>
       </div>
     </div>
 
     <div class="rec" style="margin-top:1rem">
-      <span class="tag">Aprovado</span>
+      <span class="tag">Approved</span>
       <span><b>Closed composition:</b> A on the group card plus C as the "Rules" panel make up the preview. B lives in the <b>auditoria</b> (section 3, below), reading each run's stored snapshot — with no extra payload in the preview web service.</span>
     </div>
   </section>
@@ -606,19 +614,19 @@
             <td class="num">13 ago 2026 · 10:42</td><td>Anderson Blaine</td>
             <td><span class="minichips"><span class="mini together">J</span><span class="mini apart">S</span><span class="mini apart">S</span><span class="mini apart">S</span></span> 4 rules</td>
             <td class="num">43 / 43</td><td><span class="status ok">Completed</span></td>
-            <td><a href="#run-detail">Ver detalhe</a></td>
+            <td><a href="#run-detail">View detail</a></td>
           </tr>
           <tr>
             <td class="num">6 ago 2026 · 09:15</td><td>Anderson Blaine</td>
             <td><span class="minichips"><span class="mini together">J</span><span class="mini apart">S</span></span> 2 rules</td>
             <td class="num">118 / 120</td><td><span class="status warn">Partial</span></td>
-            <td><a href="#">Ver detalhe</a></td>
+            <td><a href="#">View detail</a></td>
           </tr>
           <tr>
             <td class="num">28 jul 2026 · 14:03</td><td>Márcia Torres</td>
             <td><span class="minichips"><span class="mini together">J</span></span> 1 rule</td>
             <td class="num">87 / 87</td><td><span class="status ok">Completed</span></td>
-            <td><a href="#">Ver detalhe</a></td>
+            <td><a href="#">View detail</a></td>
           </tr>
         </table>
       </div>
@@ -633,35 +641,35 @@
 
       <div class="prio-note" style="margin-top:.2rem;">
         <span aria-hidden="true">📷</span>
-        <span><b>Fotografia.</b> The values below are the ones held at apply time. Later changes to profiles, cohorts or groups <b>do not alter</b> this record — the rule labels are the ones resolved then, too.</span>
+        <span><b>Snapshot.</b> The values below are the ones held at apply time. Later changes to profiles, cohorts or groups <b>do not alter</b> this record — the rule labels are the ones resolved then, too.</span>
       </div>
 
       <div class="summary" style="margin-top:.9rem;">
         <h3>Rules applied (labels as of apply time)</h3>
         <div class="chips">
-          <span class="chip"><span class="dot"></span>1 · Manter juntos: <b>Departamento</b></span>
-          <span class="chip apart"><span class="dot"></span>2 · Manter separados: <b>Gender</b></span>
-          <span class="chip apart"><span class="dot"></span>3 · Manter separados: <b>Mother's name</b></span>
-          <span class="chip apart"><span class="dot"></span>4 · Manter separados: <b>cohort Managers</b></span>
+          <span class="chip"><span class="dot"></span>1 · Keep together: <b>Department</b></span>
+          <span class="chip apart"><span class="dot"></span>2 · Keep apart: <b>Gender</b></span>
+          <span class="chip apart"><span class="dot"></span>3 · Keep apart: <b>Mother's name</b></span>
+          <span class="chip apart"><span class="dot"></span>4 · Keep apart: <b>cohort Managers</b></span>
         </div>
       </div>
 
       <article class="group" style="margin-top:1rem;">
         <div class="g-head">
           <h3 class="g-name">Group 01</h3>
-          <span class="g-cap"><b>12</b> gravados</span>
+          <span class="g-cap"><b>12</b> written</span>
         </div>
         <ul class="members">
           <li>
             <button class="mrow" type="button" aria-expanded="true" data-why="audit-ana">
               <span class="avatar" aria-hidden="true">AS</span><span class="nm">Ana Souza Lima</span>
-              <span class="mbadges"><span class="fv neutral">gravado ✓</span><span class="fv neutral">why?</span></span>
+              <span class="mbadges"><span class="fv neutral">written ✓</span><span class="fv neutral">why?</span></span>
             </button>
             <div class="whybox" data-whybox="audit-ana">
               <ul>
-                <li><span class="r">R1 · Manter juntos · Departamento:</span> value at the time: <b>Engenharia</b> — placed with 11 more of the same value.</li>
+                <li><span class="r">R1 · Keep together · Department:</span> value at the time: <b>Engineering</b> — placed with 11 more of the same value.</li>
                 <li><span class="r">R2 · Keep apart · Gender:</span> value <b>hidden from you</b> — the field was private and you may not see it; the data is recorded, only masked on screen.</li>
-                <li><span class="r">R3 · Keep apart · Mother's name:</span> separada de <b>Caio Souza Lima</b> (same value at the time) — Caio was recorded in <b>Group 03</b>. ✓</li>
+                <li><span class="r">R3 · Keep apart · Mother's name:</span> separated from <b>Caio Souza Lima</b> (same value at the time) — Caio was recorded in <b>Group 03</b>. ✓</li>
                 <li class="na">R4 (cohort Managers): Ana did not belong to the cohort at the time.</li>
               </ul>
             </div>
@@ -673,7 +681,7 @@
             </button>
             <div class="whybox" data-whybox="audit-bruno" hidden>
               <ul>
-                <li><span class="r">R1 · Manter juntos · Departamento:</span> value at the time: <b>Engenharia</b>. Already a member of Group 01 — no write was needed.</li>
+                <li><span class="r">R1 · Keep together · Department:</span> value at the time: <b>Engineering</b>. Already a member of Group 01 — no write was needed.</li>
               </ul>
             </div>
           </li>
@@ -690,7 +698,7 @@
         <div class="g-head">
           <h3 class="g-name">Group 03</h3>
           <span class="fv neutral">group deleted from the course on 2 Sep 2026</span>
-          <span class="g-cap"><b>11</b> gravados</span>
+          <span class="g-cap"><b>11</b> written</span>
         </div>
         <p style="font-size:.82rem; color:var(--ink-2); margin:.2rem 0 0;">The group no longer exists; its name, seats and composition come from the snapshot — the record stays intact until retention expires.</p>
       </article>
@@ -698,7 +706,7 @@
       <div class="procon">
         <div><b>Data source</b>The plugin's own tables (its first): the run header plus a per-participant snapshot. Nothing is read from the live tables.</div>
         <div><b>Explanations</b>Derived from the stored facts (values + allocations), never by replaying the engine — immune to engine upgrades.</div>
-        <div><b>Privacidade</b>A full privacy provider (export/delete); a deletion pseudonymises the row; reading masks fields the reader may not see.</div>
+        <div><b>Privacy</b>A full privacy provider (export/delete); a deletion pseudonymises the row; reading masks fields the reader may not see.</div>
       </div>
     </div>
   </section>
@@ -714,11 +722,11 @@
      most 10 visible cohorts and a debounced search beyond that. */
   const FIELDS = [
     { v: 'city', l: 'Cidade' },
-    { v: 'department', l: 'Departamento' },
+    { v: 'department', l: 'Department' },
     { v: 'institution', l: 'Institution' },
     { v: 'country', l: 'Country' },
     { v: 'profile_7', l: 'Gender' },
-    { v: 'profile_9', l: 'Mother's name' },
+    { v: 'profile_9', l: "Mother's name" },
     { v: 'profile_3', l: 'Polo' },
     { v: 'profile_4', l: 'Turno' },
   ];
@@ -868,7 +876,7 @@
     });
 
     const active = rules.filter(r => r.source !== '').length;
-    count.textContent = active === 0 ? 'inativo' : active + (active === 1 ? ' active rule' : ' active rules');
+    count.textContent = active === 0 ? 'off' : active + (active === 1 ? ' active rule' : ' active rules');
     count.style.color = active === 0 ? 'var(--ink-2)' : 'var(--ok)';
     addbtn.disabled = rules.length >= 10;
 
@@ -878,7 +886,7 @@
       const chip = document.createElement('span');
       chip.className = 'chip' + (r.mode === 'apart' ? ' apart' : '');
       chip.innerHTML = '<span class="dot"></span>' + (idx + 1) + ' · ' +
-        (r.mode === 'apart' ? 'Manter separados' : 'Manter juntos') + ': <b>' +
+        (r.mode === 'apart' ? 'Keep apart' : 'Keep together') + ': <b>' +
         (r.kind === 'cohort' ? 'cohort ' + cohortlabel(r.source) : fieldlabel(r.source)) + '</b>';
       chips.appendChild(chip);
     });

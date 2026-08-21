@@ -116,7 +116,7 @@ class auditreader {
                 'index' => $i + 1,
                 'label' => (string) ($rule['label'] ?? $rule['source']),
                 'apart' => ($rule['mode'] ?? '') === 'apart',
-                'cohort' => (bool) ruleset::source_cohortid((string) ($rule['source'] ?? '')),
+                'membership' => ruleset::is_membership_source((string) ($rule['source'] ?? '')),
                 'masked' => !profilefields::is_allowed((string) ($rule['source'] ?? ''), $context),
             ];
         }
@@ -849,7 +849,12 @@ class auditreader {
      * @return string The display value.
      */
     protected function display_value(int $ruleindex, string $value): string {
-        if (!empty($this->ruleinfo[$ruleindex]['cohort'])) {
+        /* A membership source (cohort or group) stores '1' for members, so the
+           stored value carries no information the label does not: substitute
+           the SNAPSHOT label, which is the name as it was at apply time. Note
+           this is keyed on the rule's source kind, not on the value, so any
+           stored value on such a rule renders as the label. */
+        if (!empty($this->ruleinfo[$ruleindex]['membership'])) {
             return $this->ruleinfo[$ruleindex]['label'];
         }
         if (($this->rules[$ruleindex]['source'] ?? '') === 'country') {

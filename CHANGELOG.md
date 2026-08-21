@@ -6,7 +6,143 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Added
+
+- **An existing course group can be an affinity rule source (v2 backlog item 2,
+  stage 1).** The source key is `group_<id>` and its value is binary — `'1'`
+  for members, empty otherwise — exactly the shape a cohort source already
+  had, which is what the recorded use case "keep apart the members of group Y"
+  needs. Three decisions from the mockup are implemented; **D (membership
+  wording) and E (deleted source group) are not** — both change how *cohort*
+  rules read today, so they stay proposals in
+  `docs/mockups/rule-source-groups.html` rather than riding in on this change.
+  A group rule therefore inherits the cohort rendering as-is.
+  - **Picker (decision A):** a bounded menu up to `GROUP_MENU_LIMIT` (25) and a
+    debounced search beyond it, backed by the new
+    `local_groupdist_search_groups` web service. The never-enumerate rule that
+    governs cohorts deliberately does **not** carry over — it exists because
+    cohorts are site-level and platforms carry thousands, while groups are
+    course-bounded and step 1 already loads every group record of the course to
+    validate the destinations. The bound here is about a usable picker, not
+    disclosure; 25 is the number the preview already uses as its own group cap.
+  - **Self-reference (decision B):** the run WRITES group memberships, so a
+    group source reads what the run changes. A destination group used as its
+    own source is vacuous *exactly* while "Ignore users already in the selected
+    groups" is on — that filter removes every user who could carry the value,
+    so the rule matches nobody and the sole trace is one "no value" warning
+    naming the whole candidate count. The builder marks those options and
+    disables them, watching the checkbox live because it can be unticked after
+    a rule was picked, and `options_form::validation()` backstops it with
+    `errorruleselfreference`, which names the rule and the group. With the
+    filter off the same rule is genuinely meaningful and is accepted: this is a
+    conjunction, never a ban on the source.
+  - **Authorization (decision C):** the offer set and the submit-side validator
+    are one helper, `profilefields::get_source_groups()`, built on
+    `groups_get_all_groups()` — the same call the plugin already validates
+    submitted *destination* groups against in six places, so a group source is
+    never more permissive than a group destination in the same request. One
+    case is subtracted on top: appearing in that result is not permission to
+    read the group's MEMBERSHIP, and in an `OWN`-visibility group core shows a
+    member only their own row, while a rule source exists precisely to expose
+    who is in a group. So `OWN` goes for an actor without
+    `viewhiddengroups`; nothing is subtracted for `NONE`, which never reaches
+    that result without the capability. `groups_get_group()` (no course check,
+    no visibility check) and `groups_group_visible()` (the activity groupmode,
+    a different axis) are both wrong for this and are named as such in the code.
+  - The visibility filtering states all four arms in the plugin rather than
+    delegating to `groups_get_all_groups()`, which **fails open on a cold
+    cache**: `can_view_all_groups()` warms its `coursehiddengroups` entry, re-reads
+    it and discards the value, so a missing entry reports "no hidden groups"
+    and the helper returns every group of the course unfiltered. That window is
+    one call wide per course after each `purge_all_caches()` — which every
+    plugin install and upgrade performs — and delegating would have leaked a
+    NONE-visibility group's name to the picker and its whole membership to the
+    preview. Pinned by a test that purges the definition first, because
+    `create_group()` warms it and the warm path hides the bug.
+  - The seed-stamped invisibility rule now has a fourth site: the group value
+    column skips memberships stamped `component = 'local_groupdist' AND
+    itemid = <this seed>`, so a resumed adhoc apply reads the same values,
+    keeps the same fingerprint and completes instead of aborting as stale. It
+    can only ever match when the source group is also a destination, and it is
+    written unconditionally anyway — the version of that clause that is only
+    correct sometimes is the one that rots.
+  - `candidates::fetch()`'s source dispatch gained an explicit `KIND_GROUP` arm
+    and lost its `else` catch-all, which had been routing any unknown key into
+    the cohort lookup — resolving to cohort 0, matching nobody and producing an
+    all-empty column with no exception and nothing in the log.
+  - Groupings are **not** part of this: their value is which group of the
+    grouping you are in, which is keyed *and* set-valued (`{groupings_groups}`
+    has no unique constraint on grouping + group), while the allocator holds
+    one scalar per (rule, participant). `ruleset::source_groupid()` is anchored
+    so `grouping_7` can never be read as a group, and `ruleset_test` pins it.
+
+- **Design round for "group membership as a rule source" (v2 backlog item 2,
+  stage 1).** New `docs/mockups/rule-source-groups.html` prototypes an existing
+  course group as a third rule source beside a profile field and a cohort —
+  source key `group_<id>`, binary `'1'`/empty value, the shape the recorded use
+  case "keep apart the members of group Y" needs. It carries five decisions to
+  approve before any code is written: the picker is a bounded menu up to 25
+  groups and a search beyond (the never-enumerate rule for cohorts does not
+  transfer — cohorts are site-level and number in the thousands, groups are
+  course-bounded and step 1 already loads every group record of the course to
+  validate the destinations); a destination group used as its own source is
+  provably vacuous under the default ignore filter and is disabled in the picker
+  rather than warned about; the source set is `groups_get_all_groups()` minus
+  `OWN`-visibility groups for an actor without `viewhiddengroups`, the one case
+  that helper does not already cover; a binary source needs membership wording
+  rather than value wording, at five sites — two of which are typed allocator
+  warnings rendered independently by the preview and by the log, so missing
+  either renderer leaves the two surfaces describing one run differently. It
+  also fixes how a cohort rule reads today (`R1 Cohort: X: Cohort: X`, a
+  doubled infeasibility warning, and "N participants without a value" for
+  people who are simply not members), including retroactively in the log, which
+  renders stored facts through current strings — a consequence the mockup states
+  rather than hides. And a deleted source group should read as deleted rather
+  than as withheld. Groupings are explicitly out of stage 1 — their value
+  is keyed *and* set-valued, which the allocator's one-scalar-per-(rule,
+  participant) model cannot hold without a change that ripples into the
+  violation vector, the contradiction scan, the audit reader and the peer
+  buckets. Nothing in the plugin changed: `docs/` is `export-ignore`d, so no
+  version bump.
+
 ### Fixed
+
+- **The rule builder's search picker was unusable, and had been since it
+  shipped.** Its suggestion list is rendered `position-absolute` and had **no
+  CSS rule at all** — no `z-index`, no background, no width, no height bound —
+  so up to 20 matches drew as a transparent column roughly a thousand pixels
+  tall that ran under the sibling alert and off the fold. An option painted
+  beneath other content is not clickable, so on a site past the menu limit a
+  chosen cohort could not be changed at all: the only way out was deleting the
+  whole rule. Measured on a course with 300 groups and 1999 cohorts: every
+  suggestion reported `z-index: auto`, a transparent background, a 102px width
+  and no hit at its own centre point. `styles.css` now lays the list out —
+  layered, opaque, bounded at 14rem with its own scrollbar, and coloured from
+  the theme tokens because 5.1 and 5.2 both ship dark mode.
+  - Choosing a value now **replaces** the search box with that value and a
+    clear button, instead of leaving an empty box beside it that read as
+    "nothing was selected"; clearing brings the box back, so a pick can be
+    changed in place.
+  - The list closes on an outside click or Escape. Nothing had ever closed
+    one: it was shown and then left open until the next full re-render.
+  - Pinned by `bootstrap_compat_test`, which is the only gate that reads a
+    stylesheet against the markup that needs it, and mutation-checked against
+    removing the rule, the `z-index` alone and the `max-height` alone. The new
+    Behat scenario covers the pick/clear/re-pick flow but explicitly does NOT
+    cover the layout — measured: it still passes with the CSS removed, because
+    Moodle clicks through the driver rather than hit-testing the paint.
+
+- **Two mockups had dead JavaScript.** `docs/mockups/affinity-rules.html`
+  carried an unescaped apostrophe in a field label (`'Mother's name'`), a hard
+  parse error that killed the entire IIFE — so its rule builder, enrolment
+  sync, preview tabs and why-boxes had all been inert, in the one file whose
+  banner promises "everything is interactive". `docs/mockups/step1-options.html`
+  still looked up `#afffield`/`#affmode`/`#affhint` after its affinity section
+  became a static rule list; the listener bound to `null` threw and took the
+  whole seats wiring below it with it. Both now parse and run, verified per
+  file. The same pass finished the English-only sweep both files had been left
+  half-way through (field *labels* mirror the shipped `lang/en` string; sample
+  *values* stay Brazilian, per `docs/README.md`).
 
 - **A preview that would write nothing now says why.** Zero candidates
   rendered as a row of zeros, one "0 new members" card per selected group and

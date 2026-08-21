@@ -1,0 +1,1340 @@
+<title>Prototype — Group membership as a rule source</title>
+<style>
+  /* ── Tokens: same system as the approved step1/step2 prototypes ────── */
+  :root {
+    --brand: #0f6cbf;
+    --brand-ink: #0a4a84;
+    --bg: #f8f9fa;
+    --surface: #ffffff;
+    --surface-2: #f1f3f5;
+    --ink: #1d2125;
+    --ink-2: #5b6470;
+    --line: #dee2e6;
+    --ok: #357a32;
+    --ok-bg: #e9f2e9;
+    --apart: #a4511e;
+    --apart-bg: #f9ede4;
+    --warn-bg: #fcefdc;
+    --warn-ink: #7a5a1e;
+    --info-bg: #e7f1fa;
+    --info-ink: #0a4a84;
+    --chip-bg: #eef2f6;
+    --danger: #a32b2b;
+    --danger-bg: #f8e7e7;
+    --shadow: 0 1px 2px rgba(29, 33, 37, .06);
+    --radius: .5rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --brand: #4da3e8; --brand-ink: #8ec4f0; --bg: #14171a; --surface: #1f2429;
+      --surface-2: #262c33; --ink: #e8eaed; --ink-2: #9aa4b0; --line: #343b43;
+      --ok: #6fbf6b; --ok-bg: #223122; --apart: #dd9663; --apart-bg: #362a20;
+      --warn-bg: #3a3120; --warn-ink: #ecc879;
+      --info-bg: #1d2f40; --info-ink: #9ec9ee; --chip-bg: #2b323a;
+      --danger: #e88b8b; --danger-bg: #3a2223;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --brand: #4da3e8; --brand-ink: #8ec4f0; --bg: #14171a; --surface: #1f2429;
+    --surface-2: #262c33; --ink: #e8eaed; --ink-2: #9aa4b0; --line: #343b43;
+    --ok: #6fbf6b; --ok-bg: #223122; --apart: #dd9663; --apart-bg: #362a20;
+    --warn-bg: #3a3120; --warn-ink: #ecc879;
+    --info-bg: #1d2f40; --info-ink: #9ec9ee; --chip-bg: #2b323a;
+    --danger: #e88b8b; --danger-bg: #3a2223;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 400 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+
+  .crumbs { font-size: .82rem; color: var(--ink-2); margin-bottom: .35rem; }
+  .crumbs a { color: var(--brand); text-decoration: none; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 .2rem; text-wrap: balance; }
+  .lede { color: var(--ink-2); margin: 0 0 1.25rem; }
+  .lede strong, .lede b { color: var(--ink); font-weight: 600; }
+  .lede a { color: var(--brand); }
+
+  .proto-banner {
+    display: flex; gap: .6rem; align-items: baseline;
+    background: var(--info-bg); color: var(--info-ink);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: .6rem .9rem; margin-bottom: 1.25rem; font-size: .85rem;
+  }
+  .proto-banner .tag, .rec .tag {
+    flex: none; font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; border: 1px solid currentColor;
+    border-radius: 999px; padding: .1rem .5rem;
+  }
+
+  section { margin-bottom: 2.25rem; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  h2 { font-size: .78rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 .6rem; }
+  .sec-head { display: flex; align-items: baseline; gap: .75rem; margin-bottom: .75rem; flex-wrap: wrap; }
+  .sec-head .sub { font-size: .85rem; color: var(--ink-2); }
+
+  /* ── mform fieldset look ───────────────────────────────────────────── */
+  fieldset { border: none; border-top: 1px solid var(--line); margin: 0; padding: 0 0 .75rem; }
+  legend { width: 100%; padding: 0; margin: 0; float: left; }
+  legend + * { clear: both; }
+  legend .fslabel {
+    width: 100%; display: flex; align-items: center; gap: .5rem;
+    font-size: 1.02rem; font-weight: 600; color: var(--ink);
+    padding: .85rem .25rem;
+  }
+  legend .badge {
+    margin-left: auto; font-size: .72rem; font-weight: 600; color: var(--ok);
+    background: var(--chip-bg); border-radius: 999px; padding: .1rem .6rem;
+  }
+
+  /* ── Rule builder ──────────────────────────────────────────────────── */
+  .rules { list-style: none; margin: .25rem 0 0; padding: 0; }
+  .rule {
+    display: flex; align-items: center; gap: .55rem; flex-wrap: wrap;
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 4px solid var(--ok);
+    border-radius: .45rem; padding: .5rem .6rem;
+  }
+  .rule.apart { border-left-color: var(--apart); }
+  .rule.empty { border-left-color: var(--line); }
+  .rule.dragging { opacity: .45; }
+  .rule.dragover { outline: 2px dashed var(--brand); outline-offset: 2px; }
+  .grip {
+    flex: none; cursor: grab; color: var(--ink-2); font-size: 1rem;
+    letter-spacing: -.1em; padding: .15rem .2rem; border: none; background: none;
+    touch-action: none;
+  }
+  .grip:active { cursor: grabbing; }
+  .prio {
+    flex: none; width: 1.55rem; height: 1.55rem; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--ok-bg); color: var(--ok); font-size: .82rem; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .rule.apart .prio { background: var(--apart-bg); color: var(--apart); }
+  .rule.empty .prio { background: var(--surface-2); color: var(--ink-2); }
+  .rule select, .rule input[type="text"] {
+    font: inherit; font-size: .9rem; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: .4rem; padding: .35rem .5rem; min-width: 0;
+  }
+  .rule select:focus-visible, .rule input:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+  .rule .src { flex: 1 1 15rem; }
+  .rule .mode { flex: 0 1 12rem; }
+  .rule.selfref { border-left-color: var(--warn-ink); background: var(--warn-bg); }
+  .rowbtns { flex: none; display: flex; gap: .15rem; margin-left: auto; }
+  .rowbtns button {
+    font: inherit; width: 1.7rem; height: 1.7rem; display: grid; place-items: center;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+    border-radius: .35rem; cursor: pointer; font-size: .78rem; padding: 0;
+  }
+  .rowbtns button:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+  .rowbtns button:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+  .rowbtns button:disabled { opacity: .35; cursor: default; }
+  .rowbtns .del:hover:not(:disabled) { color: var(--apart); }
+
+  .rulenote {
+    flex: 1 1 100%; font-size: .8rem; margin: .1rem 0 0 2.35rem;
+    color: var(--warn-ink);
+  }
+  .rulenote.bad { color: var(--danger); }
+
+  .connector {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .1rem 0 .1rem 2.35rem; height: 1.5rem;
+  }
+  .connector::before { content: ""; width: 1px; align-self: stretch; background: var(--line); margin-left: .75rem; }
+  .connector .etxt { font-size: .74rem; color: var(--ink-2); }
+  .connector .e {
+    font-size: .68rem; font-weight: 700; letter-spacing: .05em; color: var(--ink-2);
+    background: var(--chip-bg); border-radius: 999px; padding: .05rem .55rem;
+    margin-left: -1.55rem;
+  }
+
+  .builder-tools { display: flex; align-items: center; gap: .9rem; margin-top: .8rem; flex-wrap: wrap; }
+  .btn {
+    font: inherit; font-size: .9rem; border-radius: var(--radius); cursor: pointer;
+    padding: .45rem 1.1rem; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); text-decoration: none; display: inline-block;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .builder-tools .hint { font-size: .8rem; color: var(--ink-2); }
+
+  .prio-note {
+    display: flex; gap: .5rem; font-size: .84rem; margin-top: .9rem;
+    background: var(--info-bg); color: var(--info-ink);
+    border: 1px solid var(--line); border-radius: .4rem; padding: .55rem .75rem;
+  }
+  .prio-note.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .prio-note.bad { background: var(--danger-bg); color: var(--danger); }
+
+  /* ── Simulation switches ───────────────────────────────────────────── */
+  .switches {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; align-items: center;
+    background: var(--surface-2); border: 1px dashed var(--line);
+    border-radius: .45rem; padding: .55rem .8rem; margin-bottom: .9rem;
+    font-size: .84rem;
+  }
+  .switches .lbl { font-weight: 600; color: var(--ink-2); font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; }
+  .switches label { display: flex; align-items: center; gap: .35rem; cursor: pointer; }
+  .switches input { accent-color: var(--brand); }
+
+  .summary { margin-top: .9rem; }
+  .summary h3 { font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 .4rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .chip {
+    display: inline-flex; align-items: center; gap: .35rem;
+    background: var(--chip-bg); border-radius: 999px;
+    padding: .12rem .65rem; font-size: .82rem; white-space: nowrap;
+  }
+  .chip .dot { width: .45rem; height: .45rem; border-radius: 50%; background: var(--ok); flex: none; }
+  .chip.apart .dot { background: var(--apart); }
+  .chip b { font-weight: 600; }
+
+  /* ── Group cards (as in the approved preview) ──────────────────────── */
+  .group { border: 1px solid var(--line); border-radius: var(--radius); padding: .85rem 1rem; background: var(--surface); }
+  .group + .group { margin-top: .75rem; }
+  .g-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .9rem; margin-bottom: .5rem; }
+  .g-name { font-size: 1rem; font-weight: 600; margin: 0; }
+  .g-cap { margin-left: auto; font-size: .82rem; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+  .members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+  .members li { min-width: 0; }
+  .mrow { display: flex; align-items: center; gap: .55rem; font-size: .88rem; }
+  .avatar {
+    flex: none; width: 1.7rem; height: 1.7rem; border-radius: 50%;
+    background: var(--surface-2); color: var(--ink-2);
+    display: grid; place-items: center; font-size: .68rem; font-weight: 700;
+  }
+  .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mbadges { margin-left: auto; display: flex; gap: .3rem; flex-wrap: wrap; justify-content: flex-end; }
+  .fv {
+    flex: none; font-size: .72rem; border-radius: 999px; padding: .05rem .5rem;
+    background: var(--ok-bg); color: var(--ok);
+  }
+  .fv.apart { background: var(--apart-bg); color: var(--apart); }
+  .fv.neutral { background: var(--chip-bg); color: var(--ink-2); }
+  .fv.src { background: var(--info-bg); color: var(--info-ink); }
+  .rulestatus {
+    display: flex; flex-wrap: wrap; gap: .3rem .9rem;
+    border-top: 1px dashed var(--line); margin-top: .65rem; padding-top: .55rem;
+    font-size: .78rem; color: var(--ink-2);
+  }
+  .rulestatus .okmark { color: var(--ok); font-weight: 700; }
+  .rulestatus .warnmark { color: var(--warn-ink); font-weight: 700; }
+
+  /* ── Why-boxes (audit) ─────────────────────────────────────────────── */
+  button.mrow {
+    width: 100%; text-align: left; font: inherit; color: var(--ink); background: none;
+    border: 1px solid transparent; border-radius: .4rem; padding: .25rem .4rem; cursor: pointer;
+  }
+  button.mrow:hover { background: var(--surface-2); }
+  button.mrow:focus-visible { outline: 2px solid var(--brand); }
+  button.mrow[aria-expanded="true"] { background: var(--surface-2); }
+  .whybox {
+    margin: .3rem 0 .5rem 2.45rem;
+    background: var(--info-bg); color: var(--info-ink);
+    border: 1px solid var(--line); border-radius: .45rem;
+    padding: .6rem .8rem; font-size: .84rem;
+  }
+  .whybox ul { margin: 0; padding-left: 1.1rem; }
+  .whybox li { margin: .25rem 0; }
+  .whybox .r { font-weight: 700; }
+  .whybox li.na { color: var(--ink-2); }
+
+  /* ── Rules report ──────────────────────────────────────────────────── */
+  details.rrule { border: 1px solid var(--line); border-radius: .45rem; background: var(--surface); }
+  details.rrule + details.rrule { margin-top: .6rem; }
+  details.rrule summary {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    cursor: pointer; list-style: none; padding: .65rem .9rem; font-size: .9rem;
+  }
+  details.rrule summary::-webkit-details-marker { display: none; }
+  details.rrule summary:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; border-radius: .45rem; }
+  details.rrule summary .chev { flex: none; color: var(--ink-2); font-size: .75rem; transition: transform .15s ease; }
+  @media (prefers-reduced-motion: reduce) { details.rrule summary .chev { transition: none; } }
+  details[open].rrule summary .chev { transform: rotate(90deg); }
+  .rsum { margin-left: auto; font-size: .78rem; color: var(--ink-2); }
+  .rsum .okmark { color: var(--ok); font-weight: 700; }
+  .rsum .warnmark { color: var(--warn-ink); font-weight: 700; }
+  .rbody { padding: 0 .9rem .8rem; font-size: .86rem; }
+  .rbody table { border-collapse: collapse; width: 100%; }
+  .rbody th, .rbody td { text-align: left; padding: .35rem .5rem; border-top: 1px solid var(--line); font-size: .84rem; }
+  .rbody th { color: var(--ink-2); font-weight: 600; font-size: .76rem; text-transform: uppercase; letter-spacing: .04em; border-top: none; }
+  .rbody .num { font-variant-numeric: tabular-nums; }
+  .rbody .foot { margin: .5rem 0 0; font-size: .8rem; color: var(--ink-2); }
+  .tablewrap { overflow-x: auto; }
+
+  /* ── Before / after comparison ─────────────────────────────────────── */
+  .ba { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: .75rem; }
+  .ba > div { flex: 1 1 45%; min-width: 19rem; border: 1px solid var(--line); border-radius: .45rem; padding: .6rem .8rem; }
+  .ba .now { background: var(--danger-bg); }
+  .ba .next { background: var(--ok-bg); }
+  .ba h4 {
+    margin: 0 0 .35rem; font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink-2);
+  }
+  .ba code, code.render {
+    display: block; font-size: .82rem; background: var(--surface); color: var(--ink);
+    border: 1px solid var(--line); border-radius: .3rem; padding: .4rem .55rem;
+    overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  .ba p { margin: .4rem 0 0; font-size: .8rem; color: var(--ink-2); }
+
+  .procon { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1rem; }
+  .procon div {
+    flex: 1 1 45%; min-width: 19rem; font-size: .8rem; border: 1px solid var(--line);
+    border-radius: .45rem; padding: .5rem .7rem; background: var(--surface-2); color: var(--ink-2);
+  }
+  .procon b { color: var(--ink); display: block; margin-bottom: .15rem; font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; }
+
+  .rec {
+    display: flex; gap: .6rem; align-items: baseline;
+    background: var(--warn-bg); color: var(--warn-ink);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: .7rem 1rem; font-size: .88rem; margin-top: 1rem;
+  }
+  .rec.ok { background: var(--ok-bg); color: var(--ok); }
+  .rec b { color: inherit; }
+
+  /* ── Decision + visibility tables ──────────────────────────────────── */
+  .dtable { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  .dtable th, .dtable td { text-align: left; padding: .5rem .6rem; border-top: 1px solid var(--line); vertical-align: top; }
+  .dtable th { color: var(--ink-2); font-weight: 600; font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; border-top: none; }
+  .dtable code { font-size: .82rem; background: var(--surface-2); border-radius: .25rem; padding: .05rem .3rem; }
+  .yes { color: var(--ok); font-weight: 700; }
+  .no { color: var(--danger); font-weight: 700; }
+  .strings { font-size: .84rem; }
+  .strings dt { font-weight: 600; margin-top: .5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; color: var(--brand-ink); }
+  .strings dd { margin: .1rem 0 0; color: var(--ink-2); }
+  :root:not([data-theme="light"]) .strings dt { color: var(--brand); }
+</style>
+
+<div class="wrap">
+  <nav class="crumbs" aria-label="Location">
+    <a href="#">Software Engineering — 2026.2</a> ›
+    <a href="#">Participants</a> ›
+    <a href="#">Groups</a> ›
+    <span>Distribute participants</span>
+  </nav>
+  <h1>Group membership as a rule source — prototype</h1>
+  <p class="lede">
+    v2 backlog item 2, <strong>stage 1 only</strong>: an existing course <strong>group</strong> becomes a
+    third kind of affinity rule source, beside a profile field and a cohort — the recorded use case being
+    <em>“keep apart the members of group Y”</em>. The source key is <code>group_&lt;id&gt;</code> and its value is
+    binary, exactly like a cohort's: <code>'1'</code> for members, empty for everyone else.
+    The rule builder it extends is prototyped in <a href="affinity-rules.html">affinity-rules.html</a>;
+    the preview and audit surfaces it lands in are <a href="step2-preview.html">step2-preview.html</a> and
+    <a href="distribution-log.html">distribution-log.html</a>.
+  </p>
+
+  <div class="rec ok" style="margin-top:0; margin-bottom:1.25rem;">
+    <span class="tag">Status</span>
+    <span><b>Decisions A, B and C are implemented</b> (2026-08-21): the source key
+      <code>group_&lt;id&gt;</code>, the bounded picker with its search web service, the self-reference gate and the
+      visibility rule all ship as prototyped here. <b>Decisions D and E are not.</b> Both change how <em>cohort</em>
+      rules read today — D retroactively, in the log — so they stay proposals on this page rather than riding in on a
+      change about groups. Until D lands, a group rule inherits the cohort rendering exactly as section 4 and
+      section 5 describe it under “today”.</span>
+  </div>
+
+  <div class="proto-banner">
+    <span class="tag">Prototype</span>
+    <span>Everything is interactive. Section&nbsp;1 is a live builder — change a rule's type to <b>Group</b>, then
+      flip its three simulation switches and watch the picker, the disabled options and the warnings change.
+      Section&nbsp;4 has two more: one puts the source group into the state the recorded use case usually produces,
+      the other swaps every sample and quoted line in sections&nbsp;4 and&nbsp;5 to the <b>decision D</b> wording —
+      which is still a proposal, so the “today” side of every pair is what the plugin actually renders.
+      Every number on this page is derived from one scenario, so the two switches cannot drift apart.</span>
+  </div>
+
+  <div class="rec" style="margin-top:0;">
+    <span class="tag">Scope</span>
+    <span><b>Groups only. Groupings are deliberately out of this round.</b> The backlog sentence also asks for
+      “keep together by current group in <b>grouping</b> X”, whose value is <em>which</em> group you are in — a keyed
+      value, and a <b>set</b>-valued one, because <code>{groupings_groups}</code> has no unique constraint on
+      (grouping, group) and a user may sit in two groups of one grouping. The allocator's value model is a single
+      <b>scalar</b> per (rule, participant): clusters key on a joined string and keep-apart state keys on
+      rule + value. A set cannot be represented without changing that model, and the change ripples into the
+      violation vector, the contradiction scan, the audit reader and the peer-bucket keying. Stage 2 starts with
+      that decision, not with code.</span>
+  </div>
+
+  <!-- ══════════════ 1 · RULE BUILDER ══════════════ -->
+  <section aria-labelledby="builder-h">
+    <div class="sec-head">
+      <h2 id="builder-h">1 · Rule builder — a third source type</h2>
+      <span class="sub">type first · profile field / cohort / <b>group</b> · summed with AND · order = priority</span>
+    </div>
+
+    <div class="switches">
+      <span class="lbl">Simulate</span>
+      <label><input type="checkbox" id="simmany"> a course with more than 25 groups <span style="color:var(--ink-2)">(picker becomes a search)</span></label>
+      <label><input type="checkbox" id="simignore" checked> “Ignore users already in the selected groups” is on <span style="color:var(--ink-2)">(the default)</span></label>
+      <label><input type="checkbox" id="simrestricted"> a role without <code>viewhiddengroups</code></label>
+    </div>
+
+    <div class="card" style="padding: .25rem 1.25rem .5rem;">
+      <fieldset>
+        <legend><span class="fslabel"><span aria-hidden="true">▼</span> Affinity <span class="badge" id="rulecount">2 active rules</span></span></legend>
+        <div>
+          <p style="font-size:.84rem; color:var(--ink-2); margin:.2rem 0 .6rem;">
+            Distributing into <b id="destnames">Group 01, Group 02, Group 03, Group 04</b> — the selection made on the
+            groups page. Those four are this run's <b>destinations</b>; every other group of the course may be a source.
+          </p>
+          <ul class="rules" id="rulelist" aria-label="Affinity rules, in priority order"></ul>
+          <div class="builder-tools">
+            <button class="btn" type="button" id="addrule">+ Add rule</button>
+            <span class="hint">Each row adds one constraint — all of them hold at the same time.</span>
+          </div>
+          <div class="prio-note">
+            <span aria-hidden="true">i</span>
+            <span>Every rule applies at the same time (AND). The order sets the priority: when rules conflict, or a
+              cluster must be split for lack of seats, the rule higher up prevails and the violation is counted
+              against the one further down — always with a warning in the preview.</span>
+          </div>
+          <div class="summary">
+            <h3>Recap (as it appears on the preview page)</h3>
+            <div class="chips" id="rulechips"></div>
+          </div>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="rec ok">
+      <span class="tag">Decision A</span>
+      <span><b>The group picker is a bounded menu up to 25 groups and a search beyond it</b> — the same
+        two-mode shape the cohort picker already uses, but with its own, higher limit.
+        <b>Why a menu at all, when cohorts are never enumerated:</b> the never-enumerate rule for cohorts exists
+        because cohorts are <em>site</em>-level and platforms carry thousands. Groups are course-bounded, this
+        plugin's own code comments say “hundreds”, and step 1 <em>already</em> loads every group record of the course
+        (<code>groups_get_all_groups()</code>, no limit) to validate the submitted destination ids — and reuses the same
+        array to label the selected-group chips — so the menu costs nothing and a search-only picker would
+        <em>add</em> a round trip the page does not make today.
+        <b>Why a limit anyway:</b> a 200-option select is bad UI, not a security problem. 25 is deliberately the
+        number the plugin already treats as “too many groups to show at once” (the preview's own group cap), rather
+        than a second arbitrary constant.</span>
+    </div>
+  </section>
+
+  <!-- ══════════════ 2 · SELF-REFERENCE ══════════════ -->
+  <section aria-labelledby="self-h">
+    <div class="sec-head">
+      <h2 id="self-h">2 · The self-reference trap</h2>
+      <span class="sub">the run writes group memberships, so a group source reads what the run changes</span>
+    </div>
+
+    <div class="card" style="padding: 1rem 1.25rem;">
+      <p style="margin:0 0 .8rem; font-size:.9rem;">
+        Picking one of the <b>destination</b> groups as a rule source is the one way this feature can produce a rule
+        that provably does nothing — and today nothing would tell the teacher. With
+        <b>“Ignore users already in the selected groups”</b> on (the default), every candidate who would carry the
+        value <code>'1'</code> has already been filtered out of the run, so the column is empty for
+        <b>100% of survivors</b>. The rule is vacuous, and the only trace is a single warning that reads as though the
+        data were merely incomplete:
+      </p>
+      <code class="render" id="vacuouswarning">43 participants have no value in "Group: Group 02" and were allocated without the affinity rule.</code>
+      <p style="margin:.5rem 0 0; font-size:.84rem; color:var(--ink-2);">
+        …where 43 is the entire candidate count. No violation, split or contradiction warning can ever name that rule,
+        and its card in the rules report shows zero value buckets. It looks like a rule that held.
+      </p>
+
+      <div class="ba" id="ba-selfref">
+        <div class="now">
+          <h4>Rejected — prevention in the picker</h4>
+          <p style="color:inherit; margin:0 0 .4rem;">Destination groups are struck from the menu while the filter is
+            on, with the reason on the option itself. The mistake cannot be made.</p>
+          <code>Seminar A
+Seminar B
+Lab team 2026.1
+Monitors
+──────────────
+Group 01 — a destination of this run (unavailable)
+Group 02 — a destination of this run (unavailable)</code>
+        </div>
+        <div class="next">
+          <h4>Allowed — filter off, so the rule is real</h4>
+          <p style="color:inherit; margin:0 0 .4rem;">With the filter off, current members of Group 02 do take part,
+            carry the value and the rule constrains them. It stays selectable, with a note.</p>
+          <code>Group 02 — also a destination of this run</code>
+        </div>
+      </div>
+
+      <div class="rec ok">
+        <span class="tag">Decision B</span>
+        <span><b>Prevent it in the picker; keep a server-side error as the backstop; never reject a rule that is
+          actually meaningful.</b> A blanket ban would be wrong — with the ignore filter off, a destination group as a
+          source is coherent and useful. So the gate is the <em>conjunction</em>: filter on <b>and</b> source is one of
+          this run's destinations. The builder knows the destination ids already (it renders their names right above),
+          so it can disable the options live and re-enable them the moment the filter is unticked — try the
+          <b>“Ignore users already in the selected groups”</b> switch in section 1. The server still has to check,
+          because the POST can be forged and because the filter can be changed after the rule was picked.</span>
+      </div>
+
+      <div class="prio-note bad" style="margin-top:.9rem;">
+        <span aria-hidden="true">!</span>
+        <span><b>The backstop needs a new message, not the existing one.</b> Today the rule builder's only validation
+          error is core's <code>Data submitted is invalid</code>, attached to a static element with an empty label —
+          the same text for a bad shape, a duplicate source, too many rules and an unauthorised source. A
+          self-reference rejection routed through it tells the reader nothing. Proposed:</span>
+      </div>
+      <code class="render" style="margin-top:.5rem;">Rule 2 uses "Group 02", which is one of the groups this run distributes into. With "Ignore users already in the selected groups" on, none of its members take part, so the rule would have no effect. Choose another group, or turn that filter off.</code>
+    </div>
+  </section>
+
+  <!-- ══════════════ 3 · AUTHORIZATION ══════════════ -->
+  <section aria-labelledby="auth-h">
+    <div class="sec-head">
+      <h2 id="auth-h">3 · Which groups may be a source</h2>
+      <span class="sub">course containment and visibility, inherited from the helper the plugin already trusts</span>
+    </div>
+
+    <div class="card" style="padding: 1rem 1.25rem;">
+      <p style="margin:0 0 .75rem; font-size:.9rem;">
+        The offer set and the submit-side validator are <b>the same call</b> —
+        <code>groups_get_all_groups($courseid)</code>, which the plugin already uses in six places to validate
+        <em>destination</em> groups. It gives course containment and per-group visibility in one step, so a group
+        <b>source</b> starts from exactly the set a group <b>destination</b> is validated against — and decision C
+        then subtracts one case from it, for the reason given below. Two core helpers
+        that look right and are not: <code>groups_get_group($id)</code> checks neither the course nor the
+        visibility — accepting a raw id through it turns any other course's group into a membership oracle — and
+        <code>groups_group_visible()</code> tests the activity group <em>mode</em>, a different axis entirely.
+      </p>
+
+      <div class="tablewrap">
+        <table class="dtable">
+          <tr>
+            <th>Group in this course</th>
+            <th><code>visibility</code></th>
+            <th>Default teacher<br><span style="font-weight:400; text-transform:none; letter-spacing:0;">holds <code>viewhiddengroups</code></span></th>
+            <th>Restricted custom role<br><span style="font-weight:400; text-transform:none; letter-spacing:0;">no <code>viewhiddengroups</code></span></th>
+          </tr>
+          <tr><td>Seminar A</td><td>ALL</td><td class="yes">offered</td><td class="yes">offered</td></tr>
+          <tr><td>Lab team 2026.1</td><td>ALL</td><td class="yes">offered</td><td class="yes">offered</td></tr>
+          <tr><td>Monitors</td><td>MEMBERS<br><span style="color:var(--ink-2)">actor is a member</span></td><td class="yes">offered</td><td class="yes">offered<br><span style="color:var(--ink-2); font-weight:400;">a member of a MEMBERS group may read the whole list</span></td></tr>
+          <tr><td>Seminar B</td><td>MEMBERS<br><span style="color:var(--ink-2)">actor is not a member</span></td><td class="yes">offered</td><td class="no">not offered<br><span style="color:var(--ink-2); font-weight:400;">the helper already drops it</span></td></tr>
+          <tr><td>Retaking students</td><td>OWN<br><span style="color:var(--ink-2)">actor is a member</span></td><td class="yes">offered</td><td class="no">not offered<br><span style="color:var(--ink-2); font-weight:400;"><b>the one case the helper does not cover</b> — the actor sees the group, but core shows them only their own row</span></td></tr>
+          <tr><td>Staff only</td><td>NONE</td><td class="yes">offered</td><td class="no">not offered<br><span style="color:var(--ink-2); font-weight:400;">the helper already drops it</span></td></tr>
+        </table>
+      </div>
+
+      <div class="rec ok">
+        <span class="tag">Decision C</span>
+        <span><b>Only a group whose full membership the actor can already read may be a source.</b>
+          <code>groups_get_all_groups()</code> delivers almost all of that on its own — it returns an
+          <code>ALL</code>-visibility group to anyone, a <code>MEMBERS</code> or <code>OWN</code> one only to a member,
+          and a <code>NONE</code> one only to someone holding <code>viewhiddengroups</code>. <b>Exactly one case needs
+          an addition, and it is the row in bold above:</b> appearing in the helper's result is not authorization to
+          read the <em>membership</em>. In a <code>MEMBERS</code> group a member may read the whole list, so it is a
+          sound source; in an <code>OWN</code> group core shows a member only their own row, so making it a source
+          would hand them the list the group exists to withhold — a rule source is precisely a device for exposing who
+          is in a group, since the preview paints a badge on each member. So the rule is:
+          <b>the helper's result, minus <code>OWN</code>-visibility groups, unless the actor holds
+          <code>viewhiddengroups</code></b> — one extra predicate, stated where it is applied. Nothing is subtracted
+          for <code>NONE</code>: reaching one at all already means holding the capability.
+          <b>Read the right-hand column as the edge case it is:</b> <code>viewhiddengroups</code> is granted to
+          teacher, editing teacher and manager by default, so for every ordinary actor nothing is hidden at all, and
+          this whole column is reachable only through a custom role.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 4 · PREVIEW ══════════════ -->
+  <section aria-labelledby="prev-h">
+    <div class="sec-head">
+      <h2 id="prev-h">4 · How a group rule renders in the preview</h2>
+      <span class="sub">member badges · per-group rule status · rules report</span>
+    </div>
+
+    <p style="font-size:.88rem; color:var(--ink-2); margin:0 0 .75rem; max-width:72ch;">
+      The run: <b>43 participants</b> into <b>4 groups of 12 seats</b>. Rules in play —
+      <b>1 · Keep together: Department</b> (a profile field) and
+      <b>2 · Keep apart: Group: Lab team 2026.1</b>, the recorded use case: last term's lab partners split across this
+      term's groups.
+    </p>
+
+    <div class="switches">
+      <span class="lbl">Simulate</span>
+      <label><input type="checkbox" id="simcrowded"> the source group has <b>more members than there are destination groups</b> <span style="color:var(--ink-2)">(12 into 4 — the ordinary case)</span></label>
+      <label><input type="checkbox" id="simproposed"> decision D wording <span style="color:var(--ink-2)">(instead of today's)</span></label>
+    </div>
+
+    <div class="card" style="padding: 1.1rem 1.25rem;">
+      <div id="apartwarning" hidden style="margin:0 0 .9rem;">
+        <div class="prio-note warn" style="margin-top:0;">
+          <span aria-hidden="true">⚠</span>
+          <span id="apartwarningtext"></span>
+        </div>
+      </div>
+
+      <article class="group">
+        <div class="g-head">
+          <h3 class="g-name">Group 01</h3>
+          <span class="g-cap"><b>11</b> / 12 seats</span>
+        </div>
+        <ul class="members" id="g1members"></ul>
+        <div class="rulestatus" aria-label="Rule status in this group">
+          <span><span class="okmark">✓</span> R1 Department: Engineering</span>
+          <span id="status-r2"></span>
+        </div>
+      </article>
+
+      <p style="margin:1rem 0 .3rem; font-size:.84rem; color:var(--ink-2);">
+        A participant who is <b>not</b> a member of the source group gets <b>no badge at all</b> — there is no
+        “not in” token anywhere in the plugin, and none is proposed. Presence is the whole signal, which is why the
+        badge must be unambiguous next to a card already headed by a group name.
+      </p>
+
+      <h3 style="font-size:.74rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); margin:1.3rem 0 .5rem;">Rules report</h3>
+      <details class="rrule" open>
+        <summary><span class="chev" aria-hidden="true">▶</span><span class="chip apart"><span class="dot"></span><b>2</b> Keep apart: Group: Lab team 2026.1</span><span class="rsum" id="report-novalue"></span></summary>
+        <div class="rbody tablewrap">
+          <table>
+            <tr><th>Value</th><th class="num">Participants</th><th>Destination</th><th></th></tr>
+            <tr>
+              <td>Group: Lab team 2026.1</td>
+              <td class="num" id="report-count"></td>
+              <td>Group 01, Group 02, Group 03, Group 04</td>
+              <td id="report-flag"></td>
+            </tr>
+          </table>
+          <p class="foot">A binary source can only ever produce <b>one</b> row here — the members bucket. Everyone
+            else falls into the counter in the header, which for a membership source is normally most of the course.</p>
+        </div>
+      </details>
+
+      <div class="prio-note" style="margin-top:1rem;">
+        <span aria-hidden="true">i</span>
+        <span><b>Tick “the source group has more members than there are destination groups”.</b> That is not an edge
+          case — it is what “keep apart the members of group Y” usually means, and the pigeonhole principle decides it
+          before the allocator does. It is also the state that produces the wording problem below, because the
+          infeasibility warning interpolates the value <em>and</em> the field, and for a binary source those are the
+          same string.</span>
+      </div>
+    </div>
+
+    <h3 style="font-size:.74rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); margin:1.6rem 0 .5rem;">Where “value” wording breaks on a membership source</h3>
+    <p style="font-size:.86rem; color:var(--ink-2); margin:0 0 .5rem; max-width:74ch;">
+      Three surfaces interpolate a rule's <em>value</em>. For a profile field the value and the label are different
+      things (<i>Department</i> / <i>Engineering</i>). For a binary source they resolve to the same string, so each of
+      these prints the label twice or calls a non-membership “no value”. The switch above flips the live sample; the
+      pairs below quote the rest.
+    </p>
+
+    <div class="ba" id="ba-together">
+      <div class="now">
+        <h4>1 · Keep-<b>together</b> per-group status — today</h4>
+        <code>✓ R1 Cohort: Managers: Cohort: Managers</code>
+        <p>Only the keep-<b>together</b> branch prints the value, and for a binary source it resolves to the rule's own
+          label. This is live behaviour <em>today</em>, for cohorts. With a group it becomes
+          <code>✓ R1 Group: Lab team 2026.1: Group: Lab team 2026.1</code>, inside a card headed <b>Group 01</b>.
+          <b>A keep-apart rule never reaches this line</b> — its status slot carries the repeat count instead, which is
+          why the live sample above (rule 2, keep apart) shows no doubling.</p>
+      </div>
+      <div class="next">
+        <h4>Proposed</h4>
+        <code>✓ R1 Group: Lab team 2026.1: 4 members here</code>
+        <p>For a binary source the useful number is how many of its members landed in this group. The second colon is
+          the template's own separator between a rule's label and its status text, shared with every rule kind — so
+          decision D changes the text, not the punctuation. The keep-apart slot is untouched, so the per-group repeat
+          count survives.</p>
+      </div>
+    </div>
+
+    <div class="ba" id="ba-apartwarn">
+      <div class="now">
+        <h4>2 · The infeasibility warning — today</h4>
+        <code>"Group: Lab team 2026.1" (Group: Lab team 2026.1) has more participants than available groups; 8 placements repeat the value inside a group.</code>
+        <p>Value and field are separate placeholders in the same sentence, and a binary source fills both with the same
+          label. This is the sentence the ordinary case produces, so it is the one a teacher reads most often.</p>
+      </div>
+      <div class="next">
+        <h4>Proposed</h4>
+        <code>"Group: Lab team 2026.1" has 12 members but only 4 groups to spread them over; 8 placements share a group.</code>
+        <p>One sentence, one label, and it says what actually happened instead of “repeat the value”.</p>
+      </div>
+    </div>
+
+    <div class="ba" id="ba-novalue">
+      <div class="now">
+        <h4>3 · The “no value” counter and warning — today</h4>
+        <code id="novalue-now"></code>
+        <p>Two renderings of the same idea — the rules-report header counter and the allocator warning. Neither is
+          missing data: those people simply are not members. For a profile field the wording flags a data-quality
+          problem worth fixing; here it invites the reader to go and fix nothing.</p>
+      </div>
+      <div class="next">
+        <h4>Proposed</h4>
+        <code id="novalue-next"></code>
+        <p>The second line is the only signal the vacuous-rule case of section 2 produces, which is why it has to be
+          readable on its own.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 5 · AUDIT LOG ══════════════ -->
+  <section aria-labelledby="audit-h">
+    <div class="sec-head">
+      <h2 id="audit-h">5 · How a group rule renders in the distribution log</h2>
+      <span class="sub">the label is frozen at apply time · explanations derive from the snapshot</span>
+    </div>
+
+    <div class="card" style="padding: 1rem 1.25rem;">
+      <div class="summary" style="margin-top:0;">
+        <h3>Rules applied (labels as of apply time)</h3>
+        <div class="chips">
+          <span class="chip"><span class="dot"></span>1 · Keep together: <b>Department</b></span>
+          <span class="chip apart"><span class="dot"></span>2 · Keep apart: <b>Group: Lab team 2026.1</b></span>
+        </div>
+      </div>
+
+      <div class="prio-note" style="margin-top:.9rem;">
+        <span aria-hidden="true">i</span>
+        <span><b>Snapshot.</b> <code>Group: Lab team 2026.1</code> is stored as text at apply time, next to the source
+          key. Renaming or deleting the group later does not alter this record — and cannot, because the escaping the
+          label went through is not reversible.</span>
+      </div>
+
+      <article class="group" style="margin-top:1rem;">
+        <div class="g-head">
+          <h3 class="g-name">Group 01</h3>
+          <span class="g-cap"><b>11</b> written</span>
+        </div>
+        <ul class="members">
+          <li>
+            <button class="mrow" type="button" aria-expanded="true" data-why="ana">
+              <span class="avatar" aria-hidden="true">AS</span><span class="nm">Ana Souza Lima</span>
+              <span class="mbadges"><span class="fv apart">Group: Lab team 2026.1</span><span class="fv neutral">Why here?</span></span>
+            </button>
+            <div class="whybox" data-whybox="ana">
+              <ul>
+                <li><span class="r">Rule 1 · Keep together · Department:</span> value “Engineering” — placed with 10 more of the same value.</li>
+                <li><span class="r">Rule 2 · Keep apart · Group: Lab team 2026.1:</span> separated from Diego Farias Melo (Group 02), Elisa Rocha Melo (Group 03), Rafael Nunes Vieira (Group 04).</li>
+              </ul>
+            </div>
+          </li>
+          <li>
+            <button class="mrow" type="button" aria-expanded="false" data-why="bruno">
+              <span class="avatar" aria-hidden="true">BS</span><span class="nm">Bruno Santos Rocha</span>
+              <span class="mbadges"><span class="fv neutral">Why here?</span></span>
+            </button>
+            <div class="whybox" data-whybox="bruno" hidden>
+              <ul>
+                <li><span class="r">Rule 1 · Keep together · Department:</span> value “Engineering” — placed with 10 more of the same value.</li>
+              </ul>
+            </div>
+          </li>
+        </ul>
+      </article>
+      <p style="margin:.6rem 0 0; font-size:.82rem; color:var(--ink-2);">
+        <b>Bruno's box is one line, not two — and that is the finished design.</b> The log skips a rule the participant
+        holds no value for, so a non-member simply gets nothing for rule 2. There is no “was not a member” line today
+        and none is proposed; when no rule constrained a participant at all, the existing
+        “No rule constrained this participant.” fallback covers it.
+      </p>
+
+      <p style="margin:.9rem 0 .3rem; font-size:.84rem; color:var(--ink-2);">
+        Both keep-<b>apart</b> lines print the label only, never the value, so they read correctly for a group source
+        with no change at all — Ana's second line above is untouched by decision D. The keep-<b>together</b> line does
+        print the value, and inherits the same doubling as the preview's status footer:
+      </p>
+
+      <div class="ba" id="ba-why">
+        <div class="now">
+          <h4>4 · Keep-together “why here?” — today</h4>
+          <code>Rule 1 · Keep together · Group: Lab team 2026.1: value "Group: Lab team 2026.1" — placed with 3 more of the same value.</code>
+          <p>Inside the section headed <b>Group 01</b>. Two different group names in one sentence, one of them twice,
+            and the word “value” standing in for “membership”.</p>
+        </div>
+        <div class="next">
+          <h4>Proposed</h4>
+          <code>Rule 1 · Keep together · Group: Lab team 2026.1: member — placed with 3 more members.</code>
+          <p>Note the wording avoids the noun “group”: the same code path serves cohort rules, so the string has to
+            read correctly after <code>Cohort: Managers</code> too.</p>
+        </div>
+      </div>
+
+      <div class="prio-note warn" style="margin-top:.9rem;">
+        <span aria-hidden="true">!</span>
+        <span><b>One consequence of decision D to accept deliberately.</b> The log stores facts, but renders them
+          through <em>today's</em> strings — so changing this wording changes how runs already in the log read,
+          including every cohort run. The stored snapshot does not change and no history is lost; the sentence
+          describing it does. That is the opposite trade from the label itself, which is frozen at apply time
+          precisely because it cannot be recomputed.</span>
+      </div>
+
+      <h3 style="font-size:.74rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); margin:1.3rem 0 .5rem;">Two states worth drawing, because groups are deleted casually</h3>
+      <div class="ba">
+        <div class="now">
+          <h4>Source group deleted after the run — today</h4>
+          <code>Rule 2 · Group: Lab team 2026.1: value hidden from you.</code>
+          <p>The log re-checks the source's authorization at <em>read</em> time, and a deleted group fails that check
+            the same way an unauthorised one does. So the reader is told the value is being withheld from them, when
+            in fact it no longer exists. Cohorts have the same flaw; nobody meets it, because cohorts are rarely
+            deleted. Course groups are deleted every term.</p>
+        </div>
+        <div class="next">
+          <h4>Proposed</h4>
+          <code>Rule 2 · Group: Lab team 2026.1  [group since deleted]</code>
+          <p>Distinguish “gone” from “withheld”, reusing the marker the log already paints on a destination group that
+            no longer exists. The membership facts themselves are in the snapshot and are unaffected.</p>
+        </div>
+      </div>
+
+      <div class="ba" style="margin-top:.75rem;">
+        <div class="now">
+          <h4>Source group deleted <em>between</em> step 1 and apply — today</h4>
+          <code>Notification.exception → “Data submitted is invalid”</code>
+          <p>A rule source that stops resolving makes the preview web service throw, which the client surfaces as a raw
+            exception toast that kills the whole preview; apply throws a full error page. Meanwhile a deleted
+            <em>destination</em> group in the same run degrades gracefully — the preview re-intersects and explains
+            itself. The harsh path is the one a teacher arriving from the group management page will hit.</p>
+        </div>
+        <div class="next">
+          <h4>Proposed</h4>
+          <code>The group used by rule 2 no longer exists. Go back and choose the rule source again.</code>
+          <p>Same treatment as a vanished destination: a sentence in the page, not an exception. Listed here as a
+            consequence to confirm, not as something this feature strictly requires.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 6 · WHAT IT ADDS ══════════════ -->
+  <section aria-labelledby="sum-h">
+    <div class="sec-head">
+      <h2 id="sum-h">6 · Decisions to approve, and what each one costs</h2>
+      <span class="sub">nothing below is built yet</span>
+    </div>
+
+    <div class="card" style="padding: 1rem 1.25rem;">
+      <div class="tablewrap">
+        <table class="dtable">
+          <tr><th style="width:7rem;">Decision</th><th>Proposal</th><th style="width:11rem;">If rejected instead</th></tr>
+          <tr>
+            <td><b>A</b> · picker</td>
+            <td>Bounded menu up to 25 groups, debounced search beyond, both served by
+              <code>groups_get_all_groups()</code> filtered by name.</td>
+            <td>Menu only — simpler, one fewer web service, unusable on a course with 200 groups.</td>
+          </tr>
+          <tr>
+            <td><b>B</b> · self-reference</td>
+            <td>Disable destination groups in the picker while the ignore filter is on; a specific server-side error as
+              the backstop.</td>
+            <td>Warn only — the teacher can still ship a rule that provably does nothing.</td>
+          </tr>
+          <tr>
+            <td><b>C</b> · visibility</td>
+            <td>Source set = <code>groups_get_all_groups()</code>, minus <code>OWN</code>-visibility groups for an
+              actor without <code>viewhiddengroups</code>. Same call as the destination validator.</td>
+            <td>Take the helper's result unchanged — a member of an OWN group could then read its whole membership off
+              the preview.</td>
+          </tr>
+          <tr>
+            <td><b>D</b> · wording</td>
+            <td>Membership wording instead of “value” wording on binary sources, at the five sites listed below.
+              <b>Also changes how cohort rules read</b>, in the preview and retroactively in the log — which is the
+              point, and is the one consequence to accept knowingly.</td>
+            <td>Reuse the field wording — ships <code>R1 Group: X: Group: X</code>, a doubled infeasibility warning
+              and “39 participants without a value” for people who are simply not members.</td>
+          </tr>
+          <tr>
+            <td><b>E</b> · deleted source</td>
+            <td>Mark a deleted source group as deleted rather than hidden; degrade the mid-flow race like a deleted
+              destination.</td>
+            <td>Leave as is — a routine term-end deletion reads as a privacy mask, and the preview dies on a toast.</td>
+          </tr>
+        </table>
+      </div>
+
+      <h3 style="font-size:.74rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); margin:1.3rem 0 .5rem;">Decision D — the five sites, and where each is rendered</h3>
+      <div class="tablewrap">
+        <table class="dtable">
+          <tr><th>Site</th><th>Rendered in</th><th>Note</th></tr>
+          <tr><td>Per-group rule status (keep-together only)</td><td>preview</td><td>The keep-apart slot carries the repeat count and must not be overwritten.</td></tr>
+          <tr><td>Rules-report header counter</td><td>preview</td><td>Chosen by source kind at build time.</td></tr>
+          <tr><td>“No value” allocator warning</td><td>preview <b>and</b> log</td><td>A typed allocator warning with two independent renderers — both must discriminate the source kind, or the two surfaces disagree.</td></tr>
+          <tr><td>Keep-apart infeasibility warning</td><td>preview <b>and</b> log</td><td>Same two renderers. This is the sentence the ordinary “keep apart group Y” case produces.</td></tr>
+          <tr><td>Keep-together “why here?” line</td><td>log</td><td>Must read correctly after a cohort label too — so no hardcoded noun.</td></tr>
+        </table>
+      </div>
+      <p style="font-size:.82rem; color:var(--ink-2); margin:.6rem 0 0;">
+        That is five strings, not the three a first pass suggests: the two warnings are typed allocator warnings, each
+        rendered independently by the preview and by the log, and missing either renderer leaves the two surfaces
+        describing the same run differently.
+      </p>
+
+      <h3 style="font-size:.74rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); margin:1.3rem 0 .5rem;">New language strings this implies</h3>
+      <dl class="strings">
+        <dt>ruletypegroup</dt><dd>Group</dd>
+        <dt>rulechoosegroup</dt><dd>Choose the group…</dd>
+        <dt>rulegrouplabel</dt><dd>Rule {$a} group</dd>
+        <dt>rulegroupsearchlabel</dt><dd>Rule {$a} group search</dd>
+        <dt>rulesearchnogroups</dt><dd>No matching groups</dd>
+        <dt>groupsourcelabel</dt><dd>Group: {$a}</dd>
+        <dt>rulegroupdestinationblocked</dt><dd>{$a} — a destination of this run (unavailable)</dd>
+        <dt>rulegroupdestinationalso</dt><dd>{$a} — also a destination of this run</dd>
+        <dt>errorruleselfreference</dt><dd>Rule {$a->index} uses "{$a->group}", which is one of the groups this run distributes into. With "Ignore users already in the selected groups" on, none of its members take part, so the rule would have no effect. Choose another group, or turn that filter off.</dd>
+        <dt>rulestatusmembers</dt><dd>{$a} members here <span style="color:var(--ink-2)">— decision D</span></dd>
+        <dt>rulereportnotmember</dt><dd>{$a} participants are not members <span style="color:var(--ink-2)">— decision D</span></dd>
+        <dt>warningnotmember</dt><dd>{$a->count} participants are not members of "{$a->field}" and were allocated without the affinity rule. <span style="color:var(--ink-2)">— decision D</span></dd>
+        <dt>warningapartmembership</dt><dd>"{$a->field}" has {$a->members} members but only {$a->groups} groups to spread them over; {$a->count} placements share a group. <span style="color:var(--ink-2)">— decision D</span></dd>
+        <dt>auditwhytogethermember</dt><dd>Rule {$a->index} · Keep together · {$a->label}: member — placed with {$a->count} more members. <span style="color:var(--ink-2)">— decision D</span></dd>
+      </dl>
+      <p style="font-size:.82rem; color:var(--ink-2); margin:.7rem 0 0;">
+        Every one of them lands in <code>lang/en</code> and <code>lang/pt_br</code> in the same commit, in its
+        alphabetical slot. Two sinks decide the spelling of a group NAME: the builder's option list takes the
+        <b>plain</b> spelling, because the row template prints it through a double stash and the search results are
+        written with <code>textContent</code>; anything reaching a core form select takes the <b>escaped</b> one,
+        because core renders option text through a triple stash. That is the split the options form already holds a
+        few lines apart for cohorts, and which its tests pin in both directions — a group name reproduces it exactly.
+      </p>
+
+      <div class="rec">
+        <span class="tag">Not in this mockup</span>
+        <span>Groupings (stage 2, blocked on the set-valued modelling question stated at the top), friend-circle
+          chaining, per-rule scope matchers and anti-isolation mode — the other three v2 backlog entries, all
+          untouched by this one.</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ══════════ Fixtures ══════════
+     Destination groups are the selection this run writes into; source groups
+     are every other group of the course. `vis` and `member` mirror the two
+     things core's own visibility predicate tests: the {groups}.visibility
+     column, and whether the actor is a member. */
+  const DESTINATIONS = [
+    {v: 'group_101', l: 'Group 01'},
+    {v: 'group_102', l: 'Group 02'},
+    {v: 'group_103', l: 'Group 03'},
+    {v: 'group_104', l: 'Group 04'}
+  ];
+  const SOURCEGROUPS = [
+    {v: 'group_201', l: 'Seminar A', vis: 'ALL', member: false},
+    {v: 'group_202', l: 'Seminar B', vis: 'MEMBERS', member: false},
+    {v: 'group_203', l: 'Lab team 2026.1', vis: 'ALL', member: false},
+    {v: 'group_204', l: 'Monitors', vis: 'MEMBERS', member: true},
+    {v: 'group_205', l: 'Retaking students', vis: 'OWN', member: true},
+    {v: 'group_206', l: 'Staff only', vis: 'NONE', member: false}
+  ];
+  const MANYGROUPS = [
+    'Workshop 01', 'Workshop 02', 'Workshop 03', 'Workshop 04', 'Workshop 05',
+    'Workshop 06', 'Workshop 07', 'Workshop 08', 'Workshop 09', 'Workshop 10',
+    'Workshop 11', 'Workshop 12', 'Workshop 13', 'Workshop 14', 'Workshop 15',
+    'Workshop 16', 'Workshop 17', 'Workshop 18', 'Workshop 19', 'Workshop 20'
+  ].map((l, i) => ({v: 'group_' + (300 + i), l: l, vis: 'ALL', member: false}));
+
+  const FIELDS = [
+    {v: 'city', l: 'City/town'},
+    {v: 'department', l: 'Department'},
+    {v: 'institution', l: 'Institution'},
+    {v: 'country', l: 'Country'},
+    {v: 'profile_7', l: 'Gender'},
+    {v: 'profile_9', l: "Mother's name"}
+  ];
+  const COHORTS = [
+    {v: 'cohort_31', l: 'Managers'},
+    {v: 'cohort_12', l: '2026 intake'}
+  ];
+
+  /* The picker flips from a menu to a search past this many offered groups.
+     25 is the number the preview already uses as its own group cap, so the
+     plugin carries one "too many groups to show at once" constant, not two. */
+  const GROUP_MENU_LIMIT = 25;
+
+  const el = (id) => document.getElementById(id);
+  const simmany = el('simmany');
+  const simignore = el('simignore');
+  const simrestricted = el('simrestricted');
+
+  /* Decision C: a group may be a source only when the actor can read its whole
+     membership. A default teacher holds viewhiddengroups and sees every group of
+     the course, so nothing is dropped. Without it, groups_get_all_groups() keeps
+     ALL for anyone and MEMBERS/OWN only for a member -- and the one predicate
+     this feature adds then removes OWN, where core shows a member only their own
+     row. NONE never reaches here without the capability, so nothing subtracts it. */
+  function offeredGroups() {
+    let list = SOURCEGROUPS.slice();
+    if (simrestricted.checked) {
+      list = list.filter((g) => g.vis === 'ALL' || (g.vis === 'MEMBERS' && g.member));
+    }
+    if (simmany.checked) {
+      list = list.concat(MANYGROUPS);
+    }
+    return list;
+  }
+  const searchmode = () => offeredGroups().length > GROUP_MENU_LIMIT;
+
+  /* Decision B: a destination group is only unusable while the ignore filter
+     is on -- with it off its members take part and the rule is real. */
+  const isDestination = (v) => DESTINATIONS.some((d) => d.v === v);
+  const destinationBlocked = (v) => isDestination(v) && simignore.checked;
+  const destinationSuffix = (v) => {
+    if (!isDestination(v)) { return ''; }
+    return simignore.checked
+      ? ' — a destination of this run (unavailable)'
+      : ' — also a destination of this run';
+  };
+
+  function labelOf(v) {
+    const all = FIELDS.concat(COHORTS, SOURCEGROUPS, MANYGROUPS, DESTINATIONS);
+    const hit = all.find((i) => i.v === v);
+    return hit ? hit.l : '';
+  }
+  function displayLabel(rule) {
+    const l = labelOf(rule.source);
+    if (rule.kind === 'cohort') { return 'Cohort: ' + l; }
+    if (rule.kind === 'group') { return 'Group: ' + l; }
+    return l;
+  }
+
+  let rules = [
+    {kind: 'field', source: 'department', mode: 'together', label: ''},
+    {kind: 'group', source: 'group_203', mode: 'apart', label: ''}
+  ];
+
+  const list = el('rulelist');
+  const chips = el('rulechips');
+  const count = el('rulecount');
+  const addbtn = el('addrule');
+  let dragindex = null;
+
+  function optionsFor(items, selected, placeholder, isgroups) {
+    let html = '<option value=""' + (selected === '' ? ' selected' : '') + '>' + placeholder + '</option>';
+    items.forEach((i) => {
+      const used = rules.some((r) => r.source === i.v) && selected !== i.v;
+      const note = isgroups ? destinationSuffix(i.v) : '';
+      const blocked = isgroups ? destinationBlocked(i.v) : false;
+      html += '<option value="' + i.v + '"' +
+        (selected === i.v ? ' selected' : '') +
+        (used || blocked ? ' disabled' : '') + '>' +
+        i.l + note + '</option>';
+    });
+    return html;
+  }
+
+  /* The destination groups are appended to the menu on purpose rather than
+     hidden: a teacher looking for "Group 02" must find it and read WHY it is
+     unavailable, otherwise the picker looks broken. */
+  function groupOptions(selected) {
+    return optionsFor(offeredGroups().concat(DESTINATIONS), selected, 'Choose the group…', true);
+  }
+
+  function secondControl(r, idx) {
+    if (r.kind === 'field') {
+      return '<select class="src" aria-label="Rule ' + (idx + 1) + ' field">' +
+        optionsFor(FIELDS, r.source, 'Choose the field…', false) + '</select>';
+    }
+    if (r.kind === 'cohort') {
+      return '<select class="src" aria-label="Rule ' + (idx + 1) + ' cohort">' +
+        optionsFor(COHORTS, r.source, 'Choose the cohort…', false) + '</select>';
+    }
+    if (!searchmode()) {
+      return '<select class="src" aria-label="Rule ' + (idx + 1) + ' group">' +
+        groupOptions(r.source) + '</select>';
+    }
+    const chosen = r.source !== ''
+      ? '<span class="chip" style="flex:none;">' + labelOf(r.source) + '</span>'
+      : '';
+    return '<span class="grouppick" style="position:relative; flex:1 1 12rem; display:flex; gap:.4rem; align-items:center;">' +
+      chosen +
+      '<input type="text" class="srch" aria-label="Rule ' + (idx + 1) + ' group search"' +
+      ' placeholder="Choose the group…" autocomplete="off" style="flex:1;">' +
+      '<span class="sug" role="listbox" hidden style="position:absolute; top:100%; left:0; right:0; z-index:5;' +
+      ' background:var(--surface); border:1px solid var(--line); border-radius:.4rem;' +
+      ' box-shadow:var(--shadow); max-height:11rem; overflow:auto;"></span>' +
+      '</span>';
+  }
+
+  function selfRefNote(r) {
+    if (r.kind !== 'group' || r.source === '' || !isDestination(r.source)) { return ''; }
+    if (simignore.checked) {
+      return '<span class="rulenote bad">This is a destination of this run. With the ignore filter on, none of its ' +
+        'members take part, so the rule would match nobody. The preview is blocked until it changes.</span>';
+    }
+    return '<span class="rulenote">This is also a destination of this run. Its current members do take part ' +
+      '(the ignore filter is off), so the rule is meaningful — but they may be added to it again.</span>';
+  }
+
+  function render() {
+    list.textContent = '';
+    rules.forEach((r, idx) => {
+      if (idx > 0) {
+        const con = document.createElement('li');
+        con.className = 'connector';
+        con.setAttribute('aria-hidden', 'true');
+        con.innerHTML = '<span class="e">AND</span><span class="etxt">and also</span>';
+        list.appendChild(con);
+      }
+      const li = document.createElement('li');
+      const selfref = r.kind === 'group' && isDestination(r.source) && simignore.checked;
+      li.className = 'rule ' + (r.source === '' ? 'empty' : (r.mode === 'apart' ? 'apart' : '')) +
+        (selfref ? ' selfref' : '');
+      li.draggable = true;
+      li.dataset.index = String(idx);
+      li.innerHTML =
+        '<span class="grip" title="Drag to reorder" aria-hidden="true">⠿</span>' +
+        '<span class="prio" title="Priority ' + (idx + 1) + '">' + (idx + 1) + '</span>' +
+        '<select class="kind" aria-label="Rule ' + (idx + 1) + ' type" style="flex:0 1 9rem;">' +
+          '<option value="field"' + (r.kind === 'field' ? ' selected' : '') + '>Profile field</option>' +
+          '<option value="cohort"' + (r.kind === 'cohort' ? ' selected' : '') + '>Cohort</option>' +
+          '<option value="group"' + (r.kind === 'group' ? ' selected' : '') + '>Group</option>' +
+        '</select>' +
+        secondControl(r, idx) +
+        '<select class="mode" aria-label="Rule ' + (idx + 1) + ' strategy">' +
+          '<option value="together"' + (r.mode === 'together' ? ' selected' : '') + '>Keep together</option>' +
+          '<option value="apart"' + (r.mode === 'apart' ? ' selected' : '') + '>Keep apart</option>' +
+        '</select>' +
+        '<span class="rowbtns">' +
+          '<button type="button" class="up" aria-label="Move rule ' + (idx + 1) + ' up"' + (idx === 0 ? ' disabled' : '') + '>▲</button>' +
+          '<button type="button" class="down" aria-label="Move rule ' + (idx + 1) + ' down"' + (idx === rules.length - 1 ? ' disabled' : '') + '>▼</button>' +
+          '<button type="button" class="del" aria-label="Remove rule ' + (idx + 1) + '">✕</button>' +
+        '</span>' +
+        selfRefNote(r);
+
+      li.querySelector('.kind').addEventListener('change', (e) => {
+        rules[idx].kind = e.target.value;
+        rules[idx].source = '';
+        render();
+      });
+      const src = li.querySelector('.src');
+      if (src) {
+        src.addEventListener('change', (e) => { rules[idx].source = e.target.value; render(); });
+      }
+      const srch = li.querySelector('.srch');
+      if (srch) {
+        const sug = li.querySelector('.sug');
+        srch.addEventListener('input', () => {
+          const q = srch.value.trim().toLowerCase();
+          const pool = offeredGroups().concat(DESTINATIONS);
+          const hits = pool.filter((g) => g.l.toLowerCase().indexOf(q) !== -1).slice(0, 8);
+          sug.textContent = '';
+          if (!hits.length) {
+            const none = document.createElement('span');
+            none.style.cssText = 'display:block; padding:.4rem .6rem; font-size:.82rem; color:var(--ink-2);';
+            none.textContent = 'No matching groups';
+            sug.appendChild(none);
+          }
+          hits.forEach((g) => {
+            const opt = document.createElement('button');
+            opt.type = 'button';
+            opt.setAttribute('role', 'option');
+            const blocked = destinationBlocked(g.v);
+            opt.disabled = blocked;
+            opt.style.cssText = 'display:block; width:100%; text-align:left; font:inherit; font-size:.86rem;' +
+              ' color:var(--ink); background:none; border:none; border-top:1px solid var(--line);' +
+              ' padding:.4rem .6rem; cursor:pointer;' + (blocked ? ' opacity:.45; cursor:default;' : '');
+            opt.textContent = g.l + destinationSuffix(g.v);
+            opt.addEventListener('click', () => {
+              if (blocked) { return; }
+              rules[idx].source = g.v;
+              render();
+            });
+            sug.appendChild(opt);
+          });
+          sug.hidden = false;
+        });
+      }
+      li.querySelector('.mode').addEventListener('change', (e) => { rules[idx].mode = e.target.value; render(); });
+      li.querySelector('.up').addEventListener('click', () => { move(idx, idx - 1); });
+      li.querySelector('.down').addEventListener('click', () => { move(idx, idx + 1); });
+      li.querySelector('.del').addEventListener('click', () => { rules.splice(idx, 1); render(); });
+
+      li.addEventListener('dragstart', () => { dragindex = idx; li.classList.add('dragging'); });
+      li.addEventListener('dragend', () => { dragindex = null; render(); });
+      li.addEventListener('dragover', (e) => { e.preventDefault(); li.classList.add('dragover'); });
+      li.addEventListener('dragleave', () => { li.classList.remove('dragover'); });
+      li.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (dragindex !== null && dragindex !== idx) { move(dragindex, idx); }
+      });
+
+      list.appendChild(li);
+    });
+
+    const active = rules.filter((r) => r.source !== '').length;
+    count.textContent = active === 0 ? 'off' : active + (active === 1 ? ' active rule' : ' active rules');
+    count.style.color = active === 0 ? 'var(--ink-2)' : 'var(--ok)';
+    addbtn.disabled = rules.length >= 10;
+
+    chips.textContent = '';
+    rules.forEach((r, idx) => {
+      if (r.source === '') { return; }
+      const chip = document.createElement('span');
+      chip.className = 'chip' + (r.mode === 'apart' ? ' apart' : '');
+      chip.innerHTML = '<span class="dot"></span>' + (idx + 1) + ' · ' +
+        (r.mode === 'apart' ? 'Keep apart' : 'Keep together') + ': <b>' + displayLabel(r) + '</b>';
+      chips.appendChild(chip);
+    });
+    if (!chips.textContent) {
+      chips.innerHTML = '<span class="chip">Do not group (default)</span>';
+    }
+  }
+
+  function move(from, to) {
+    if (to < 0 || to >= rules.length || from === to) { return; }
+    const moved = rules.splice(from, 1)[0];
+    rules.splice(to, 0, moved);
+    render();
+  }
+
+  addbtn.addEventListener('click', () => {
+    rules.push({kind: 'field', source: '', mode: 'together', label: ''});
+    render();
+  });
+  [simmany, simignore, simrestricted].forEach((sw) => sw.addEventListener('change', render));
+  render();
+
+  /* ══════════ Section 2: the vacuous-rule warning follows the filter ══════════ */
+  const vac = el('vacuouswarning');
+  function syncVacuous() {
+    vac.textContent = simignore.checked
+      ? '43 participants have no value in "Group: Group 02" and were allocated without the affinity rule.'
+      : 'With the ignore filter off, current members of Group 02 take part and the rule constrains them — no warning.';
+  }
+  simignore.addEventListener('change', syncVacuous);
+  syncVacuous();
+
+  /* ══════════ Section 4: the preview sample ══════════
+     One scenario, 43 candidates into 4 groups of 12. Every number below is
+     derived from LAB.members so the crowded and the feasible case cannot drift
+     apart: a keep-apart rule on a binary source has exactly one value bucket,
+     so its repeats are (members in a group - 1) summed over the groups, and it
+     is satisfiable only while the source group has no more members than there
+     are destination groups. */
+  const CANDIDATES = 43;
+  const GROUPS = 4;
+  const LAB = 'Group: Lab team 2026.1';
+  const simcrowded = el('simcrowded');
+  const simproposed = el('simproposed');
+
+  const ROSTER = [
+    {ini: 'AS', nm: 'Ana Souza Lima', dept: 'Engineering', lab: true},
+    {ini: 'BS', nm: 'Bruno Santos Rocha', dept: 'Engineering', lab: false},
+    {ini: 'CA', nm: 'Carla Almeida Braga', dept: 'Engineering', lab: 'crowded'},
+    {ini: 'FL', nm: 'Fábio Lima Prado', dept: 'Engineering', lab: 'crowded'},
+    {ini: 'LP', nm: 'Larissa Prado Dias', dept: 'Engineering', lab: false}
+  ];
+
+  function scenario() {
+    const members = simcrowded.checked ? 12 : GROUPS;
+    /* Spread as evenly as the allocator would: ceil for the first groups. */
+    const here = Math.ceil(members / GROUPS);
+    const repeatshere = Math.max(0, here - 1);
+    const repeatstotal = members - GROUPS;
+    return {
+      members: members,
+      here: here,
+      repeatshere: repeatshere,
+      repeatstotal: Math.max(0, repeatstotal),
+      ok: members <= GROUPS,
+      novalue: CANDIDATES - members
+    };
+  }
+
+  function renderSample() {
+    const s = scenario();
+    const proposed = simproposed.checked;
+
+    /* Member rows: `lab: 'crowded'` members only carry the badge in the
+       crowded case, which is what makes `here` and the badges agree. */
+    const ul = el('g1members');
+    ul.textContent = '';
+    ROSTER.forEach((p) => {
+      const islab = p.lab === true || (p.lab === 'crowded' && simcrowded.checked);
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="mrow"><span class="avatar" aria-hidden="true">' + p.ini + '</span>' +
+        '<span class="nm">' + p.nm + '</span><span class="mbadges">' +
+        '<span class="fv">' + p.dept + '</span>' +
+        (islab ? '<span class="fv apart">' + LAB + '</span>' : '') +
+        '</span></span>';
+      ul.appendChild(li);
+    });
+    const more = document.createElement('li');
+    more.className = 'mrow';
+    more.style.cssText = 'color:var(--ink-2); font-size:.82rem; padding-left:2.25rem;';
+    more.textContent = '+ 6 members not shown in the sample';
+    ul.appendChild(more);
+
+    /* Per-group status. A keep-apart rule never prints the value: its slot is
+       empty when clean and carries the repeat count when it is not -- so this
+       line is deliberately NOT affected by `proposed`. Decision D reaches the
+       keep-TOGETHER status line only, which the live sample cannot show because
+       its R1 is a profile field; pair 1 below quotes it statically instead. */
+    const st = el('status-r2');
+    st.innerHTML = s.ok
+      ? '<span class="okmark">✓</span> R2 ' + LAB
+      : '<span class="warnmark">⚠</span> R2 ' + LAB + ': ' + s.repeatshere + ' repeated';
+
+    /* Rules report. The header carries only the "no value" counter. */
+    el('report-novalue').textContent = proposed
+      ? s.novalue + ' participants are not members'
+      : s.novalue + ' participants without a value';
+    el('report-count').textContent = String(s.members);
+    el('report-flag').innerHTML = s.ok
+      ? ''
+      : '<span class="fv apart">' + s.repeatstotal + ' repeated inside a group</span>';
+
+    /* The rules-report counter and the "no value" allocator warning are the
+       SAME integer in get_preview (both come from the one WARNING_NOVALUE entry
+       for the rule), so the quoted pair must never drift from the live counter
+       above. Both are derived here for that reason. */
+    el('novalue-now').textContent =
+      s.novalue + ' participants without a value\n' +
+      s.novalue + ' participants have no value in "' + LAB + '" and were allocated without the affinity rule.';
+    el('novalue-next').textContent =
+      s.novalue + ' participants are not members\n' +
+      s.novalue + ' participants are not members of "' + LAB + '" and were allocated without the affinity rule.';
+
+    /* The infeasibility warning only exists in the crowded case. */
+    const warnbox = el('apartwarning');
+    warnbox.hidden = s.ok;
+    if (!s.ok) {
+      el('apartwarningtext').textContent = proposed
+        ? '"' + LAB + '" has ' + s.members + ' members but only ' + GROUPS +
+          ' groups to spread them over; ' + s.repeatstotal + ' placements share a group.'
+        : '"' + LAB + '" (' + LAB + ') has more participants than available groups; ' +
+          s.repeatstotal + ' placements repeat the value inside a group.';
+    }
+
+    /* Dim the half of each today/proposed pair that is not currently shown.
+       Scoped by id: section 2's pair is a rejected/allowed pair, not a
+       today/proposed one, and must never be dimmed by this switch. */
+    ['ba-together', 'ba-apartwarn', 'ba-novalue', 'ba-why'].forEach((id) => {
+      const box = el(id);
+      if (!box) { return; }
+      const now = box.querySelector('.now');
+      const next = box.querySelector('.next');
+      if (now) { now.style.opacity = proposed ? '.5' : '1'; }
+      if (next) { next.style.opacity = proposed ? '1' : '.5'; }
+    });
+  }
+  [simcrowded, simproposed].forEach((sw) => sw.addEventListener('change', renderSample));
+  renderSample();
+
+  /* ══════════ Section 5: why-boxes ══════════ */
+  document.querySelectorAll('button.mrow[data-why]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const box = document.querySelector('[data-whybox="' + btn.dataset.why + '"]');
+      const open = box.hidden;
+      btn.setAttribute('aria-expanded', String(open));
+      box.hidden = !open;
+    });
+  });
+})();
+</script>

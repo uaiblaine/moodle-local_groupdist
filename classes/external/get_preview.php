@@ -430,7 +430,8 @@ class get_preview extends external_api {
      * Per-rule maps of raw values to display text.
      *
      * Raw values are shown as-is except where they would be opaque: country
-     * codes map to country names, the binary cohort flag to the cohort label.
+     * codes map to country names, and the binary membership flag of a cohort or
+     * group source maps to that source's label.
      *
      * @param array $rules The ruleset entries.
      * @param \core\context\course $context The course context.
@@ -441,7 +442,9 @@ class get_preview extends external_api {
         foreach ($rules as $i => $rule) {
             if ($rule['source'] === 'country') {
                 $valuemaps[$i] = get_string_manager()->get_list_of_countries(true);
-            } else if (\local_groupdist\local\ruleset::source_cohortid($rule['source'])) {
+            } else if (\local_groupdist\local\ruleset::is_membership_source($rule['source'])) {
+                // Cohort and group sources both store '1' for members, so the
+                // only sensible display text is the rule's own label.
                 $valuemaps[$i] = ['1' => profilefields::get_label($rule['source'], $context)];
             } else {
                 $valuemaps[$i] = [];

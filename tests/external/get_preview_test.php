@@ -518,4 +518,81 @@ final class get_preview_test extends \externallib_advanced_testcase {
             'The keep-grouped hint is not appended when that filter is off.'
         );
     }
+    /**
+     * A group rule renders the group's NAME everywhere the preview shows a
+     * value, never the raw '1' the candidate query stores.
+     *
+     * build_value_maps() is a second source-kind dispatch, independent of the
+     * one in candidates.php: a group source missing from it ships green — the
+     * web service returns, the returns structure validates — while every
+     * member badge, the per-group rule status and the rules report all read
+     * "1".
+     */
+    public function test_group_rule_shows_the_group_name_not_the_raw_flag(): void {
+        $generator = $this->getDataGenerator();
+        $this->resetAfterTest();
+        [$course, , $args] = $this->make_course(2, 0);
+
+        $source = $generator->create_group(['courseid' => $course->id, 'name' => 'Lab team 2026.1']);
+        for ($i = 0; $i < 4; $i++) {
+            $user = $generator->create_and_enrol($course);
+            $generator->create_group_member(['groupid' => $source->id, 'userid' => $user->id]);
+        }
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $result = $this->call($args + [
+            'roleid' => (int) current(get_archetype_roles('student'))->id,
+            'affinityrules' => [['source' => 'group_' . $source->id, 'mode' => 'together']],
+        ]);
+
+        $badges = [];
+        foreach ($result['groups'] as $group) {
+            foreach ($group['members'] as $member) {
+                foreach ($member['affinities'] as $affinity) {
+                    $badges[] = $affinity['value'];
+                }
+            }
+        }
+        $this->assertNotEmpty($badges, 'The affinity badges were not built at all.');
+        foreach ($badges as $badge) {
+            $this->assertStringContainsString('Lab team 2026.1', $badge);
+            $this->assertNotSame('1', $badge);
+        }
+
+        // The rules report and the per-group status read from the same map.
+        $this->assertSame(1, count($result['rulereport']));
+        $this->assertStringContainsString('Lab team 2026.1', $result['rulereport'][0]['label']);
+        foreach ($result['rulereport'][0]['entries'] as $entry) {
+            $this->assertStringContainsString('Lab team 2026.1', $entry['value']);
+        }
+    }
+
+    /**
+     * A group from another course is rejected as a rule source, and one from
+     * this course passes (control).
+     */
+    public function test_preview_rejects_a_group_from_another_course(): void {
+        $generator = $this->getDataGenerator();
+        $this->resetAfterTest();
+        [$course, , $args] = $this->make_course(2, 4);
+
+        $mine = $generator->create_group(['courseid' => $course->id, 'name' => 'Mine']);
+        $theirs = $generator->create_group(['courseid' => $generator->create_course()->id, 'name' => 'Theirs']);
+        $this->setUser($generator->create_and_enrol($course, 'editingteacher'));
+
+        $_POST['sesskey'] = sesskey();
+        $response = external_api::call_external_function(
+            'local_groupdist_get_preview',
+            $args + ['affinityrules' => [['source' => 'group_' . $theirs->id, 'mode' => 'apart']]]
+        );
+        $this->assertTrue($response['error'], 'Another course\'s group was accepted as a rule source.');
+
+        // Control: a group of THIS course is accepted, so the rejection above
+        // is the course check and not a broken payload.
+        $control = $this->call($args + [
+            'affinityrules' => [['source' => 'group_' . $mine->id, 'mode' => 'apart']],
+        ]);
+        $this->assertArrayHasKey('groups', $control);
+    }
 }

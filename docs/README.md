@@ -19,6 +19,7 @@ deployment these screens were designed for.
 | [`mockups/distribution-log.html`](mockups/distribution-log.html) | Distribution log — the audit report as built (2026-08-20). Both screens: the run list under Course › Reports, and one run's detail **paged on two axes** — group sections, and participants inside each section — with the two searches filtering live, profile links opening in a new tab, the masked-rule note, pseudonymised participants, the deleted-group marker and the no-JS route into a single group's own page |
 | [`mockups/bulk-edit.html`](mockups/bulk-edit.html) | Bulk edit groups (approved v3, 2026-08-12; refreshed 2026-08-20) — table of selected groups with inline custom-field editing, mass-apply for seats, dynamic overbooking indicator on the members column, empty-seats highlighting + filter, collapsible columns menu, floating tooltips on truncated names/idnumbers, per-row "Edit" modal wrapping core's group settings, responsive card layout on mobile. The footer carries "Save changes" and "Back to groups" only — there is no cancel, because saving writes as it goes, and leaving with unsaved cells is confirmed first |
 | [`mockups/affinity-rules.html`](mockups/affinity-rules.html) | Multi-rule affinity (approved 2026-08-13) — rule builder (repeatable rows summed with an explicit "AND" connector, list position = priority, drag + button reordering), member enrolment options (new "include future-start enrolments" checkbox, distinct from suspended), preview explainability alternatives A (per-rule badges on group cards), B (per-participant "why here?") and C (per-rule report with clusters/pairs), and the audit log screens (run list under the course Reports section, run detail reading the stored snapshot, reader-side masking, pseudonymised participants, deleted-group marker). Rule rows pick a **type** first (profile field / cohort); the cohort picker is a menu up to 10 visible cohorts and a debounced search beyond that — the mockup has a toggle simulating the large-platform search mode. Section 3 explored the audit log; the built report now has its own prototype in `distribution-log.html` |
+| [`mockups/rule-source-groups.html`](mockups/rule-source-groups.html) | **Group membership as a rule source** (proposed 2026-08-21, v2 backlog item 2, **stage 1 — groups only**) — a third rule type beside profile field and cohort, with the source key `group_<id>` and a binary '1'/empty value. Live builder with three simulation switches (a course past the menu limit, the "ignore users already in the selected groups" filter, a role without `viewhiddengroups`), the self-reference trap and how it is prevented in the picker, the visibility matrix deciding which groups may be a source, and today/proposed switches over the preview and audit wording. Carries five decisions: **A (picker), B (self-reference) and C (visibility) are implemented**; **D (membership wording) and E (deleted source group) remain proposals**, because both change how cohort rules read today |
 
 The mockups link to each other the same way the real pages flow ("Preview
 distribution" / "Back and adjust"). The bottom action bar represents core's
@@ -104,8 +105,24 @@ AND-only ruleset:
   per-rule flag instead of boolean algebra.
 - **Existing group/grouping membership as a rule source.** "Keep together by
   current group in grouping X" or "keep apart the members of group Y":
-  membership columns resolved the same way cohort sources are, with the same
-  never-enumerate discipline on large courses.
+  membership columns resolved the same way cohort sources are. **Split into two
+  stages. Stage 1 (groups) is implemented; its mockup is the design record:**
+  [`mockups/rule-source-groups.html`](mockups/rule-source-groups.html) covers
+  **groups** — a binary source, a clean analogue of the cohort one. Two things
+  that round settled differently from the sentence above. The *never-enumerate*
+  discipline does **not** carry over: it exists because cohorts are site-level
+  and number in the thousands, while groups are course-bounded and step 1
+  already loads every group record of the course to validate the destinations,
+  so the picker is a bounded menu with a search only past 25. And a group source
+  reads exactly what the run writes, so a destination group used as its own
+  source is provably vacuous under the default ignore filter and is disabled in
+  the picker rather than merely warned about. **Stage 2 (groupings) is blocked on
+  a modelling decision, not on effort**: "which group of grouping X are you in"
+  is a keyed value and a *set*-valued one, because `{groupings_groups}` has no
+  unique constraint on (grouping, group), while the allocator holds one scalar
+  per (rule, participant) — clusters key on a joined string, keep-apart state
+  keys on rule + value. Choose keyed-with-a-tie-break, binary ("are you in
+  grouping X at all") or a real multi-value model before writing any code.
 - **Per-rule boolean scope matchers.** The one sound place for
   availability-style boolean UX: a matcher tree deciding *which* members a
   rule applies to (e.g. only students with country = BR), while the rule

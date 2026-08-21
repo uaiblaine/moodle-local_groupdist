@@ -160,4 +160,43 @@ final class ruleset_test extends \basic_testcase {
         $this->assertSame(7, ruleset::source_cohortid('cohort_7'));
         $this->assertSame(0, ruleset::source_cohortid('city'));
     }
+
+    /**
+     * A course group is a source kind of its own, and the two id-shaped
+     * encodings never bleed into each other.
+     *
+     * The grouping cases are the point: 'grouping_7' is a plausible future
+     * key, and an unanchored group pattern would classify it as a group with
+     * id 7 — which would then be authorized against, and read from, an
+     * entirely unrelated group.
+     */
+    public function test_group_source_helpers(): void {
+        $this->assertSame(ruleset::KIND_GROUP, ruleset::source_kind('group_9'));
+        $this->assertSame(9, ruleset::source_groupid('group_9'));
+
+        $this->assertSame('', ruleset::source_kind('grouping_7'));
+        $this->assertSame(0, ruleset::source_groupid('grouping_7'));
+        $this->assertSame('', ruleset::source_kind('group_'));
+        $this->assertSame('', ruleset::source_kind('group_7x'));
+        $this->assertSame('', ruleset::source_kind('Group_7'));
+        $this->assertSame(0, ruleset::source_groupid('cohort_9'));
+        $this->assertSame(0, ruleset::source_cohortid('group_9'));
+        $this->assertSame(0, ruleset::source_profile_fieldid('group_9'));
+
+        // A group source is accepted by the grammar gate every entry point uses.
+        $ruleset = ruleset::from_array([['source' => 'group_9', 'mode' => options::AFFINITY_APART]]);
+        $this->assertSame([['source' => 'group_9', 'mode' => options::AFFINITY_APART]], $ruleset->to_array());
+    }
+
+    /**
+     * Membership sources are the ones whose stored value is a bare '1', so
+     * every display path has to substitute the rule label instead.
+     */
+    public function test_membership_sources(): void {
+        $this->assertTrue(ruleset::is_membership_source('cohort_7'));
+        $this->assertTrue(ruleset::is_membership_source('group_9'));
+        $this->assertFalse(ruleset::is_membership_source('city'));
+        $this->assertFalse(ruleset::is_membership_source('profile_12'));
+        $this->assertFalse(ruleset::is_membership_source('grouping_7'));
+    }
 }

@@ -229,7 +229,7 @@
     </div>
 
     <fieldset id="fs-members">
-      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Members <span class="badge">2 filtros ativos</span></button></legend>
+      <legend><button type="button" aria-expanded="true"><span class="chev" aria-hidden="true">▼</span> Members <span class="badge">2 active filters</span></button></legend>
       <div class="fbody">
         <div class="frow">
           <div class="flabel"><label for="roleid">Select members from role</label><span class="help" title="Only users holding this role in the course take part in the distribution.">?</span></div>
@@ -379,30 +379,6 @@
     syncAll();
   });
 
-  // Affinity: strategy radios only make sense once a field is chosen.
-  const afffield = document.getElementById('afffield');
-  const affmode = document.getElementById('affmode');
-  const affhint = document.getElementById('affhint');
-  const affbadge = document.getElementById('aff-badge');
-  function syncAffinity() {
-    const off = afffield.value === '';
-    affmode.classList.toggle('off', off);
-    affmode.querySelectorAll('input').forEach(r => { r.disabled = off; });
-    const label = afffield.selectedOptions[0].textContent;
-    if (off) {
-      affhint.textContent = 'Add at least one rule to constrain the distribution.';
-      affbadge.textContent = 'inativo';
-      affbadge.classList.remove('on');
-    } else {
-      const together = affmode.querySelector('input').checked;
-      affhint.textContent = `Participants with no value in "${label}" are allocated to balance the groups and are reported as a warning in the preview.`;
-      affbadge.textContent = `${label} · ${together ? 'manter juntos' : 'manter separados'}`;
-      affbadge.classList.add('on');
-    }
-  }
-  afffield.addEventListener('change', syncAffinity);
-  affmode.addEventListener('change', syncAffinity);
-
   // Seats: overbooking input only enabled while the seats checkbox is on.
   const useseats = document.getElementById('useseats');
   const overbook = document.getElementById('overbook');
@@ -414,17 +390,16 @@
     seatsnote.style.display = on ? '' : 'none';
     if (on) {
       const n = parseInt(overbook.value, 10) || 0;
-      seatsbadge.textContent = n > 0 ? `ativo · +${n}` : 'ativo';
+      seatsbadge.textContent = n > 0 ? `on · +${n}` : 'on';
       seatsbadge.classList.add('on');
     } else {
-      seatsbadge.textContent = 'inativo';
+      seatsbadge.textContent = 'off';
       seatsbadge.classList.remove('on');
     }
   }
   useseats.addEventListener('change', syncSeats);
   overbook.addEventListener('input', syncSeats);
 
-  syncAffinity();
   syncSeats();
 })();
 </script>

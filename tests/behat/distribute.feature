@@ -23,9 +23,10 @@ Feature: Distribute participants into selected groups
       | student3 | C1     | student        |
       | student4 | C1     | student        |
     And the following "groups" exist:
-      | name    | course | idnumber |
-      | Group A | C1     | GA       |
-      | Group B | C1     | GB       |
+      | name     | course | idnumber |
+      | Group A  | C1     | GA       |
+      | Group B  | C1     | GB       |
+      | Lab team | C1     | LAB      |
     And the following "cohorts" exist:
       | name    | idnumber |
       | Mentors | ME       |
@@ -152,3 +153,104 @@ Feature: Distribute participants into selected groups
     Then I should see "1 · Keep apart: City"
     And I should see "2 · Keep together: Cohort: Mentors"
     And I should see "Rules report"
+
+  Scenario: Build a rule sourced from an existing course group and keep it across a round trip
+    Given the following "group members" exist:
+      | user     | group |
+      | student1 | LAB   |
+      | student2 | LAB   |
+    And I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (0),Group B (0)"
+    And I click on "Distribute participants" "button"
+    And I click on "Add rule" "button"
+    And I set the field "Rule 1 type" to "Group"
+    And I set the field "Rule 1 group" to "Lab team"
+    And I set the field "Rule 1 strategy" to "Keep apart"
+    And I press "Preview distribution"
+    Then I should see "1 · Keep apart: Group: Lab team"
+    And I should see "Rules report"
+    # Back and adjust re-hydrates the builder from the stored rules, which is
+    # the only path through kindOf(): a source key it does not recognise
+    # renders into the FIELD select, which does not contain it, and the rule
+    # silently loses its source.
+    When I press "Back and adjust"
+    Then the field "Rule 1 type" matches value "Group"
+    And the field "Rule 1 group" matches value "Lab team"
+    And the field "Rule 1 strategy" matches value "Keep apart"
+
+  Scenario: A group this run writes into cannot be its own rule source
+    Given I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (0),Group B (0)"
+    And I click on "Distribute participants" "button"
+    And I click on "Add rule" "button"
+    And I set the field "Rule 1 type" to "Group"
+    Then I should see "Group A — a destination of this run (unavailable)"
+    And I should see "Lab team"
+    # The marker is cosmetic; the guard is the disabled attribute. Core has no
+    # "option" selector and no negative form of this step, so both directions
+    # are asserted with xpath_element plus should be disabled/enabled.
+    And the "//select[@data-action='source']/option[contains(., 'a destination of this run (unavailable)')]" "xpath_element" should be disabled
+    And the "//select[@data-action='source']/option[contains(., 'Lab team')]" "xpath_element" should be enabled
+    # Unticking the filter makes those members take part, so the same group
+    # becomes a usable source and the picker has to follow it live.
+    When I set the field "Ignore users already in the selected groups" to "0"
+    Then I should see "Group A — also a destination of this run"
+    And the "//select[@data-action='source']/option[contains(., 'also a destination of this run')]" "xpath_element" should be enabled
+
+  @javascript
+  Scenario: Pick, clear and re-pick a group when the picker is a search
+    # Past GROUP_MENU_LIMIT (25) the picker is a search box. This pins the
+    # behaviour a teacher hit: pick a value, change your mind, pick another,
+    # without deleting the rule.
+    #
+    # It does NOT pin the layout defect that made this impossible in the first
+    # place (a suggestion list with no CSS: transparent, unbounded, under the
+    # sibling alert and so unclickable). Measured: with that CSS removed this
+    # scenario still passes, because Moodle scrolls an element into view and
+    # clicks it through the driver rather than hit-testing the paint. The
+    # layout guard is bootstrap_compat_test::test_the_source_suggestion_list_is_laid_out,
+    # which is mutation-checked against exactly that removal.
+    Given the following "groups" exist:
+      | name      | course | idnumber |
+      | Turma 000 | C1     | T000     |
+      | Turma 001 | C1     | T001     |
+      | Turma 002 | C1     | T002     |
+      | Turma 003 | C1     | T003     |
+      | Turma 004 | C1     | T004     |
+      | Turma 005 | C1     | T005     |
+      | Turma 006 | C1     | T006     |
+      | Turma 007 | C1     | T007     |
+      | Turma 008 | C1     | T008     |
+      | Turma 009 | C1     | T009     |
+      | Turma 010 | C1     | T010     |
+      | Turma 011 | C1     | T011     |
+      | Turma 012 | C1     | T012     |
+      | Turma 013 | C1     | T013     |
+      | Turma 014 | C1     | T014     |
+      | Turma 015 | C1     | T015     |
+      | Turma 016 | C1     | T016     |
+      | Turma 017 | C1     | T017     |
+      | Turma 018 | C1     | T018     |
+      | Turma 019 | C1     | T019     |
+      | Turma 020 | C1     | T020     |
+      | Turma 021 | C1     | T021     |
+      | Turma 022 | C1     | T022     |
+    And I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (0),Group B (0)"
+    And I click on "Distribute participants" "button"
+    And I click on "Add rule" "button"
+    And I set the field "Rule 1 type" to "Group"
+    And I set the field "Rule 1 group search" to "Lab team"
+    And I click on "Lab team" "button"
+    Then I should see "Lab team"
+    # The search box gives way to the chosen value, so the row reads as settled.
+    And "Rule 1 group search" "field" should not exist
+    # Clearing brings the search back, and a different group can be chosen
+    # without deleting the rule.
+    When I click on "Clear the source chosen for rule 1" "button"
+    Then "Rule 1 group search" "field" should exist
+    When I set the field "Rule 1 group search" to "Turma 007"
+    And I click on "Turma 007" "button"
+    Then I should see "Turma 007"
+    And I press "Preview distribution"
+    And I should see "1 · Keep together: Group: Turma 007"

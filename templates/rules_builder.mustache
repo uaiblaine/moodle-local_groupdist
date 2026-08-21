@@ -20,16 +20,27 @@
     Affinity rule builder mount, embedded in the options form. The AMD module
     local_groupdist/rules renders the rows, keeps the flattened hidden inputs
     in sync and handles add/remove/reorder. Each row picks a type first
-    (profile field or cohort); when the platform has more cohorts than the
-    menu limit the cohort picker becomes a search backed by the
-    local_groupdist_search_cohorts web service. Rules are summed (implicit
+    (profile field, cohort or course group); when the platform has more
+    cohorts, or the course more groups, than the matching menu limit that
+    picker becomes a search backed by the local_groupdist_search_cohorts or
+    local_groupdist_search_groups web service. Rules are summed (implicit
     AND); list position is the priority.
+
+    The destinations list is the groups this run distributes INTO. A group
+    source that is also a destination is vacuous while the "ignore users
+    already in the selected groups" checkbox is ticked, because every member
+    carrying the value has been filtered out of the run, so the module marks
+    those options and disables them — watching that checkbox live, since it
+    can be unticked after a rule was picked.
 
     Context variables required for this template:
     * fieldsjson - JSON list of value/label profile-field options
     * cohortsjson - JSON list of value/label cohort options ([] in search mode)
     * cohortsearch - whether the cohort picker is a search
-    * courseid - course id for the cohort search web service
+    * groupsjson - JSON list of value/label course group options ([] in search mode)
+    * groupsearch - whether the group picker is a search
+    * destinationsjson - JSON list of the group ids this run distributes into
+    * courseid - course id for the search web services
     * rulesjson - JSON list of initial rules (source, mode, label keys)
     * maxrules - guardrail maximum number of rules
 
@@ -38,6 +49,9 @@
         "fieldsjson": "[{\"value\":\"city\",\"label\":\"City\"}]",
         "cohortsjson": "[{\"value\":\"cohort_7\",\"label\":\"Managers\"}]",
         "cohortsearch": false,
+        "groupsjson": "[{\"value\":\"group_9\",\"label\":\"Lab team 2026.1\"}]",
+        "groupsearch": false,
+        "destinationsjson": "[11,12]",
         "courseid": 2,
         "rulesjson": "[{\"source\":\"city\",\"mode\":\"together\",\"label\":\"City\"}]",
         "maxrules": 10
@@ -48,6 +62,9 @@
      data-fields="{{fieldsjson}}"
      data-cohorts="{{cohortsjson}}"
      data-cohortsearch="{{#cohortsearch}}1{{/cohortsearch}}{{^cohortsearch}}0{{/cohortsearch}}"
+     data-groups="{{groupsjson}}"
+     data-groupsearch="{{#groupsearch}}1{{/groupsearch}}{{^groupsearch}}0{{/groupsearch}}"
+     data-destinations="{{destinationsjson}}"
      data-courseid="{{courseid}}"
      data-rules="{{rulesjson}}"
      data-maxrules="{{maxrules}}">

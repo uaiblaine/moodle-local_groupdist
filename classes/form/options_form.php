@@ -43,6 +43,16 @@ class options_form extends \moodleform {
     /** @var int Most cohorts shown as a plain menu; beyond it the picker becomes a search. */
     public const COHORT_MENU_LIMIT = 10;
 
+    /* Groups get their own, higher limit rather than sharing the cohort one.
+       The cohort bound exists because cohorts are site-level and platforms
+       carry thousands; groups are course-bounded and a course with a dozen
+       groups is ordinary, so flipping such a course to a search box would be
+       worse UI, not safer. 25 is deliberately the number the plugin already
+       treats as "too many groups to show at once" — get_preview::GROUP_CAP —
+       so there is one such constant in the plugin, not two. */
+    /** @var int Most course groups shown as a plain menu; beyond it the picker becomes a search. */
+    public const GROUP_MENU_LIMIT = 25;
+
     /**
      * Form definition.
      *
@@ -161,9 +171,11 @@ class options_form extends \moodleform {
         // Section: affinity rules. The builder is an AMD-driven widget whose
         // rows post through the flattened affinityrulesources[]/modes[]
         // hidden inputs (read back via options::rules_from_post()). Each row
-        // picks a type first (profile field or cohort); cohorts are a bounded
-        // list up to COHORT_MENU_LIMIT and a search beyond it — platforms can
-        // carry thousands, so they are never enumerated.
+        // picks a type first (profile field, cohort or course group); cohorts
+        // are a bounded list up to COHORT_MENU_LIMIT and a search beyond it —
+        // platforms can carry thousands, so they are never enumerated — and
+        // course groups follow the same two-mode shape at GROUP_MENU_LIMIT,
+        // for usability rather than disclosure.
         global $CFG, $OUTPUT, $PAGE;
         require_once($CFG->dirroot . '/cohort/lib.php');
 
@@ -191,6 +203,24 @@ class options_form extends \moodleform {
                 ];
             }
         }
+        /* The group picker is served from the same helper the submit-side
+           validator uses, so the picker can never offer what validation()
+           rejects. The destination ids travel too: a destination group used as
+           a rule source is vacuous while "ignore users already in the selected
+           groups" is on (every candidate carrying the value has been filtered
+           out of the run by construction), so the builder disables those
+           options live and re-enables them when that checkbox is unticked. */
+        $sourcegroups = profilefields::get_source_groups($context);
+        $groups = [];
+        $groupsearch = count($sourcegroups) > self::GROUP_MENU_LIMIT;
+        if (!$groupsearch) {
+            foreach ($sourcegroups as $id => $name) {
+                // Plain, like the cohort labels beside them: the row template
+                // prints an <option> through a DOUBLE stash.
+                $groups[] = ['value' => 'group_' . $id, 'label' => $name];
+            }
+        }
+
         $initialrules = [];
         foreach (($this->_customdata['initialrules'] ?? []) as $rule) {
             $initialrules[] = $rule + [
@@ -204,6 +234,9 @@ class options_form extends \moodleform {
             'fieldsjson' => json_encode($fields),
             'cohortsjson' => json_encode($cohorts),
             'cohortsearch' => $cohortsearch,
+            'groupsjson' => json_encode($groups),
+            'groupsearch' => $groupsearch,
+            'destinationsjson' => json_encode(array_values(array_map('intval', (array) $groupids))),
             'courseid' => $courseid,
             'rulesjson' => json_encode($initialrules),
             'maxrules' => \local_groupdist\local\ruleset::DEFAULT_MAX_RULES,
@@ -291,9 +324,39 @@ class options_form extends \moodleform {
         $rules = options::rules_from_post();
         try {
             $ruleset = \local_groupdist\local\ruleset::from_array($rules);
-            foreach ($ruleset->get_rules() as $rule) {
+            $destinations = array_map('intval', (array) ($this->_customdata['groupids'] ?? []));
+            $ignoregrouped = !empty($data['ignoregrouped']);
+            foreach ($ruleset->get_rules() as $i => $rule) {
                 if (!profilefields::is_allowed($rule['source'], $context)) {
                     $errors['affinityruleserr'] = get_string('invaliddata', 'error');
+                    break;
+                }
+                /* A destination group as a rule source is vacuous EXACTLY when
+                   the ignore filter is on: candidates::fetch() then excludes
+                   every user already holding a membership row in the selected
+                   groups, so the value column is empty for 100% of survivors
+                   and the only trace is one "no value" warning naming the whole
+                   candidate count. With the filter off those members do take
+                   part and the rule genuinely constrains them, so this is a
+                   conjunction, never a blanket ban on the source.
+
+                   The builder disables these options while the filter is on, so
+                   reaching this needs a forged POST or the filter being unticked
+                   after the rule was picked — but the message still has to say
+                   which rule and why, because the generic invaliddata above
+                   cannot. */
+                $groupid = \local_groupdist\local\ruleset::source_groupid($rule['source']);
+                if ($ignoregrouped && $groupid && in_array($groupid, $destinations, true)) {
+                    /* ESCAPED, unlike the picker list a few lines above: core
+                       renders a moodleform element's error through a TRIPLE
+                       stash (lib/form/templates/element-template.mustache), so
+                       a group named "A & B" would otherwise reach the page raw.
+                       Same split this form already holds for the cohortid
+                       select against the rule builder's data attribute. */
+                    $errors['affinityruleserr'] = get_string('errorruleselfreference', 'local_groupdist', (object) [
+                        'index' => $i + 1,
+                        'group' => profilefields::get_source_groups($context, true)[$groupid] ?? '',
+                    ]);
                     break;
                 }
             }

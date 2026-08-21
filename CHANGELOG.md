@@ -13,12 +13,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   that is what caps the column count, and it is governed by the container, so
   the block drawer narrowing `#region-main` is handled where a viewport media
   query would fire at the wrong moment. Measured on the real report — three
-  columns above about 930px, two down to 560px, one below. The 19rem floor is
+  columns above about 930px, two down to about 615px, one below (three 19rem
+  columns plus two 0.5rem gaps is 928px; two is 616px). The 19rem floor is
   measured too: at 17rem three columns still fit an 860px region and wrapped
   participant names.
 - A section card opens with **five participants** rather than twenty, since a
   card is now a third of the page wide. The first "show more" still pulls a
-  full twenty, so a fifty-member group is two clicks rather than ten — the
+  full twenty, so a fifty-member group is three clicks rather than nine — the
   preview size and the window size are separate constants now
   (`MEMBERS_PREVIEW` and `MEMBERS_PER_PAGE`).
 - The "why here?" disclosure is indented under the participant it belongs to,

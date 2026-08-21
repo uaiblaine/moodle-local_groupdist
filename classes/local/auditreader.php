@@ -56,7 +56,8 @@ class auditreader {
      * card is a third of the width and its job is to be scannable next to its
      * neighbours; the reader who wants the whole group opens it on its own
      * page. The first "show more" still pulls a full MEMBERS_PER_PAGE, so a
-     * fifty-member group is two clicks rather than ten.
+     * fifty-member group is three clicks (5 + 20 + 20 + 5) rather than the nine
+     * it would take if the card's window were also the increment.
      *
      * @var int
      */

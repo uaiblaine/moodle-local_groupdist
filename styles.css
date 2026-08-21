@@ -244,6 +244,13 @@
     min-width: 19rem;
 }
 
+/* A flex item refuses to shrink below its content, so a long unbroken group
+   name used to overflow the card and paint over its neighbour — invisible
+   while sections were full width, reachable now that a card is a third of it. */
+.local-groupdist-auditgrid .local-groupdist-auditsection h3 {
+    min-width: 0;
+}
+
 /* Indented so the disclosure reads as belonging to the row above it. Scoped to
    the report, never to a bare details element. */
 .local-groupdist-auditdetail .local-groupdist-auditdisclosure {
@@ -279,7 +286,12 @@
     transform: rotate(90deg);
 }
 
-/* The chevron is direction-aware, so the rotation has to be too. */
+/* t/collapsedchevron is direction-SPECIFIC, not direction-aware: it maps to
+   fa-chevron-right on both branches and nothing flips the glyph — core's own
+   rtlcss leaves transform alone, and core pairs the icon with its _rtl twin
+   behind dir-rtl-hide/dir-ltr-hide instead of rotating it. The template emits
+   both, so here the RTL base glyph is chevron-LEFT and -90deg is what points
+   it down. */
 [dir="rtl"] .local-groupdist-auditdisclosure[open] summary .icon {
     transform: rotate(-90deg);
 }

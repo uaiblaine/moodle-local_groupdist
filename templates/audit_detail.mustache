@@ -85,7 +85,7 @@
                         "removed": false,
                         "profileurl": "https://example.com/user/view.php?id=7&course=2",
                         "groupname": "Group 01",
-                        "outcome": {"label": "written", "class": "success"},
+                        "outcome": {"label": "no seat", "class": "warning", "notable": true},
                         "why": [
                             {"text": "No rule constrained this participant.", "muted": true, "warn": false}
                         ]
@@ -174,7 +174,7 @@
     <p><a href="{{clearurl}}">{{#str}} auditallgroups, local_groupdist {{/str}}</a></p>
     {{/pinned}}
 
-    <div data-region="sections">
+    <div class="local-groupdist-auditgrid" data-region="sections">
         {{> local_groupdist/audit_sections }}
     </div>
 

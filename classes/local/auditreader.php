@@ -46,8 +46,22 @@ class auditreader {
     /** @var int Group sections listed per page. */
     public const SECTIONS_PER_PAGE = 8;
 
-    /** @var int Members listed per section window. */
+    /** @var int Members listed per section window: "show more" and the pinned view. */
     public const MEMBERS_PER_PAGE = 20;
+
+    /**
+     * Members a section card opens with, before "show more".
+     *
+     * Smaller than a window on purpose. Sections lay out three to a row, so a
+     * card is a third of the width and its job is to be scannable next to its
+     * neighbours; the reader who wants the whole group opens it on its own
+     * page. The first "show more" still pulls a full MEMBERS_PER_PAGE, so a
+     * fifty-member group is three clicks (5 + 20 + 20 + 5) rather than the nine
+     * it would take if the card's window were also the increment.
+     *
+     * @var int
+     */
+    public const MEMBERS_PREVIEW = 5;
 
     /** @var int Most peers named in one keep-apart explanation line. */
     public const PEER_CAP = 5;
@@ -194,7 +208,7 @@ class auditreader {
         $rowsbysection = [];
         $allrows = [];
         foreach ($window as $section) {
-            $rows = $this->fetch_rows($section['id'], $userquery, 0, self::MEMBERS_PER_PAGE);
+            $rows = $this->fetch_rows($section['id'], $userquery, 0, self::MEMBERS_PREVIEW);
             $rowsbysection[$section['id']] = $rows;
             $allrows = array_merge($allrows, $rows);
         }
@@ -385,15 +399,39 @@ class auditreader {
     public static function outcome_badge(int $writestatus): array {
         switch ($writestatus) {
             case runlog::WRITE_WRITTEN:
-                return ['label' => get_string('auditoutcomewritten', 'local_groupdist'), 'class' => 'success'];
+                /* Not notable: on a run that worked, every row says this, and a
+                   column of identical badges tells the reader nothing. The
+                   label stays in the payload for anyone who needs it — the
+                   templates simply do not paint it. */
+                return [
+                    'label' => get_string('auditoutcomewritten', 'local_groupdist'),
+                    'class' => 'success',
+                    'notable' => false,
+                ];
             case runlog::WRITE_FAILED:
-                return ['label' => get_string('auditoutcomefailed', 'local_groupdist'), 'class' => 'danger'];
+                return [
+                    'label' => get_string('auditoutcomefailed', 'local_groupdist'),
+                    'class' => 'danger',
+                    'notable' => true,
+                ];
             case runlog::WRITE_UNASSIGNED:
-                return ['label' => get_string('auditoutcomeunassigned', 'local_groupdist'), 'class' => 'warning'];
+                return [
+                    'label' => get_string('auditoutcomeunassigned', 'local_groupdist'),
+                    'class' => 'warning',
+                    'notable' => true,
+                ];
             case runlog::WRITE_SKIPPED:
-                return ['label' => get_string('auditoutcomeskipped', 'local_groupdist'), 'class' => 'secondary'];
+                return [
+                    'label' => get_string('auditoutcomeskipped', 'local_groupdist'),
+                    'class' => 'secondary',
+                    'notable' => true,
+                ];
             default:
-                return ['label' => get_string('auditoutcomeplanned', 'local_groupdist'), 'class' => 'secondary'];
+                return [
+                    'label' => get_string('auditoutcomeplanned', 'local_groupdist'),
+                    'class' => 'secondary',
+                    'notable' => true,
+                ];
         }
     }
 

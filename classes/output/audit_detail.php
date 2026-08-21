@@ -148,7 +148,6 @@ class audit_detail implements \renderable, \templatable {
                 'runid' => (int) $run->id,
                 'courseid' => (int) $run->courseid,
                 'sectionsperpage' => auditreader::SECTIONS_PER_PAGE,
-                'membersperpage' => auditreader::MEMBERS_PER_PAGE,
                 'pinned' => $pinned ? $this->groupid : self::GROUP_ANY,
             ]),
             'backurl' => (new \moodle_url('/local/groupdist/audit.php', ['id' => (int) $run->courseid]))->out(false),

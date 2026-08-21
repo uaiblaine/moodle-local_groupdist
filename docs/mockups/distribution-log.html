@@ -137,7 +137,14 @@
   .toolbar .counter { margin-left: auto; font-size: .82rem; color: var(--ink-2); }
 
   /* ── Group sections ────────────────────────────────────────────────── */
-  .gsec { padding: .85rem 1.1rem; margin-bottom: .6rem; }
+  /* Three columns on a wide container, two, then one as it narrows.
+     Percentage flex-basis rather than grid: a percentage basis is what caps
+     the column COUNT (four cards of 30% cannot share a row), and the rem
+     floor keeps a column readable. It is governed by the CONTAINER, so it
+     still behaves when the block drawer narrows #region-main — which a
+     viewport media query would not. */
+  .gsecs { display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-start; }
+  .gsec { flex: 1 1 30%; min-width: 19rem; padding: .85rem 1.1rem; margin-bottom: 0; }
   .ghead { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; margin-bottom: .5rem; }
   .ghead .count { margin-left: auto; font-size: .82rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
   .members { list-style: none; margin: 0; padding: 0; }
@@ -155,11 +162,23 @@
   }
   .tablewrap { overflow-x: auto; }
 
-  details.why { font-size: .82rem; margin-top: .15rem; }
-  details.why summary { cursor: pointer; color: var(--ink-2); list-style: none; }
-  details.why summary::before { content: "▸ "; }
-  details.why[open] summary::before { content: "▾ "; }
-  details.why ul { margin: .25rem 0 .35rem; padding-left: 1.5rem; color: var(--ink); }
+  /* Indented so the disclosure reads as belonging to the row above it.
+     Scoped to the audit report's own class, never to bare `details`. */
+  details.why { font-size: .82rem; margin-top: .15rem; margin-left: 1.5rem; }
+  details.why summary {
+    cursor: pointer; color: var(--ink-2); list-style: none;
+    display: flex; align-items: center; gap: .4rem;
+  }
+  details.why summary::-webkit-details-marker { display: none; }
+  /* Stands in for Moodle's own chevron: the real page renders
+     core's t/collapsedchevron (fa-chevron-right) and rotates it. */
+  details.why summary::before {
+    content: ""; flex: none; width: .42rem; height: .42rem;
+    border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg); transition: transform 150ms ease-in-out;
+  }
+  details.why[open] summary::before { transform: rotate(45deg); }
+  details.why ul { margin: .25rem 0 .35rem; padding-left: 1.1rem; color: var(--ink); }
   details.why li.mutedline { color: var(--ink-2); }
   details.why li.warnline { color: var(--danger, #ca3120); }
 
@@ -211,7 +230,11 @@
       and participants inside each section — because a run can hold hundreds of groups and thousands of
       participants. The two searches filter live here exactly as the AMD module does against the audit web
       services; the paging bar, the search form and each section's "Show more" are plain links and a form
-      first, so the report also works with JavaScript off.</span>
+      first, so the report also works with JavaScript off.
+      Group sections lay out <strong>three to a row</strong> on a wide container and fall to two, then one,
+      as it narrows &mdash; driven by the container, so the block drawer does not break it. Each card opens
+      with <strong>five participants</strong>, and the outcome badge shows only when the outcome is
+      <em>not</em> the expected &ldquo;written&rdquo;.</span>
   </div>
 
   <div class="switch" role="group" aria-label="Screen">
@@ -291,7 +314,7 @@
 
     <p id="pinnednote" hidden><a href="#" id="allgroups">All groups of this run</a></p>
 
-    <div id="sections"></div>
+    <div id="sections" class="gsecs"></div>
     <div class="alert info" id="empty" hidden>
       <span class="ico" aria-hidden="true">ℹ</span>
       <span>No group or participant of this run matches the current search.</span>
@@ -307,7 +330,11 @@
 
   // The real constants: auditreader::SECTIONS_PER_PAGE and ::MEMBERS_PER_PAGE.
   const SECTIONS_PER_PAGE = 8;
-  const MEMBERS_PER_PAGE = 20;
+  // Initial window per card. The "Show more" STEP is deliberately larger:
+  // a compact card is the point, but a 47-member group should not take nine
+  // clicks to read. Collapsing these to one number is a one-line change.
+  const MEMBERS_PER_PAGE = 5;
+  const MEMBERS_STEP = 20;
   const PEER_CAP = 5;
   const TOTAL_GROUPS = 42;
 
@@ -438,7 +465,12 @@
         + '<span class="newtab"> (Opens in new window)</span></a>';
     }
     row.appendChild(who);
-    row.appendChild(el('span', 'out badge ' + member.outcome.cls, member.outcome.label));
+    /* No badge on the expected outcome. "written" is what every row says on a
+       healthy run, so badging it is a column of identical green telling the
+       reader nothing; the four outcomes that DO need attention still show. */
+    if (member.outcome.label !== 'written') {
+      row.appendChild(el('span', 'out badge ' + member.outcome.cls, member.outcome.label));
+    }
     li.appendChild(row);
 
     const det = el('details', 'why');
@@ -487,7 +519,7 @@
       a.addEventListener('click', ev => {
         ev.preventDefault();
         // Appends one more window, exactly as the members web service does.
-        state.shown.set(group.id, shown + MEMBERS_PER_PAGE);
+        state.shown.set(group.id, shown + MEMBERS_STEP);
         render();
       });
       more.appendChild(a);
@@ -525,11 +557,16 @@
 
     const host = document.getElementById('sections');
     host.innerHTML = '';
-    window_.forEach(g => host.appendChild(sectionNode(g)));
+    let shownmembers = 0;
+    window_.forEach(g => {
+      const n = matchingMembers(g).length;
+      shownmembers += Math.min(state.shown.get(g.id) || MEMBERS_PER_PAGE, n);
+      host.appendChild(sectionNode(g));
+    });
 
     document.getElementById('empty').hidden = sections.length > 0;
     document.getElementById('counter').textContent = state.pinned !== null
-      ? 'Showing ' + Math.min(totalmembers, MEMBERS_PER_PAGE) + ' of ' + totalmembers + ' participants'
+      ? 'Showing ' + shownmembers + ' of ' + totalmembers + ' participants'
       : 'Showing ' + Math.min(sections.length, start + SECTIONS_PER_PAGE) + ' of ' + sections.length
         + ' groups · ' + totalmembers + ' participants';
     document.getElementById('clearfilters').hidden = !(state.uq || state.gq);

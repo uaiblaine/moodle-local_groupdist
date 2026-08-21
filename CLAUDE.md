@@ -245,6 +245,19 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   groups is PHP over the snapshot — `valuesjson` is never searched, because
   `json_encode` escaping (`/` → `\/`, non-ASCII → `\uXXXX`) makes a portable
   LIKE silently wrong.
+- **The audit report's two member counts are different numbers on purpose.**
+  `MEMBERS_PREVIEW` (5) is what a section card opens with, because sections lay
+  out three to a row; `MEMBERS_PER_PAGE` (20) is a real window — what "show
+  more" pulls and what the pinned single-group page pages by. Collapsing them
+  back would either bloat the cards or make a fifty-member group ten clicks.
+  The column count is capped by a percentage flex-basis with a 19rem floor, not
+  by a grid or a media query: only a percentage basis caps the count, and only
+  a container-driven rule survives the block drawer narrowing `#region-main`.
+- **The outcome badge is painted only when `outcome.notable`.** Every row of a
+  healthy run says "written", so the reader learns nothing from it; the label
+  still travels in the web service payload, and `audit_ws` declares `notable`
+  in its returns — the structure is an allowlist, so a new key added to the
+  builder and not to the returns is silently stripped.
 - **Anything the audit report displays is `format_string(..., escape => false)`
   first.** Values land in a Mustache double stash and in `PARAM_TEXT` web
   service fields: the default escaping would be encoded twice on screen, and

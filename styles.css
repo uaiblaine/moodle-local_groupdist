@@ -223,13 +223,77 @@
 
 /* Distribution audit report. */
 
-.local-groupdist-auditdetail .local-groupdist-auditwhy {
-    padding-left: 1.6rem;
+/* Three sections to a row on a wide container, two, then one as it narrows.
+   A percentage flex-basis is what caps the column COUNT — four cards of 30%
+   cannot share a row — while repeat(auto-fit, minmax()) caps nothing, and the
+   rem floor keeps a column readable. Governed by the container rather than the
+   viewport, so the block drawer narrowing #region-main is handled. */
+.local-groupdist-auditgrid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem;
 }
 
+.local-groupdist-auditgrid .local-groupdist-auditsection {
+    flex: 1 1 30%;
+    /* Measured on the real report: at 17rem three columns still fit an 860px
+       region, which puts a participant name into 286px and wraps it. 19rem
+       moves the three-to-two break to about 930px, so three columns means a
+       genuinely wide region. */
+    min-width: 19rem;
+}
+
+/* A flex item refuses to shrink below its content, so a long unbroken group
+   name used to overflow the card and paint over its neighbour — invisible
+   while sections were full width, reachable now that a card is a third of it. */
+.local-groupdist-auditgrid .local-groupdist-auditsection h3 {
+    min-width: 0;
+}
+
+/* Indented so the disclosure reads as belonging to the row above it. Scoped to
+   the report, never to a bare details element. */
+.local-groupdist-auditdetail .local-groupdist-auditdisclosure {
+    margin-left: 1.5rem;
+}
+
+.local-groupdist-auditdetail .local-groupdist-auditwhy {
+    padding-left: 1.1rem;
+}
+
+/* The default marker is a bare triangle that does not read as a control, so
+   the summary carries core's own chevron (t/collapsedchevron) instead and the
+   list marker goes. Both spellings: Safari still wants the -webkit- one. */
 .local-groupdist-auditdisclosure summary {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     cursor: pointer;
     color: var(--bs-secondary-color, #6c757d);
+    list-style: none;
+}
+
+.local-groupdist-auditdisclosure summary::-webkit-details-marker {
+    display: none;
+}
+
+.local-groupdist-auditdisclosure summary .icon {
+    margin: 0;
+    transition: transform 150ms ease-in-out;
+}
+
+.local-groupdist-auditdisclosure[open] summary .icon {
+    transform: rotate(90deg);
+}
+
+/* t/collapsedchevron is direction-SPECIFIC, not direction-aware: it maps to
+   fa-chevron-right on both branches and nothing flips the glyph — core's own
+   rtlcss leaves transform alone, and core pairs the icon with its _rtl twin
+   behind dir-rtl-hide/dir-ltr-hide instead of rotating it. The template emits
+   both, so here the RTL base glyph is chevron-LEFT and -90deg is what points
+   it down. */
+[dir="rtl"] .local-groupdist-auditdisclosure[open] summary .icon {
+    transform: rotate(-90deg);
 }
 
 .local-groupdist-auditsection[aria-busy="true"],

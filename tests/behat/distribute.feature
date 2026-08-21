@@ -62,8 +62,38 @@ Feature: Distribute participants into selected groups
     When I click on "View" "link"
     Then I should see "Applied by: Terry Teacher"
     And I should see "Group A"
-    And I should see "written"
     And I should see "Showing 2 of 2 groups"
+    # The expected outcome carries no badge; only the exceptional ones do.
+    # Scoped to the badge itself: the run meta line legitimately reads
+    # "... memberships written", so a whole-page check would pass for the
+    # wrong reason.
+    And "//span[contains(@class, 'badge')][normalize-space() = 'written']" "xpath_element" should not exist
+
+  Scenario: A group section opens with five participants and offers the rest
+    Given the following "users" exist:
+      | username | firstname | lastname |
+      | student5 | Sky       | Five     |
+      | student6 | Sal       | Six      |
+      | student7 | Sky       | Seven    |
+    And the following "course enrolments" exist:
+      | user     | course | role    |
+      | student5 | C1     | student |
+      | student6 | C1     | student |
+      | student7 | C1     | student |
+    And I am on the "Course 1" "groups" page logged in as "teacher1"
+    # One target group, so all seven participants land in the same section.
+    When I set the field "Groups" to "Group A (0)"
+    And I click on "Distribute participants" "button"
+    And I press "Preview distribution"
+    And I click on "Apply distribution" "button"
+    And I am on the "Course 1" "course" page
+    And I navigate to "Reports" in current page administration
+    And I click on "Distribution log" "link"
+    And I click on "View" "link"
+    Then I should see "Show 2 more"
+    And I should see "7"
+    When I click on "Show 2 more" "link"
+    Then I should not see "Show 2 more"
 
   Scenario: The audit log searches the run by participant and by group name
     Given I am on the "Course 1" "groups" page logged in as "teacher1"

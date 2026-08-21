@@ -80,21 +80,77 @@ class fields {
      * every UI text referring to the field must echo the stored name instead
      * of hardcoding a translated "Seats"/"Vagas".
      *
+     * Almost every consumer escapes for itself, so the default is the plain
+     * spelling; pass true for the handful that render it raw. See escaped().
+     *
+     * @param bool $escape Whether to HTML-escape the name.
      * @return string The formatted field name (lang-pack fallback when missing).
      */
-    public static function get_seats_label(): string {
+    public static function get_seats_label(bool $escape = false): string {
         $field = self::get_seats_field();
-        return $field ? format_string($field->get('name')) : get_string('fieldseats', 'local_groupdist');
+        if (!$field) {
+            return get_string('fieldseats', 'local_groupdist');
+        }
+        return $escape ? self::escaped($field->get('name')) : self::plain($field->get('name'));
     }
 
     /**
      * Display name of the location field as the admin actually named it.
      *
+     * No $escape twin: unlike the seats label, this one has no consumer that
+     * renders it unescaped. Give it the same treatment as get_seats_label() if
+     * one ever appears — the rule is in plain()'s docblock.
+     *
      * @return string The formatted field name (lang-pack fallback when missing).
      */
     public static function get_location_label(): string {
         $field = self::get_location_field();
-        return $field ? format_string($field->get('name')) : get_string('fieldlocation', 'local_groupdist');
+        return $field ? self::plain($field->get('name')) : get_string('fieldlocation', 'local_groupdist');
+    }
+
+    /**
+     * The same name, escaped, for the few sinks that render it raw.
+     *
+     * Two of them, both in options_form: the "use seats" advcheckbox label and
+     * the no-seats static note. Core prints a form element's label through
+     * element-advcheckbox.mustache's {{{label}}} and a static element through
+     * element-static.mustache's {{{element.html}}} — triple stashes, so the
+     * value has to arrive escaped. Everything else the label reaches is a
+     * double stash or textContent and wants plain(). Core draws the same
+     * distinction with core_customfield\field_controller::get_formatted_name(),
+     * which takes the same switch for the same reason.
+     *
+     * @param string $name The stored field name.
+     * @return string The formatted name, HTML-escaped.
+     */
+    private static function escaped(string $name): string {
+        return format_string($name, true, ['context' => \core\context\system::instance()]);
+    }
+
+    /**
+     * Format a stored field name for output, unescaped.
+     *
+     * Every consumer escapes for itself and would otherwise escape a second
+     * time, so a field an admin named "Vagas & Lugares" reads "Vagas &amp;
+     * Lugares" on screen. Measured on 5.2: the label reaches a
+     * {{#str}} parameter, which the string helper renders through a double
+     * stash before substituting it, and the lambda's own return is inserted
+     * unescaped — so the page carried "Vagas &amp;amp; Lugares" while the
+     * column header beside it, already fixed, carried "Vagas &amp; Lugares".
+     *
+     * The system context is deliberate: group custom fields are defined
+     * site-wide (group_handler::get_configuration_context()), not per course.
+     * The lang-pack fallback above needs no equivalent — a lang string is
+     * never escaped on the way out either.
+     *
+     * @param string $name The stored field name.
+     * @return string The formatted name, not HTML-escaped.
+     */
+    private static function plain(string $name): string {
+        return format_string($name, true, [
+            'context' => \core\context\system::instance(),
+            'escape' => false,
+        ]);
     }
 
     /**

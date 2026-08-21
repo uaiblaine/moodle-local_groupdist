@@ -72,7 +72,8 @@ classes/
                              MAX_CHANGES=200 per call; client chunks at 100)
   output/bulkedit_page.php   Table context builder (also refreshes one row
                              after the settings modal saves)
-  form/group_settings_form.php Dynamic-form modal wrapping core group settings
+  form/group_settings_form.php Dynamic-form modal carrying every element of
+                             core's group edit form (see the gotcha below)
   task/apply_distribution.php Adhoc apply with stored progress
   event/distribution_applied.php One event per applied run (no objecttable)
 amd/src/index_button.js      Injected formaction submit button on group/index
@@ -174,6 +175,43 @@ docs/                        Approved HTML mockups + design decisions (export-ig
 - **WS return structure is an allowlist**: preview data is rendered client-side
   only, from `get_preview` — a field added to the payload must be added to
   `execute_returns()` or `clean_returnvalue` silently strips it.
+- **The settings modal is full core parity** — every element of
+  `group/group_form.php`, including the enrolment key, visibility,
+  participation and the picture. Why a file upload and the YUI picker work at
+  all inside a `dynamic_form` is fleet-general and lives in `~/dev/CLAUDE.md`
+  ("Modal forms"). What is specific here:
+  - `groups_update_group($data, $this)` takes **two** arguments. `$editform`
+    is what writes the picture; a third (`$editoroptions`) would re-run the
+    `file_postupdate_standard_editor()` this form already did. It also calls
+    `instance_form_save()` itself, so the form must not.
+  - `definition_after_data()` cannot be copied from core verbatim: core reads
+    `getElementValue('id')` and this form's hidden transport is `groupid`, so
+    a copy silently finds no group, drops the picture rows and never freezes
+    anything.
+  - Visibility and participation freeze once the group has members. That is
+    core's invariant, enforced twice (the form freezes, and
+    `core_group_update_groups` throws `'The visibility of this group cannot be
+    changed as it currently has members.'`) — and since this modal is reached
+    from a bulk distribution flow, most groups here have members.
+- **Two deliberate divergences from core's group form, both safety.** The
+  picture upload is validated: core accepts any file and lets
+  `process_new_icon()` fail, and that failure path **deletes the group's
+  existing picture**. Closing it takes both halves of `PICTURE_TYPES` +
+  `validate_picture()`, and the traps are worth remembering — core's
+  `web_image` group carries `svg`, `svgz` and `webp` (and `optimised_image`
+  carries `webp`), none of which GD writes in `process_new_icon()`, so naming
+  a group instead of the extensions advertises three formats that destroy the
+  picture; and `MoodleQuickForm_filepicker::validateSubmitValue()` compares
+  extensions only, so a renamed file still reaches the deletion path — hence
+  the `get_imageinfo()` check. And the enrolment key is capped at 50
+  characters, the real `{groups}.enrolmentkey` width, re-checked server-side —
+  core's form says `maxlength="254"` and the modal is a web service endpoint,
+  so the DOM cap means nothing.
+- **The current picture is rendered from a template, not
+  `print_group_picture()`.** That helper still wraps the image in a link to
+  the participants list for anyone holding `moodle/site:accessallgroups` even
+  when passed `$link = false`, and following it from inside the modal
+  discards the unsaved form.
 - **Bulk edit has no cancel, on purpose.** Saving writes through the web
   service as it goes, so a cancel in the footer would undo nothing — the
   control is "Back to groups", and `bulkedit.js` confirms before leaving
@@ -212,13 +250,27 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   service fields: the default escaping would be encoded twice on screen, and
   an unstripped `<` makes `clean_returnvalue()` throw, so the page renders
   and then dies on the first search keystroke.
+- **Admin-set names come in two spellings here, and both are in use.** The
+  general rule — which sinks need PLAIN, which need ESCAPED, and why an
+  ampersand is the only fixture that reveals a mistake — is in `~/dev/CLAUDE.md`
+  ("Escaping an admin-set name"). This plugin's map: everything takes the plain
+  spelling (`bulkedit_page::plain()`, `fields::plain()`,
+  `profilefields::plain()`, `auditreader::display_value()`, the `get_preview`
+  payload, `distribute.php`'s selected-group chips) EXCEPT two form sinks —
+  `options_form`'s `cohortid` select and, via `fields::get_seats_label(true)`,
+  its "use seats" label and no-seats note. `options_form` therefore holds both
+  cases a few lines apart, and `options_form_test` pins both directions.
 - **The audit log is a snapshot, never a reference**: `runlog` stores rule
   labels, per-user values and group names as they were at apply time; the
   audit UI derives explanations from these stored facts, never by replaying
   the engine. Deletion pseudonymises (userid 0, values blanked) instead of
   removing rows; course deletion purges via observer (the recycle bin keeps
   a backup file, not the course). Retention = `auditretentiondays` setting +
-  daily `cleanup_audit` task. `applier::apply()` requires the runid — the
+  daily `cleanup_audit` task. Because it is a snapshot, rows written before a
+  formatting change keep the old spelling — a rule label escaped by the older
+  code stays escaped, and no migration can undo it, since `format_string`'s
+  escaping is not injective (an escaped "A & B" and a field genuinely named
+  "A &amp; B" are the same bytes). `applier::apply()` requires the runid — the
   `distribution_applied` event carries it as objectid.
 - **The privacy provider is a full provider**: the audit tables (metadata +
   export + pseudonymising deletes + userlist) plus the collapsible-columns
@@ -235,7 +287,18 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   `group_handler::create()->instance_form_save()` **as admin** — the handler
   silently drops fields the current user cannot edit.
 - WS tests need `$_POST['sesskey'] = sesskey();` before
-  `call_external_function()`.
+  `call_external_function()`. The same applies to building a `dynamic_form`
+  with submitted `$ajaxformdata`: `_process_submission()` calls
+  `confirm_sesskey()`, which reads the superglobal and never the payload.
+- Submitting the settings modal in a test means submitting what the browser
+  would. `customfield_number` pairs its input with a hidden
+  `<name>_maximum` ceiling element and a `compare`/`lt` rule, so omitting it
+  fails validation with a maximum-value error; and
+  `customfield_text::instance_form_validation()` indexes `$data[$elementname]`
+  unguarded, so omitting a text field raises a warning the `--fail-on-warning`
+  gate turns into a failure. The enrolment key policy is **on by default**
+  (`groupenrolmentkeypolicy`), so a test key must either be strong or the
+  policy explicitly switched off.
 - The `@covers`-in-docblock PHPUnit deprecations match core 5.1/5.2 style;
   they do not fail CI.
 

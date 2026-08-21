@@ -16,6 +16,7 @@
 
 namespace local_groupdist\form;
 
+use local_groupdist\local\fields;
 use local_groupdist\local\options;
 use local_groupdist\local\profilefields;
 
@@ -131,8 +132,13 @@ class options_form extends \moodleform {
             foreach ($sample as $cohort) {
                 $cohorts[] = [
                     'value' => 'cohort_' . (int) $cohort->id,
+                    /* Escaped by the rule builder's own template, which prints
+                       an <option> through a DOUBLE stash — unlike the cohortid
+                       select above, which core renders through a triple stash
+                       and whose label must therefore stay escaped. */
                     'label' => format_string($cohort->name, true, [
                         'context' => \core\context::instance_by_id($cohort->contextid),
+                        'escape' => false,
                     ]),
                 ];
             }
@@ -160,7 +166,11 @@ class options_form extends \moodleform {
         // Section: seats and overbooking. Labels echo the field's STORED name
         // (set once at provisioning time): a site provisioned in English shows
         // "Seats" here even when the UI language is Portuguese.
-        $seatslabel = (string) $this->_customdata['seatslabel'];
+        /* Escaped, not plain: both sinks below are triple stashes — core
+           renders an element label through {{{label}}} and a static element
+           through {{{element.html}}}. Every other consumer of this label
+           escapes for itself and takes the plain spelling. */
+        $seatslabel = fields::get_seats_label(true);
         $mform->addElement('header', 'seatshdr', get_string('seatssection', 'local_groupdist'));
         $mform->setExpanded('seatshdr', true);
         $mform->addElement('advcheckbox', 'useseats', get_string('useseats', 'local_groupdist', $seatslabel));

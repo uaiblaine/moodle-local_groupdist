@@ -80,8 +80,10 @@ class search_cohorts extends external_api {
         foreach ($matches as $cohort) {
             $cohorts[] = [
                 'value' => 'cohort_' . (int) $cohort->id,
+                // Escaped by the client (rules.js writes it with textContent).
                 'label' => format_string($cohort->name, true, [
                     'context' => \core\context::instance_by_id($cohort->contextid),
+                    'escape' => false,
                 ]),
             ];
         }

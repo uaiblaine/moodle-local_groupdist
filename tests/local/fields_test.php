@@ -66,6 +66,51 @@ final class fields_test extends \advanced_testcase {
     }
 
     /**
+     * Field names reach callers unescaped, because every consumer escapes for
+     * itself. Measured on 5.2: with the default escaping, a field named
+     * "Vagas & Lugares" reached the bulk edit page as "Vagas &amp;amp;
+     * Lugares" and read "Vagas &amp; Lugares" on screen.
+     *
+     * Measured: format_string's escape flag rewrites & and any < or > that
+     * survives strip_tags(), so a bare ampersand is a valid fixture while a
+     * tag-shaped one is not — <b>x</b> is stripped identically in both modes.
+     *
+     * @return void
+     */
+    public function test_labels_are_not_pre_escaped(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        fields::reset_field_cache();
+        fields::ensure_fields_exist();
+        fields::reset_field_cache();
+
+        $DB->set_field('customfield_field', 'name', 'Vagas & Lugares', ['id' => fields::get_seats_field()->get('id')]);
+        $DB->set_field('customfield_field', 'name', 'Local & Sala', ['id' => fields::get_location_field()->get('id')]);
+        fields::reset_field_cache();
+
+        $this->assertSame('Vagas & Lugares', fields::get_seats_label());
+        $this->assertSame('Local & Sala', fields::get_location_label());
+    }
+
+    /**
+     * With no field provisioned the labels fall back to the lang pack, which
+     * is never escaped either — so both branches agree.
+     *
+     * @return void
+     */
+    public function test_labels_fall_back_to_the_lang_pack(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        fields::reset_field_cache();
+        fields::delete_provisioned_fields();
+        fields::reset_field_cache();
+
+        $this->assertSame(get_string('fieldseats', 'local_groupdist'), fields::get_seats_label());
+        $this->assertSame(get_string('fieldlocation', 'local_groupdist'), fields::get_location_label());
+    }
+
+    /**
      * Bulk value reader returns seats and location per group in one shape.
      */
     public function test_get_group_values(): void {

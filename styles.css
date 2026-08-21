@@ -237,3 +237,9 @@
     opacity: 0.55;
     transition: opacity 150ms ease-in-out;
 }
+
+.local-groupdist-curpic {
+    max-width: 100px;
+    max-height: 100px;
+    object-fit: cover;
+}

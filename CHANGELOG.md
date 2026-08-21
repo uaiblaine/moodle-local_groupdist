@@ -6,7 +6,145 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Fixed
+
+- Cohort names and rule-source labels are no longer escaped twice, finishing
+  the sweep. The most visible instance was the affinity rule builder, the
+  first screen of the flow: `rules.js` writes search results with
+  `option.textContent`, which does not interpret entities, so a cohort named
+  "Ciencias & Letras" was shown to the teacher literally as
+  "Ciencias &amp; Letras". The same labels reach the preview payload, the
+  recap chips and the audit snapshot, all through Mustache double stashes.
+- **Correcting a regression from the previous release entry.** Flipping
+  `fields::get_seats_label()` put a raw ampersand into the two places that
+  render it unescaped: the "use seats" checkbox label and the no-seats note,
+  which core prints through `{{{label}}}` and `{{{element.html}}}`. Measured
+  in the rendered form. The label now takes an `$escape` switch — the shape
+  core itself uses in `field_controller::get_formatted_name()`, and for the
+  same reason — and the options form asks for the escaped spelling. Both
+  directions are pinned by tests, because the two spellings are one line
+  apart and each looks wrong from the other's point of view.
+- The cohort menu on the options form keeps its escaped label on purpose and
+  now has a test saying so. It is a real `select`, and core renders a
+  select's options through a triple stash, so it needs the opposite treatment
+  from the rule-builder list a few lines below it in the same file.
+- Existing audit rows keep the escaped spelling of a rule label, and that is
+  deliberate. The run log is a snapshot of what things were called at apply
+  time, never replayed and never rewritten, and no migration could tell an
+  escaped "A & B" from a field genuinely named "A &amp; B" — the escaping is
+  not injective. Only labels containing an ampersand are affected, and only
+  cosmetically.
+- One participant could break the whole distribution preview. Affinity values
+  reached the payload straight from `{user_info_data}` with no `format_string()`
+  anywhere on the path, into return fields declared `PARAM_TEXT`, whose cleaner
+  runs `strip_tags()`; `validate_param()` then throws because the cleaned string
+  differs from the original, and the exception surfaces through
+  `Notification.exception` — so every page of the preview failed for everyone,
+  not just the row at fault. Reproduced before fixing, and the reproduction is
+  now three tests.
+- The vector is narrower than "any profile field" and worth naming, because it
+  is the one that will come back: a **textarea** custom profile field. The
+  standard fields self-sanitise — `user_update_user()` puts city, department
+  and institution through `core_user::clean_field()` with `PARAM_TEXT` — but
+  `profile_field_textarea` declares `PARAM_RAW`, with its own comment reading
+  "We MUST clean this before display!", and `profilefields::get_fields()`
+  offers every custom field whatever its datatype. So a value holding `<3`,
+  `<TI>` or real markup was reachable through ordinary use.
+- The values now go through one `display_value()` helper that resolves the
+  mapped sources (country, cohort) and otherwise formats the stored text with
+  `escape => false` — stripping the markup, which is what makes it passable
+  through `PARAM_TEXT`, without reintroducing the double-escaping fixed above.
+  `format_string()` strips tags in both escape modes, so the two fixes do not
+  fight. This is the treatment `auditreader::display_value()` has always
+  applied, which is exactly why the audit report was never affected.
+- The group location travels through the same `PARAM_TEXT` field and is now
+  formatted with it. That one is defence in depth rather than a fixed crash:
+  `customfield_data` declares `charvalue` as `PARAM_TEXT`, so the persistent
+  refuses to store a location containing a bare `<` in the first place.
+- The seats and location field labels are no longer escaped twice either,
+  finishing the sweep the bulk edit row fix started. Measured on 5.2 with a
+  field named "Vagas & Lugares": the page carried `Vagas &amp;amp; Lugares`
+  in the mass-apply label, the empty-seats filter, the column menu and both
+  legend entries, while the column header beside them — fixed in the previous
+  change — already carried `Vagas &amp; Lugares`. The same two spellings on
+  one screen. The label reaches those five lines as a `{{#str}}` parameter,
+  which the string helper renders through a double stash of its own before
+  substituting it, and the lambda's return is then inserted unescaped; only a
+  real render exercises that, so there is now a test that renders the whole
+  page and asserts no name reaches it escaped twice. The selected-groups chips
+  on the distribution page had the same defect and are fixed with them.
+- The labels are formatted in the system context now, not whatever context the
+  page happened to be in. Group custom fields are defined site-wide
+  (`group_handler::get_configuration_context()`), so a course-level filter
+  override has no business rewriting a global field's name.
+- The location label crosses the preview web service unescaped, which is safe
+  and was worth confirming rather than assuming: it is declared `PARAM_TEXT`,
+  and `clean_param_value_text()` only handles tags and multilang markup — it
+  never decodes, re-escapes or doubles an entity. Measured both spellings
+  through `clean_returnvalue()`; both pass through byte-identical.
+- The bulk edit table's ID number cell now refreshes when the settings modal
+  changes it, instead of showing the old value until the page is reloaded.
+  The badge exists only when the group has an ID number, so all three
+  transitions — changed, cleared, newly set — go through one path that
+  replaces the node and re-initialises its tooltip; Bootstrap moves a
+  tooltip's title into its own state at init, so updating the attribute in
+  place would have left the old text in the tooltip.
+- Group names and custom field labels are no longer escaped twice in the bulk
+  edit table. `bulkedit_page` formatted them with `format_string()`'s default
+  escaping and then handed them to Mustache double stashes, so a group called
+  "Ana & Bruno" read "Ana &amp;amp; Bruno" — and read correctly a moment later,
+  because `bulkedit.js` writes the refreshed row with `textContent` after the
+  settings modal saves. The same group, two spellings, depending on whether
+  the page had been reloaded. They are formatted `escape => false` now, which
+  is the rule the audit report already follows.
+
 ### Changed
+
+- The group settings modal on the bulk edit page now carries **every** element
+  of core's group edit form. It was missing the enrolment key, the group
+  membership visibility menu and its participation checkbox, the current
+  picture and the new-picture upload — so any job that touched one of them
+  still had to be finished on `group/group.php`. There was no technical
+  obstacle: a `filepicker` posts a draft item id in a hidden input rather than
+  a file, and `moodleform::save_temp_file()` reads that draft area, so the
+  urlencoded dynamic-form payload carries it intact; the YUI picker and the
+  `passwordunmask` widget both initialise because the dynamic-form web service
+  renders inside `start_collecting_javascript_requirements()` and the client
+  replays the collected footer. Verified live in the modal on 5.2.
+- Two defects fell out of the same work. The modal never read the stored group
+  messaging state, so the menu always showed "No" and saving an untouched
+  form silently disabled an enabled group conversation. And it saved the group
+  custom fields twice per submit, once itself and once inside
+  `groups_update_group()`, which has always done it; the modal's own call is
+  gone and the update now passes `$editform` so core writes the picture.
+- Core's rule that a group with members cannot change its visibility or
+  participation is reproduced, not bypassed. Core enforces it twice — the form
+  freezes both elements, `core_group_update_groups` throws — and this modal is
+  reached from a bulk flow where most groups already have members, so it
+  freezes them exactly as core does and leaves them editable when the group is
+  empty.
+- The picture upload is validated, which core's group form does not do. Core
+  accepts any file, then lets `process_new_icon()` fail inside
+  `groups_update_group_icon()`, and that failure path **deletes the group's
+  existing picture**. The upload is now checked twice: the picker offers only
+  the extensions `process_new_icon()` decodes (GIF, JPEG, PNG), and validation
+  reads the file's own image info before accepting it. Both halves are load-
+  bearing. The obvious spelling — core's `web_image` file-type group — is
+  wrong: it carries `svg`, `svgz` and `webp`, which GD cannot write here, so
+  the picker would have advertised three formats that destroy the picture on
+  save (`optimised_image` carries `webp` too). And the picker's own check is
+  extension-only, so a text file renamed to `.png` still reached the deletion
+  path. Both traps are covered by tests that were mutation-checked against the
+  naive allowlist, so neither can be quietly simplified back.
+- The enrolment key field is capped at 50 characters, the width of the
+  `{groups}.enrolmentkey` column, and the length is re-checked server-side.
+  Core's form says `maxlength="254"`, and since the modal is a web service
+  endpoint the DOM cap is trivially bypassed — an over-long key would reach
+  the column as a raw DML failure instead of a field error.
+- The bulk edit table's avatar now refreshes when the modal changes the group
+  picture. The two states are different elements — an `img` when there is a
+  picture, a span holding the initial when there is not — so the row swaps the
+  node rather than setting a `src`.
 
 - Bulk edit no longer offers "Cancel". Cells are written through the web
   service as they are saved, so by the time the footer is reached there is

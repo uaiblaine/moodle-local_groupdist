@@ -48,6 +48,8 @@ const SELECTORS = {
     BACK: '[data-action="backtogroups"]',
     DIRTYCOUNT: '[data-region="dirtycount"]',
     TOOLTIPS: '[data-bs-toggle="tooltip"]',
+    IDCELL: 'td[data-colkey="id"]',
+    IDBADGE: '.local-groupdist-idn',
 };
 
 const CHUNK_SIZE = 100;
@@ -240,6 +242,70 @@ const save = async() => {
 };
 
 /**
+ * Swap a row's avatar after the settings modal changed the group picture.
+ * The two states are different elements — an img when there is a picture, a
+ * span holding the initial when there is not — so this replaces the node
+ * rather than setting a src.
+ *
+ * @param {Element} row The tr element.
+ * @param {Object} data The row context from the dynamic form.
+ */
+const updateAvatar = (row, data) => {
+    const current = row.querySelector('.local-groupdist-gavatar');
+    if (!current) {
+        return;
+    }
+    const fresh = document.createElement(data.pictureurl ? 'img' : 'span');
+    if (data.pictureurl) {
+        fresh.className = 'local-groupdist-gavatar rounded-circle';
+        fresh.src = data.pictureurl;
+        fresh.alt = '';
+    } else {
+        fresh.className = 'local-groupdist-gavatar local-groupdist-ginitial rounded-circle bg-secondary text-white';
+        fresh.setAttribute('aria-hidden', 'true');
+        fresh.textContent = data.initial;
+    }
+    current.replaceWith(fresh);
+};
+
+/**
+ * Rebuild a row's ID number badge after the settings modal changed it.
+ *
+ * The badge is present only when the group has an ID number, and Bootstrap
+ * moves a tooltip's title into its own state at init, so a live tooltip does
+ * not notice a changed title attribute. Replacing the node and re-initialising
+ * covers all three transitions — changed, cleared, newly set — with one path.
+ *
+ * @param {Element} row The tr element.
+ * @param {Object} data The row context from the dynamic form.
+ */
+const updateIdnumber = (row, data) => {
+    const cell = row.querySelector(SELECTORS.IDCELL);
+    if (!cell) {
+        return;
+    }
+    const current = cell.querySelector(SELECTORS.IDBADGE);
+    if (current) {
+        const tooltip = Tooltip.getInstance(current);
+        if (tooltip) {
+            tooltip.dispose();
+        }
+        current.remove();
+    }
+    if (!data.idnumber) {
+        return;
+    }
+    const badge = document.createElement('span');
+    badge.className = 'badge bg-light text-muted border fw-normal local-groupdist-idn text-truncate';
+    badge.tabIndex = 0;
+    badge.setAttribute('data-bs-toggle', 'tooltip');
+    badge.setAttribute('title', data.idnumber);
+    badge.textContent = data.idnumber;
+    cell.appendChild(badge);
+    new Tooltip(badge);
+};
+
+/**
  * Update a row's cells from a fresh server-side row context (after the
  * settings modal saved).
  *
@@ -249,6 +315,8 @@ const save = async() => {
 const updateRow = (row, data) => {
     row.querySelector('.local-groupdist-gname').textContent = data.name;
     row.querySelector('.local-groupdist-gname').setAttribute('title', data.name);
+    updateAvatar(row, data);
+    updateIdnumber(row, data);
     data.cells.forEach((cell) => {
         const td = row.querySelector('td[data-shortname="' + cell.shortname + '"]');
         if (!td) {

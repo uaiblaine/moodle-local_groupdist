@@ -16,6 +16,8 @@
 
 namespace local_groupdist\local;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+
 /**
  * Ruleset value object tests.
  *
@@ -24,8 +26,8 @@ namespace local_groupdist\local;
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\local\ruleset
  */
+#[CoversClass(\local_groupdist\local\ruleset::class)]
 final class ruleset_test extends \basic_testcase {
     /**
      * A valid list round-trips and preserves priority order.

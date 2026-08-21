@@ -16,6 +16,8 @@
 
 namespace local_groupdist\local;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+
 /**
  * Affinity field enumeration tests — the visibility gates mirror core's
  * profile_field_base::is_visible() semantics.
@@ -23,8 +25,8 @@ namespace local_groupdist\local;
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\local\profilefields
  */
+#[CoversClass(\local_groupdist\local\profilefields::class)]
 final class profilefields_test extends \advanced_testcase {
     /**
      * Create one custom profile field per visibility level.

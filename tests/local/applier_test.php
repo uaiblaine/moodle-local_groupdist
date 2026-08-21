@@ -16,14 +16,16 @@
 
 namespace local_groupdist\local;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+
 /**
  * Applier tests: memberships written through core, component stamp, event.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\local\applier
  */
+#[CoversClass(\local_groupdist\local\applier::class)]
 final class applier_test extends \advanced_testcase {
     /**
      * Applying writes every planned membership, stamps the component and

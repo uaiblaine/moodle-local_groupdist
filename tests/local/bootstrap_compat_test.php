@@ -16,6 +16,8 @@
 
 namespace local_groupdist\local;
 
+use PHPUnit\Framework\Attributes\CoversNothing;
+
 /**
  * Guards the class-name rules nothing else in the pipeline can see.
  *
@@ -33,8 +35,8 @@ namespace local_groupdist\local;
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\local\auditreader
  */
+#[CoversNothing]
 final class bootstrap_compat_test extends \basic_testcase {
     /**
      * Background utilities that need an explicit text colour on a badge.

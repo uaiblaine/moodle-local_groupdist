@@ -16,14 +16,16 @@
 
 namespace local_groupdist\local;
 
+use PHPUnit\Framework\Attributes\CoversClass;
+
 /**
  * Options value object tests around the affinity ruleset integration.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\local\options
  */
+#[CoversClass(\local_groupdist\local\options::class)]
 final class options_test extends \advanced_testcase {
     /**
      * The canonical array shape round-trips including the ruleset and the

@@ -23,6 +23,7 @@ use core_privacy\local\request\writer;
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
 use local_groupdist\local\runlog;
+use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
  * Privacy provider tests over the audit log.
@@ -30,8 +31,8 @@ use local_groupdist\local\runlog;
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\privacy\provider
  */
+#[CoversClass(\local_groupdist\privacy\provider::class)]
 final class provider_test extends \core_privacy\tests\provider_testcase {
     /**
      * Seed a course with an applied-style run; returns the actors.

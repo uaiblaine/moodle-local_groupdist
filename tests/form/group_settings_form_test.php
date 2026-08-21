@@ -16,6 +16,7 @@
 
 namespace local_groupdist\form;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
@@ -24,8 +25,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\form\group_settings_form
  */
+#[CoversClass(\local_groupdist\form\group_settings_form::class)]
 final class group_settings_form_test extends \advanced_testcase {
     /** @var array Every element core's group_form.php offers for an existing group. */
     private const CORE_ELEMENTS = [

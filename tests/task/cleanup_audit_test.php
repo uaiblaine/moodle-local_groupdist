@@ -19,6 +19,7 @@ namespace local_groupdist\task;
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
 use local_groupdist\local\runlog;
+use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
  * Retention sweep tests.
@@ -26,8 +27,8 @@ use local_groupdist\local\runlog;
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\task\cleanup_audit
  */
+#[CoversClass(\local_groupdist\task\cleanup_audit::class)]
 final class cleanup_audit_test extends \advanced_testcase {
     /**
      * Seed two runs, one aged past retention.

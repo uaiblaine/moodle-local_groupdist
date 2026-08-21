@@ -18,6 +18,7 @@ namespace local_groupdist\task;
 
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
+use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
  * Adhoc apply task tests, most importantly the fingerprint staleness guard.
@@ -25,8 +26,8 @@ use local_groupdist\local\options;
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\task\apply_distribution
  */
+#[CoversClass(\local_groupdist\task\apply_distribution::class)]
 final class apply_distribution_test extends \advanced_testcase {
     /**
      * Prepare a course with one group and users, returning options + fingerprint.

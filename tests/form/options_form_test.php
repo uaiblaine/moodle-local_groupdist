@@ -17,6 +17,7 @@
 namespace local_groupdist\form;
 
 use local_groupdist\local\fields;
+use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
  * Distribution options form: the two cohort menus escape their labels
@@ -25,8 +26,8 @@ use local_groupdist\local\fields;
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\form\options_form
  */
+#[CoversClass(\local_groupdist\form\options_form::class)]
 final class options_form_test extends \advanced_testcase {
     /**
      * A course, a cohort whose name contains an ampersand, and the rendered

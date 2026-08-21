@@ -18,6 +18,7 @@ namespace local_groupdist\external;
 
 use core_external\external_api;
 use local_groupdist\local\fields;
+use PHPUnit\Framework\Attributes\CoversClass;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -30,8 +31,8 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers     \local_groupdist\external\save_group_fields
  */
+#[CoversClass(\local_groupdist\external\save_group_fields::class)]
 final class save_group_fields_test extends \externallib_advanced_testcase {
     /**
      * Course with two groups, provisioned fields, and an editing teacher.

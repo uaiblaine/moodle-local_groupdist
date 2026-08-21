@@ -108,29 +108,68 @@ final class auditreader_test extends \advanced_testcase {
     }
 
     /**
-     * A group longer than one window reports the full count, hands back one
-     * window and serves the remainder from the offset.
+     * A group longer than one card opens with a PREVIEW, reports the full
+     * count, and serves the remainder a full WINDOW at a time.
+     *
+     * The two constants are deliberately different sizes and this pins both:
+     * a section card is a third of the page wide, so it opens with a handful,
+     * but the first "show more" pulls a whole window rather than another
+     * handful. Asserting the numbers rather than the constants would pass with
+     * the two collapsed back together.
      */
     public function test_member_window_reports_the_full_total(): void {
         $this->resetAfterTest();
-        $total = auditreader::MEMBERS_PER_PAGE + 5;
+        $this->assertLessThan(
+            auditreader::MEMBERS_PER_PAGE,
+            auditreader::MEMBERS_PREVIEW,
+            'A card is meant to open with less than a full window.'
+        );
+        $total = auditreader::MEMBERS_PREVIEW + auditreader::MEMBERS_PER_PAGE + 5;
         [, $context, $run] = $this->seed(['Turma unica'], $this->users($total));
         $reader = new auditreader($run, $context);
 
         $sections = $reader->get_sections('', '', 0, auditreader::SECTIONS_PER_PAGE);
         $section = $sections['sections'][0];
         $this->assertSame($total, $section['membertotal']);
-        $this->assertCount(auditreader::MEMBERS_PER_PAGE, $section['members']);
+        $this->assertCount(auditreader::MEMBERS_PREVIEW, $section['members']);
         $this->assertTrue($section['hasmore']);
+
+        // What "show more" asks for: a full window from the preview's end.
+        $more = $reader->get_members(
+            $section['id'],
+            '',
+            auditreader::MEMBERS_PREVIEW,
+            auditreader::MEMBERS_PER_PAGE
+        );
+        $this->assertSame($total, $more['total']);
+        $this->assertCount(auditreader::MEMBERS_PER_PAGE, $more['members']);
 
         $rest = $reader->get_members(
             $section['id'],
             '',
-            auditreader::MEMBERS_PER_PAGE,
+            auditreader::MEMBERS_PREVIEW + auditreader::MEMBERS_PER_PAGE,
             auditreader::MEMBERS_PER_PAGE
         );
-        $this->assertSame($total, $rest['total']);
         $this->assertCount(5, $rest['members']);
+    }
+
+    /**
+     * The outcome badge marks only the outcomes worth painting.
+     *
+     * "written" is what every row says on a run that worked, so the report
+     * suppresses it; the four that need attention stay.
+     */
+    public function test_only_exceptional_outcomes_are_notable(): void {
+        $this->assertFalse(auditreader::outcome_badge(runlog::WRITE_WRITTEN)['notable']);
+        $exceptional = [
+            runlog::WRITE_FAILED,
+            runlog::WRITE_UNASSIGNED,
+            runlog::WRITE_SKIPPED,
+            runlog::WRITE_PLANNED,
+        ];
+        foreach ($exceptional as $status) {
+            $this->assertTrue(auditreader::outcome_badge($status)['notable'], "status $status");
+        }
     }
 
     /**

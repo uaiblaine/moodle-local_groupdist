@@ -85,6 +85,7 @@ class audit_ws {
             'groupname' => new external_value(PARAM_TEXT, 'Snapshot name of the group they landed in'),
             'outcome' => new external_single_structure([
                 'label' => new external_value(PARAM_TEXT, 'Localised write outcome'),
+                'notable' => new external_value(PARAM_BOOL, 'Whether the outcome is worth painting'),
                 'class' => new external_value(PARAM_ALPHA, 'Bootstrap badge suffix'),
             ]),
             'why' => new external_multiple_structure(new external_single_structure([

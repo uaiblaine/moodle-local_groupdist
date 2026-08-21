@@ -39,7 +39,7 @@
                 "removed": false,
                 "profileurl": "https://example.com/user/view.php?id=7&course=2",
                 "groupname": "Group 01",
-                "outcome": {"label": "written", "class": "success"},
+                "outcome": {"label": "no seat", "class": "warning", "notable": true},
                 "why": [
                     {"text": "Rule 1 - Keep together - City: value \"Fortaleza\" - placed with 3 more.", "muted": false, "warn": false}
                 ]
@@ -49,7 +49,7 @@
                 "removed": true,
                 "profileurl": "",
                 "groupname": "Group 01",
-                "outcome": {"label": "written", "class": "success"},
+                "outcome": {"label": "no seat", "class": "warning", "notable": true},
                 "why": [
                     {"text": "No rule constrained this participant.", "muted": true, "warn": false}
                 ]
@@ -69,10 +69,12 @@
             {{^profileurl}}
             <span {{#removed}}class="fst-italic text-muted"{{/removed}}>{{name}}</span>
             {{/profileurl}}
+            {{#outcome.notable}}
             <span class="ms-auto badge text-bg-{{outcome.class}} fw-normal">{{outcome.label}}</span>
+            {{/outcome.notable}}
         </div>
         <details class="small local-groupdist-auditdisclosure">
-            <summary>{{#str}} auditwhy, local_groupdist {{/str}}<span class="visually-hidden"> {{name}}</span></summary>
+            <summary>{{#pix}} t/collapsedchevron, core {{/pix}}{{#str}} auditwhy, local_groupdist {{/str}}<span class="visually-hidden"> {{name}}</span></summary>
             <ul class="mb-1 mt-1 local-groupdist-auditwhy">
                 {{#why}}
                 <li class="{{#muted}}text-muted{{/muted}}{{#warn}}text-danger{{/warn}}">{{text}}</li>

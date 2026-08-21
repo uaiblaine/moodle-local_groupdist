@@ -8,6 +8,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The options form's **member filter** keeps its unbounded
+  `cohort_get_available_cohorts(..., COHORT_WITH_ENROLLED_MEMBERS_ONLY, 0, 0)`
+  call, and the reasoning is now written down beside it instead of reading as
+  an oversight next to the rule builder's never-enumerate posture a few lines
+  below. The two calls filter different sets: the rule builder's is
+  `COHORT_ALL` and really would list the platform's whole cohort table, while
+  the member filter's `HAVING COUNT(DISTINCT u.id) > 0` narrows to cohorts
+  sharing a member with this course's roster. Bounding it was measured and
+  rejected — core wraps the grouping in a derived table and orders the outer
+  query, so a `LIMIT` bounds only the rows shipped to PHP (354ms unbounded
+  against 361ms with `LIMIT 11` at 1M membership rows on PostgreSQL 17,
+  identical plans). A cap would buy no query time, hide valid choices, and
+  falsify the autogroup parity the section claims; the aggregate is core's own
+  — `group/autogroup_form.php` makes the argument-for-argument identical call,
+  reached from the same group management page. The comment also records where the bound does
+  not hold (the front page, where `get_enrolled_join()` skips the enrolment
+  join at `SITEID`), and the claim is pinned by a test that goes red if the
+  mode is widened.
+
+- `options_form::validation()` now gates a submitted `cohortid` on
+  `cohort_get_cohort()` explicitly, the way `apply.php`, `get_preview` and
+  `preview_page` already do. The gate is unreachable today — a plain select's
+  `exportValue()` silently drops a value matching no registered option, so a
+  forged id never reaches `validation()` at all — but that made the option
+  list an authorization allowlist by accident of PEAR rather than by decision,
+  and the accident would evaporate the moment the element type changed. The
+  plugin's `CLAUDE.md` now scopes the never-enumerate rule to rule sources and
+  records the member filter as its deliberate exception.
+
 - The distribution log lays its group sections out **three to a row** instead
   of one full-width section each. Percentage flex-basis rather than a grid:
   that is what caps the column count, and it is governed by the container, so

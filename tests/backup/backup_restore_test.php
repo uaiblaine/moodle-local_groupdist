@@ -286,7 +286,7 @@ final class backup_restore_test extends \advanced_testcase {
     public function test_roundtrip_keeps_pseudonymised_rows(): void {
         global $DB;
         $this->resetAfterTest();
-        [$course, $runid, $userids] = $this->seed();
+        [$course, , $userids] = $this->seed();
         runlog::pseudonymise_user($userids[0]);
 
         $backupid = $this->backup_course($course);

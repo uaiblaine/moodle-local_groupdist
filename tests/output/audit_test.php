@@ -48,7 +48,7 @@ final class audit_test extends \advanced_testcase {
      * @return array [course, context, runid, teacherid].
      */
     private function seed(): array {
-        global $CFG, $DB;
+        global $CFG;
         require_once($CFG->dirroot . '/user/profile/lib.php');
 
         $generator = $this->getDataGenerator();

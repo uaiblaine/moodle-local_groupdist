@@ -182,6 +182,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `distribution::compute_fingerprint()` is now a private **static** method
+  called as `self::compute_fingerprint($distribution)`. Behaviour is
+  unchanged; the call is only rewritten into a form phpmd can resolve. Its
+  `UnusedPrivateMethod` rule follows `$this->` and `self::` invocations and
+  nothing else, so the natural `$distribution->compute_fingerprint()` call
+  from the static `build()` factory was reported as dead code by
+  `mdl ci --strict`. It never was dead: every `build()` runs it, and the
+  method IS the staleness fingerprint — deleting it would have silently
+  disabled preview-versus-apply staleness detection and the seed-stamped
+  resume, leaving `fingerprint` as the empty string that every later
+  comparison then matches. Confirmed by mutation: removing the call turns
+  four `distribution_test` fingerprint assertions red. The docblock records
+  the reason, so the signature is not "modernised" back into a report. The
+  same strict run's two genuine `UnusedLocalVariable` findings are cleared
+  too — an unused `$DB` in `audit_test::seed()` and an unused destructured
+  `$runid` in `backup_restore_test` — so `mdl ci --strict` is clean.
+
 - The options form's **member filter** keeps its unbounded
   `cohort_get_available_cohorts(..., COHORT_WITH_ENROLLED_MEMBERS_ONLY, 0, 0)`
   call, and the reasoning is now written down beside it instead of reading as

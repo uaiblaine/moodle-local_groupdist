@@ -172,7 +172,7 @@ class distribution {
             $options
         );
         $distribution->warnings = array_merge($distribution->warnings, $distribution->allocation->warnings);
-        $distribution->fingerprint = $distribution->compute_fingerprint();
+        $distribution->fingerprint = self::compute_fingerprint($distribution);
         return $distribution;
     }
 
@@ -281,12 +281,20 @@ class distribution {
      * change to one of these shifts the fingerprint and the apply step refuses
      * to write a plan the teacher never saw.
      *
+     * Static, and called as self::compute_fingerprint(), only so that phpmd can
+     * see the call: its UnusedPrivateMethod rule resolves $this-> and self::
+     * invocations and nothing else, so the natural $distribution->... call from
+     * this static factory was reported as dead code. It is not — every build()
+     * runs it, and deleting it would silently disable staleness detection and
+     * resumable applies. Keep the call in a form the rule can resolve.
+     *
+     * @param self $distribution The fully built distribution to fingerprint.
      * @return string The sha256 fingerprint.
      */
-    private function compute_fingerprint(): string {
-        $rulecount = $this->options->affinityrules->count();
+    private static function compute_fingerprint(self $distribution): string {
+        $rulecount = $distribution->options->affinityrules->count();
         $userparts = [];
-        foreach ($this->users as $user) {
+        foreach ($distribution->users as $user) {
             $part = [
                 (int) $user->id,
                 (string) ($user->lastname ?? ''),
@@ -299,7 +307,7 @@ class distribution {
             $userparts[] = $part;
         }
         $groupparts = [];
-        foreach ($this->groups as $group) {
+        foreach ($distribution->groups as $group) {
             $existing = array_map('intval', array_keys($group['existing']));
             sort($existing);
             $groupparts[] = [$group['id'], $group['seats'], $group['current'], $existing];

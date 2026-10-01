@@ -88,6 +88,8 @@ classes/
   local/fields.php           Group custom field provisioning + bulk readers
   local/profilefields.php    Affinity source enumeration and authorization —
                              fields, cohorts and course groups (visibility-filtered)
+  local/plaintext.php        The one helper behind every plain-text sink for
+                             admin-set names (see the escaping gotcha)
   external/get_preview.php   Paged preview WS (recomputes per call)
   external/get_audit_sections.php One page of a run's group sections (search)
   external/get_audit_members.php One window of one section's participants
@@ -97,13 +99,15 @@ classes/
   external/search_groups.php Course group search for the rule builder (groups
                              ARE enumerated; menu <= 25, search beyond)
   external/save_group_fields.php Chunked bulk-edit save (dirty cells only,
-                             MAX_CHANGES=200 per call; client chunks at 100)
+                             MAX_CHANGES=200 per call; client chunks at 100);
+                             refused cells come back in an `errors` list
   output/bulkedit_page.php   Table context builder (also refreshes one row
                              after the settings modal saves)
   form/group_settings_form.php Dynamic-form modal carrying every element of
                              core's group edit form (see the gotcha below)
   task/apply_distribution.php Adhoc apply with stored progress
-  event/distribution_applied.php One event per applied run (no objecttable)
+  event/distribution_applied.php One event per applied run (objecttable the run,
+                             with restore mappings)
 amd/src/index_button.js      Injected formaction submit button on group/index
 amd/src/preview.js           Preview hydration + lazy load (pages of 5, cap 25)
 amd/src/audit.js             Audit report: debounced live search, paging bar
@@ -121,9 +125,7 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   per-group held-value sets keyed `(rule, value)`, group choice minimises the
   lexicographic violation vector in priority order, and together/apart
   contradictions are decided by list position (warning `affinitycontradiction`
-  names the winner). `options` exposes `get_affinity_source()`/`_mode()`
-  (first rule) only for the single-rule form UI and first-rule display.
-  Transport: WS `affinityrules` is a typed multiple structure;
+  names the winner). Transport: WS `affinityrules` is a typed multiple structure;
   the POST round trip flattens to parallel `affinityrulesources[]` /
   `affinityrulemodes[]` scalar arrays (nested arrays are not
   `optional_param_array`-able). `ruleset` stays pure — the `maxaffinityrules`
@@ -151,17 +153,29 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   existing-member set). Adding an allocator input without adding it to
   `compute_fingerprint()` reopens the silently-different-plan hole the review
   caught. Apply and the adhoc task refuse on mismatch — the task must NOT
-  throw on mismatch (adhoc failures are retried forever).
+  throw on mismatch: core retries a failing adhoc task up to its attempt
+  limit (12), and it would fail the same way each time.
 - **Interrupted applies resume via seed-stamped invisibility**: every
   recompute (counts, existing sets, the ignore-grouped exclusion) skips
   memberships stamped `component='local_groupdist' AND itemid = <this seed>`,
   so a retried adhoc run reproduces the original plan bit-identically, passes
   the fingerprint check and completes idempotently. Any new query feeding
   `distribution::build()` must apply the same exclusion or retries abort as
-  "stale" with the remainder unwritten.
+  "stale" with the remainder unwritten. The converse rule is that a seed
+  whose run is spent is never reused for a NEW plan: `runlog::is_seed_spent()`
+  (COMPLETED, PARTIAL, or ABORTED with writes) makes `distribute.php` mint a
+  fresh seed on Back and on preview, because under the old one the run's own
+  stamped rows are invisible and a changed plan could place a user in a second
+  group. `apply.php` also refuses a replayed POST once the run is COMPLETED
+  (`runlog::is_applied()`). `runlog::abort()` marks the memberships an earlier
+  attempt wrote as written, and `apply_distribution::get_taskid_for_course()`
+  ignores a task with no attempts left, so an exhausted task neither shows a
+  frozen progress bar nor blocks a new apply. A PENDING run that wrote
+  memberships does not yet count as a spent seed (its `memberswritten` is 0
+  until sealed).
 - **Candidate query**: `groups_get_potential_members()` is unusable here — it
   dies with `dml_exception('mixedtypesqlparam')` when asked for custom profile
-  fields (MDL-70456) and materialises full user records. The own query uses
+  fields (MDL-70456). The own query uses
   `get_enrolled_join()` (which owns the SITEID front-page case — never inline
   the enrolment predicate), role assignments include parent contexts, and
   `onlyactive` is forced ON when the acting user lacks
@@ -212,8 +226,8 @@ docs/                        Approved HTML mockups + design decisions (export-ig
 - **A course group is the third rule source (`group_<id>`), and the
   never-enumerate rule does NOT extend to it.** That rule is about cohorts
   being site-level and numbering in the thousands; groups are course-bounded
-  and `distribute.php` already loads every group record of the course to
-  validate the destinations. `profilefields::get_source_groups()` is both the
+  and `distribute.php` already resolves every destination group of the course
+  to validate the selection. `profilefields::get_source_groups()` is both the
   picker's offer set and `is_allowed()`'s validator — one helper, so the two
   can never drift — bounded at `options_form::GROUP_MENU_LIMIT` (25, the
   preview's own `GROUP_CAP`) with `local_groupdist_search_groups` beyond it,
@@ -227,9 +241,9 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   `groups_group_visible()` (that is the activity groupmode, a different axis
   from the `visibility` column).
 - **Do NOT delegate that filtering to `groups_get_all_groups()`: it fails open
-  on a cold cache.** `core_group\visibility::can_view_all_groups()` warms the
-  `core/coursehiddengroups` entry, re-reads it and then **discards the value**,
-  so a missing entry evaluates `false > 0` and reports "no hidden groups";
+  on a cold cache.** `core_group\visibility::course_has_hidden_groups()` (which
+  `can_view_all_groups()` calls) warms the `core/coursehiddengroups` entry,
+  re-reads it and then **discards the value**, so a missing entry evaluates `false > 0` and reports "no hidden groups";
   `groups_get_all_groups()` then takes an unfiltered MUC shortcut and returns
   every group of the course. Byte-identical on 405/501/502/503-dev, and
   measured on m501: with that definition purged, one call returns the
@@ -239,7 +253,13 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   which skips the shortcut. Pinned by
   `profilefields_test::test_group_source_visibility_holds_on_a_cold_cache`,
   which purges the definition first: `create_group()` warms it, and the warm
-  path hides the bug.
+  path hides the bug. **Destinations follow the same rule:**
+  `distribution::get_destination_groups()` reads `{groups}` directly (ALL to
+  anyone, MEMBERS to a member, everything to a `viewhiddengroups` holder, and
+  OWN to nobody else, because the preview lists a destination's existing
+  members and core shows a member of an OWN group only their own row);
+  `distribute.php`, `apply.php`, `get_preview`, `build()`, `bulkedit.php` and
+  `save_group_fields` all resolve groups through it.
 - **A group source reads what the run writes, so it carries two extra
   obligations.** The group value column applies the seed-stamped invisibility
   clause like the other three sites, or a resumed adhoc apply reads different
@@ -253,8 +273,8 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   Cohort and group values are both a bare `'1'`, so `get_preview`'s
   `build_value_maps()` and `auditreader`'s per-rule `membership` flag must
   substitute the rule label; keying either on `source_cohortid()` alone ships
-  green and renders a literal `1` everywhere. **Groupings are not a source and
-  the regexes are anchored so `grouping_7` cannot become group 7** — a
+  green and renders a literal `1` everywhere. **Groupings are not a source;
+  the literal `group_` prefix is what keeps `grouping_7` from becoming group 7** — a
   grouping's value is keyed AND set-valued while the allocator holds one
   scalar per (rule, participant); the open modelling question is recorded in
   `docs/mockups/rule-source-groups.html`.
@@ -267,9 +287,15 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   cohorts overlapping the course's enrolment list. Capping it was measured and
   rejected — core puts the grouping in a derived table and orders the outer
   query, so a `LIMIT` never reaches the aggregate and buys no query time while
-  hiding valid choices. The full reasoning, including where the bound fails
-  (the front page: `get_enrolled_join()` skips the enrolment join at
-  `SITEID`), is in the block comment at the call, and
+  hiding valid choices. Facts the block comment at the call no longer carries: a `LIMIT 11`
+  was measured and saved nothing, a members-filtered search would pay the same
+  aggregate on every keystroke instead of once per render, the aggregate is
+  core's to fix upstream (`autogroup_form` would benefit too), and the bound
+  fails first on the front page (`get_enrolled_join()` skips the enrolment join
+  at `SITEID`). Core's enrolled-members roster is also looser than this
+  plugin's candidate set (it counts suspended users, disabled instances and
+  expired or future enrolments), so a cohort whose only overlap is a suspended
+  enrolment is offered and yields nothing. And
   `options_form_test::test_the_member_filter_is_bounded_by_the_roster` goes
   red if the mode is widened. `validation()` gates a submitted `cohortid` on
   `cohort_get_cohort()` as well, so all four entry points (form, `apply.php`,
@@ -323,8 +349,10 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   while cells are still dirty. The sticky footer carries action buttons
   only; the unsaved-changes counter is page status and lives in the toolbar.
 - **`bootstrap_compat_test` is the only gate that reads a class name.**
-  Badge backgrounds must state a text utility (BS5 defaults `.badge` to
-  white, so `bg-light` alone renders ~1.05:1), no Bootstrap 4 spelling may
+  Badge backgrounds must state the exact text utility the test's map names
+  (BS5 defaults `.badge` to white, so `bg-light` alone renders ~1.05:1, and
+  `bg-light` with the theme-relative `text-muted` is unreadable in dark mode;
+  `text-warning` on text is refused, use `text-warning-emphasis`), no Bootstrap 4 spelling may
   survive, and `--mds-*` is core's namespace. Colours come from theme tokens
   with a fallback chain, never a literal: 5.1 and 5.2 ship dark mode, and a
   hardcoded accent that passes on white can fail on `--bs-body-bg` #1d2125.
@@ -334,6 +362,19 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   customfield data controllers early-return on absent `customfield_<shortname>`
   properties (`data_controller::instance_form_save`, property_exists check) —
   never "helpfully" fill in the other fields' properties, that would wipe them.
+  Each cell is validated like core's group form (parse, required, number
+  ceiling, then the field's own `instance_form_validation()`), one group at a
+  time; a refused cell goes into `errors` and is not written while the valid
+  cells of the same call are saved, and only malformed requests (foreign or
+  hidden group, non-editable field, too many changes) throw. Seats are whole
+  numbers (the distribution reads them as `(int)`) in the inline save and the
+  modal, and the non-negative rule is seats-only; other number fields use their
+  own configured minimum. A provider-backed number field is read-only, because
+  core's number validation skips fields with a provider and the web service
+  would overwrite a computed value. The table shows a password-type text field
+  as plain text: `moodle/course:managegroups` gates the page, the web service
+  and the modal, and core's own form already puts that stored value in the
+  password input.
 - **The audit report reads the snapshot through windows, and every number in
   it is still a fact about the whole run.** `auditreader` pages group sections
   and participants; the "why here?" lines are built for the displayed window
@@ -376,18 +417,21 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   still travels in the web service payload, and `audit_ws` declares `notable`
   in its returns — the structure is an allowlist, so a new key added to the
   builder and not to the returns is silently stripped.
-- **Anything the audit report displays is `format_string(..., escape => false)`
+- **Anything the audit report displays goes through `plaintext::format()`
   first.** Values land in a Mustache double stash and in `PARAM_TEXT` web
   service fields: the default escaping would be encoded twice on screen, and
   an unstripped `<` makes `clean_returnvalue()` throw, so the page renders
-  and then dies on the first search keystroke.
+  and then dies on the first search keystroke. The helper also covers
+  `formatstringstriptags = 0`, where `format_string()` keeps markup and returns
+  `&amp;` for a bare ampersand, which the sinks would show literally.
 - **Admin-set names come in two spellings here, and both are in use.** The
   general rule — which sinks need PLAIN, which need ESCAPED, and why an
   ampersand is the only fixture that reveals a mistake — is in `~/dev/CLAUDE.md`
   ("Escaping an admin-set name"). This plugin's map: everything takes the plain
-  spelling (`bulkedit_page::plain()`, `fields::plain()`,
-  `profilefields::plain()`, `auditreader::display_value()`, the `get_preview`
-  payload, `distribute.php`'s selected-group chips) EXCEPT two form sinks —
+  spelling through `plaintext::format()` (`bulkedit_page::plain()`,
+  `fields::plain()`, `profilefields::plain()`, `auditreader::display_value()`,
+  the `get_preview` payload and the search web services, `distribute.php`'s
+  selected-group chips) EXCEPT two form sinks —
   `options_form`'s `cohortid` select and, via `fields::get_seats_label(true)`,
   its "use seats" label and no-seats note. `options_form` therefore holds both
   cases a few lines apart, and `options_form_test` pins both directions.
@@ -412,6 +456,14 @@ docs/                        Approved HTML mockups + design decisions (export-ig
 ## Testing notes
 
 - `allocator_test` is pure `basic_testcase` — keep it DB-free.
+- The page tests (`apply_page_test`, `distribute_page_test`, `status_page_test`,
+  `bulkedit_script_test`) `require` the page script itself, which works because
+  5.x's `public/config.php` loads the root config with `require_once`; verified
+  on 5.1 and 5.2 only. The `formatstringstriptags = 0` tests use a bare `&` and
+  a `<3` as fixtures, never tag-shaped input, which strips the same either way;
+  a custom field name cannot hold a bare `<` (`core\persistent::get()` cleans it
+  as `PARAM_TEXT`), so `fields_test` uses ampersands only.
+- `ruleset::first()` has only test callers now; it stays until the owner decides.
 - Provisioning tests must call `fields::reset_field_cache()` around
   `ensure_fields_exist()` (request-level static cache).
 - Saving group field values in tests goes through

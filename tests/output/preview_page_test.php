@@ -80,6 +80,44 @@ final class preview_page_test extends \advanced_testcase {
     }
 
     /**
+     * With formatstringstriptags off the cohort chip still names the cohort in
+     * the plain spelling ({@see \local_groupdist\local\plaintext::format()}).
+     *
+     * @return void
+     */
+    public function test_the_cohort_chip_is_plain_with_formatstringstriptags_off(): void {
+        global $CFG, $PAGE;
+        require_once($CFG->dirroot . '/cohort/lib.php');
+        $this->resetAfterTest();
+        set_config('formatstringstriptags', 0);
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $context = \core\context\course::instance($course->id);
+        $group = $this->getDataGenerator()->create_group(['courseid' => $course->id]);
+        $PAGE->set_url('/local/groupdist/distribute.php');
+        $PAGE->set_context($context);
+
+        foreach (['Ciencias & Letras' => 'Ciencias & Letras', 'Turno <3 anos' => 'Turno '] as $name => $expected) {
+            $cohort = $this->getDataGenerator()->create_cohort([
+                'contextid' => \core\context\system::instance()->id,
+                'name' => $name,
+            ]);
+            $options = options::from_array([
+                'courseid' => (int) $course->id,
+                'groupids' => [(int) $group->id],
+                'cohortid' => (int) $cohort->id,
+            ]);
+            $data = (new preview_page($options, $context, []))->export_for_template($PAGE->get_renderer('core'));
+
+            $texts = [];
+            foreach ($data['recap'] as $section) {
+                $texts = array_merge($texts, array_column($section['items'], 'text'));
+            }
+            $this->assertContains(get_string('recapcohort', 'local_groupdist', $expected), $texts);
+        }
+    }
+
+    /**
      * The recap names the filters that will actually run, not the ones the
      * form posted.
      *

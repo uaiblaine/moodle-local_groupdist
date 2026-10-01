@@ -113,6 +113,49 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Review of the code comments surfaced these defects; each is fixed with a test.**
+  - The options form now honours the `maxaffinityrules` setting: both the rule
+    builder and the form validation use the configured limit instead of 10.
+  - Re-posting `apply.php` after a completed run no longer records a second run;
+    the teacher is sent back to the groups page with a warning.
+  - An aborted run now marks the memberships an earlier attempt already wrote
+    as written, and the owner's message says so.
+  - Destination groups are read directly from the course with an explicit
+    visibility rule, so a cold hidden-groups cache can no longer expose hidden
+    groups to a user without `viewhiddengroups`.
+  - The `distribution_applied` event carries restore mappings, so a restored
+    log row points at the restored run.
+  - `status.php` shows a warning, not a success, when the latest run aborted.
+  - Bulk edit validates each cell like core's group form. **`save_group_fields`
+    now returns refused cells in a new `errors` list instead of throwing**;
+    valid cells of the same call are still saved. Malformed requests still throw.
+  - Bulk edit no longer drops edits made while a multi-chunk save is running.
+  - Section links in the audit keep the participant search.
+  - The preview payload is plain text whatever `formatstringstriptags` says,
+    and the existing-member sample reads at most a few rows per group.
+  - Badge and warning text colours state a contrast-safe pairing in dark mode.
+  - The privacy metadata for `valuesjson` names the group membership flags.
+  - Seats are whole numbers, in the inline save and in the group settings modal.
+    The non-negative rule applies to seats only; other number fields use their
+    own configured minimum. Provider-backed number fields are read-only in bulk
+    edit, which also stops the web service from overwriting a computed value.
+  - Bulk edit and `save_group_fields` list groups through the same visibility
+    rule as the distribution, so a cold hidden-groups cache cannot expose
+    hidden groups there either.
+  - **Behaviour change:** users without `viewhiddengroups` can no longer
+    distribute into groups with the "own" visibility, because the preview would
+    show them other members of a group core hides. A task queued before the
+    upgrade that targets such a group aborts as stale on retry.
+  - A seed whose run completed, partly completed, or aborted after writing
+    memberships is never reused: going back from the preview, or posting a
+    preview, starts under a fresh seed, which closes a path that could place a
+    user in two groups.
+  - `status.php` also warns when the latest run is still pending but its task
+    has no attempts left, and an exhausted task no longer blocks a new apply.
+  - Admin-set names in every plain-text sink (audit, search, preview, bulk
+    edit, the settings form picture) go through one helper, so the screens
+    keep working with `formatstringstriptags` off.
+
 - **The rule builder's search picker was unusable, and had been since it
   shipped.** Its suggestion list is rendered `position-absolute` and had **no
   CSS rule at all** — no `z-index`, no background, no width, no height bound —

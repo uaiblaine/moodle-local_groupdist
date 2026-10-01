@@ -50,22 +50,6 @@ final class options_test extends \advanced_testcase {
     }
 
     /**
-     * The first-rule helpers feed the single-rule form and display paths.
-     */
-    public function test_affinity_helpers(): void {
-        $none = options::from_array(['seed' => 1]);
-        $this->assertSame('', $none->get_affinity_source());
-        $this->assertSame(options::AFFINITY_TOGETHER, $none->get_affinity_mode());
-
-        $custom = options::from_array([
-            'seed' => 1,
-            'affinityrules' => [['source' => 'profile_12', 'mode' => options::AFFINITY_APART]],
-        ]);
-        $this->assertSame('profile_12', $custom->get_affinity_source());
-        $this->assertSame(options::AFFINITY_APART, $custom->get_affinity_mode());
-    }
-
-    /**
      * Multiple rules round-trip; the guardrail still rejects a flood.
      */
     public function test_multiple_rules_accepted(): void {

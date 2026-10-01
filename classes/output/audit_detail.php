@@ -232,9 +232,27 @@ class audit_detail implements \renderable, \templatable {
      * @return array The decorated section.
      */
     protected function decorate_section(array $section, bool $canpin = true): array {
+        return self::decorate_run_section($this->run, $section, $this->userquery, $canpin);
+    }
+
+    /**
+     * Add the presentation-only keys one section of a run needs.
+     *
+     * Shared with {@see \local_groupdist\external\get_audit_sections}, so a
+     * section card links to the same place whether the page or the live
+     * search built it. The link keeps the participant search: the pinned view
+     * then opens on the same matches the card was showing.
+     *
+     * @param \stdClass $run The run record.
+     * @param array $section A section as returned by the reader.
+     * @param string $userquery The participant search, cleaned by {@see self::clean_query()}.
+     * @param bool $canpin Whether the section may link to its pinned view.
+     * @return array The decorated section.
+     */
+    public static function decorate_run_section(\stdClass $run, array $section, string $userquery, bool $canpin = true): array {
         $section['remaining'] = max(0, (int) $section['membertotal'] - (int) $section['shown']);
         $section['moreurl'] = $canpin
-            ? $this->detail_url(['group' => (int) $section['id'], 'uq' => $this->userquery])->out(false)
+            ? self::run_url($run, ['group' => (int) $section['id'], 'uq' => $userquery])->out(false)
             : '';
         $section['canpin'] = $canpin;
         $section['hasseats'] = ($section['seats'] !== null);
@@ -249,7 +267,18 @@ class audit_detail implements \renderable, \templatable {
      * @return \moodle_url The URL.
      */
     protected function detail_url(array $extra = []): \moodle_url {
-        $params = ['id' => (int) $this->run->courseid, 'run' => (int) $this->run->id];
+        return self::run_url($this->run, $extra);
+    }
+
+    /**
+     * The detail URL of a run, carrying the given extra parameters.
+     *
+     * @param \stdClass $run The run record.
+     * @param array $extra Extra URL parameters; empty values are dropped.
+     * @return \moodle_url The URL.
+     */
+    protected static function run_url(\stdClass $run, array $extra = []): \moodle_url {
+        $params = ['id' => (int) $run->courseid, 'run' => (int) $run->id];
         foreach ($extra as $key => $value) {
             if ($value !== '' && $value !== null && $value !== self::GROUP_ANY) {
                 $params[$key] = $value;

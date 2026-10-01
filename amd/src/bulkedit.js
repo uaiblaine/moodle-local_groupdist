@@ -15,9 +15,10 @@
 
 /**
  * Bulk edit table behaviour: dirty tracking, chunked saves (only changed
- * cells travel, at most CHUNK_SIZE per request, sequentially), mass apply
- * for the seats field, empty-seats filter, per-user column visibility and
- * the dynamic overbooking indicator on the members column.
+ * cells travel, at most CHUNK_SIZE per request, sequentially) with per-cell
+ * validation messages, mass apply for the seats field, empty-seats filter,
+ * per-user column visibility and the dynamic overbooking indicator on the
+ * members column.
  *
  * @module     local_groupdist/bulkedit
  * @copyright  2026 Anderson Blaine
@@ -50,6 +51,7 @@ const SELECTORS = {
     TOOLTIPS: '[data-bs-toggle="tooltip"]',
     IDCELL: 'td[data-colkey="id"]',
     IDBADGE: '.local-groupdist-idn',
+    CELLERROR: '[data-region="cellerror"]',
 };
 
 const CHUNK_SIZE = 100;
@@ -61,6 +63,8 @@ const state = {
     // Map of "groupid:shortname" => value, holding ONLY changed cells.
     dirty: new Map(),
     hiddencols: new Set(),
+    // True while save() has requests in flight.
+    saving: false,
 };
 
 /**
@@ -104,6 +108,69 @@ const syncRowIndicators = (row) => {
 };
 
 /**
+ * The cell of one group and field.
+ *
+ * @param {Number} groupid The group id.
+ * @param {String} shortname The custom field shortname.
+ * @returns {Element|null} The td element.
+ */
+const cellAt = (groupid, shortname) => document.querySelector(
+    'tbody tr[data-groupid="' + groupid + '"] td[data-shortname="' + shortname + '"]'
+);
+
+/**
+ * Mark a cell the server refused, with core's message below its editor.
+ *
+ * @param {Element} cell The td element.
+ * @param {String} message Why the value was not saved.
+ */
+const showCellError = (cell, message) => {
+    const field = cell.querySelector('[data-fieldtype]');
+    if (!field) {
+        return;
+    }
+    let feedback = cell.querySelector(SELECTORS.CELLERROR);
+    if (!feedback) {
+        feedback = document.createElement('div');
+        feedback.className = 'invalid-feedback';
+        feedback.dataset.region = 'cellerror';
+        feedback.id = 'local-groupdist-cellerror-' + cell.closest('tr').dataset.groupid + '-' + cell.dataset.shortname;
+        field.after(feedback);
+    }
+    feedback.textContent = message;
+    field.classList.add('is-invalid');
+    field.setAttribute('aria-invalid', 'true');
+    field.setAttribute('aria-describedby', feedback.id);
+    if (state.hiddencols.has(cell.dataset.colkey)) {
+        // A refused cell in a collapsed column could not be seen or corrected, so the column opens.
+        setColumnVisible(cell.dataset.colkey, true, false);
+        const toggle = document.querySelector(SELECTORS.TOGGLECOL + '[data-colkey="' + cell.dataset.colkey + '"]');
+        if (toggle) {
+            toggle.checked = true;
+        }
+    }
+};
+
+/**
+ * Remove a cell's refusal mark, if it has one.
+ *
+ * @param {Element} cell The td element.
+ */
+const clearCellError = (cell) => {
+    const feedback = cell.querySelector(SELECTORS.CELLERROR);
+    if (!feedback) {
+        return;
+    }
+    feedback.remove();
+    const field = cell.querySelector('[data-fieldtype]');
+    if (field) {
+        field.classList.remove('is-invalid');
+        field.removeAttribute('aria-invalid');
+        field.removeAttribute('aria-describedby');
+    }
+};
+
+/**
  * Refresh the unsaved-changes counter and the save button state.
  *
  * @returns {Promise<void>}
@@ -115,7 +182,7 @@ const refreshChrome = async() => {
     document.querySelectorAll(SELECTORS.ROWS).forEach((row) => {
         row.classList.toggle('local-groupdist-dirty', groups.has(row.dataset.groupid));
     });
-    save.disabled = state.dirty.size === 0;
+    save.disabled = state.saving || state.dirty.size === 0;
     counter.textContent = groups.size === 0 ? ''
         : await getString('unsavedchanges', 'local_groupdist', groups.size);
 };
@@ -128,6 +195,8 @@ const refreshChrome = async() => {
  */
 const onCellEdit = async(cell) => {
     const row = cell.closest('tr');
+    // The refusal described the previous value, not this one.
+    clearCellError(cell);
     state.dirty.set(row.dataset.groupid + ':' + cell.dataset.shortname, cellValue(cell));
     if (cell.dataset.shortname === state.seatsshortname) {
         syncRowIndicators(row);
@@ -193,14 +262,52 @@ const confirmLeave = async(url) => {
 };
 
 /**
+ * Apply one save response to the dirty set and the cells.
+ *
+ * Each result is checked against the value the request carried, not the
+ * server's normalised echo of it: a cell edited again while the request was in
+ * flight keeps its newer value dirty, and a refusal of the old value is not
+ * shown on it.
+ *
+ * @param {Array} sentchanges The changes the request carried.
+ * @param {Object} response The web service response.
+ */
+const applyResponse = (sentchanges, response) => {
+    const keyOf = (item) => item.groupid + ':' + item.shortname;
+    const sent = new Map(sentchanges.map((entry) => [keyOf(entry), entry.value]));
+    const unchanged = (item) => state.dirty.get(keyOf(item)) === sent.get(keyOf(item));
+    response.saved.filter(unchanged).forEach((item) => {
+        state.dirty.delete(keyOf(item));
+        const cell = cellAt(item.groupid, item.shortname);
+        if (cell) {
+            clearCellError(cell);
+        }
+    });
+    response.errors.filter(unchanged).forEach((item) => {
+        const cell = cellAt(item.groupid, item.shortname);
+        if (cell) {
+            showCellError(cell, item.message);
+        }
+    });
+};
+
+/**
  * Save every dirty cell, in sequential chunks of at most CHUNK_SIZE.
  *
- * Successfully saved cells leave the dirty set as each chunk completes, so a
- * mid-way failure retains exactly the unsaved remainder for a retry.
+ * The values sent are a snapshot taken when the save starts, and the editors
+ * stay live while the requests run; applyResponse() keeps any cell edited in
+ * the meantime dirty. A cell the server refused stays dirty too, marked with
+ * the reason, and a mid-way failure keeps exactly the unsaved remainder for a
+ * retry.
  *
  * @returns {Promise<void>}
  */
 const save = async() => {
+    // A second save would start from a snapshot the first one is still writing.
+    if (state.saving) {
+        return;
+    }
+    state.saving = true;
     const savebutton = document.querySelector(SELECTORS.SAVE);
     const original = savebutton.textContent;
     savebutton.disabled = true;
@@ -215,6 +322,7 @@ const save = async() => {
     }
 
     let saved = 0;
+    let refused = 0;
     try {
         for (let i = 0; i < chunks.length; i++) {
             if (chunks.length > 1) {
@@ -227,16 +335,26 @@ const save = async() => {
                 methodname: 'local_groupdist_save_group_fields',
                 args: {courseid: state.courseid, changes: chunks[i]},
             }])[0];
-            for (const item of response.saved) {
-                state.dirty.delete(item.groupid + ':' + item.shortname);
-            }
+            applyResponse(chunks[i], response);
             saved += response.saved.length;
+            refused += response.errors.length;
         }
-        addToast(await getString('savedchanges', 'local_groupdist', saved), {type: 'success'});
+        if (saved > 0 || refused === 0) {
+            addToast(await getString('savedchanges', 'local_groupdist', saved), {type: 'success'});
+        }
+        if (refused > 0) {
+            addToast(await getString('savefailedcells', 'local_groupdist', refused), {
+                type: 'danger',
+                autohide: false,
+                closeButton: true,
+            });
+        }
     } catch (error) {
         Notification.exception(error);
+    } finally {
+        state.saving = false;
+        savebutton.textContent = original;
     }
-    savebutton.textContent = original;
     await refreshChrome();
     applyFilter();
 };
@@ -261,7 +379,7 @@ const updateAvatar = (row, data) => {
         fresh.src = data.pictureurl;
         fresh.alt = '';
     } else {
-        fresh.className = 'local-groupdist-gavatar local-groupdist-ginitial rounded-circle bg-secondary text-white';
+        fresh.className = 'local-groupdist-gavatar local-groupdist-ginitial rounded-circle bg-secondary text-dark';
         fresh.setAttribute('aria-hidden', 'true');
         fresh.textContent = data.initial;
     }
@@ -296,7 +414,7 @@ const updateIdnumber = (row, data) => {
         return;
     }
     const badge = document.createElement('span');
-    badge.className = 'badge bg-light text-muted border fw-normal local-groupdist-idn text-truncate';
+    badge.className = 'badge bg-light text-dark border fw-normal local-groupdist-idn text-truncate';
     badge.tabIndex = 0;
     badge.setAttribute('data-bs-toggle', 'tooltip');
     badge.setAttribute('title', data.idnumber);
@@ -335,6 +453,7 @@ const updateRow = (row, data) => {
         }
         // The modal saved directly: whatever this cell held locally is stale.
         state.dirty.delete(row.dataset.groupid + ':' + cell.shortname);
+        clearCellError(td);
     });
     syncRowIndicators(row);
 };

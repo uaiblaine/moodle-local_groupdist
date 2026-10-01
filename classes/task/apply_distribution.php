@@ -85,14 +85,15 @@ class apply_distribution extends \core\task\adhoc_task {
 
         $distribution = distribution::build($options, $context);
         if ($distribution->fingerprint !== $data['fingerprint']) {
+            // Non-zero only when an earlier attempt of this task wrote some members before dying.
+            $kept = runlog::abort($runid);
             mtrace('local_groupdist: fingerprint mismatch — enrolments or groups changed since the preview. '
-                . 'Nothing was written; the distribution must be previewed again.');
-            runlog::abort($runid);
-            $this->notify_owner(
-                $options->courseid,
-                get_string('applymessagestale', 'local_groupdist'),
-                get_string('applymessagestalebody', 'local_groupdist')
-            );
+                . "Nothing more was written ({$kept} memberships from an earlier attempt were kept); "
+                . 'the distribution must be previewed again.');
+            $body = $kept
+                ? get_string('applymessagestalepartialbody', 'local_groupdist', $kept)
+                : get_string('applymessagestalebody', 'local_groupdist');
+            $this->notify_owner($options->courseid, get_string('applymessagestale', 'local_groupdist'), $body);
             return;
         }
 
@@ -113,8 +114,8 @@ class apply_distribution extends \core\task\adhoc_task {
     /**
      * Send the run outcome to the teacher who queued the task.
      *
-     * The staleness abort is otherwise invisible (the status page cannot tell
-     * a finished run from an aborted one), so both outcomes are messaged.
+     * The status page reports the outcome only to someone who opens it again
+     * after the task has run, so both outcomes are also messaged.
      *
      * @param int $courseid The course id.
      * @param string $subject Message subject.
@@ -139,15 +140,27 @@ class apply_distribution extends \core\task\adhoc_task {
     }
 
     /**
-     * Find a pending distribution task for a course, if any.
+     * Find a distribution task for a course that can still run, if any.
+     *
+     * A task out of attempts is skipped: core never runs it again
+     * (\core\task\manager selects only attemptsavailable > 0 or NULL) but keeps
+     * its row until the failed-task cleanup, so counting it would refuse every
+     * new apply for the course and freeze the status page's progress bar
+     * until then.
      *
      * @param int $courseid The course id.
-     * @return int The adhoc task id, or 0 when none is queued.
+     * @return int The adhoc task id, or 0 when none is queued that can still run.
      */
     public static function get_taskid_for_course(int $courseid): int {
         global $DB;
 
-        $records = $DB->get_records('task_adhoc', ['classname' => '\\' . self::class], 'id ASC', 'id, customdata');
+        $records = $DB->get_records_select(
+            'task_adhoc',
+            'classname = :classname AND (attemptsavailable > 0 OR attemptsavailable IS NULL)',
+            ['classname' => '\\' . self::class],
+            'id ASC',
+            'id, customdata'
+        );
         foreach ($records as $record) {
             $customdata = json_decode($record->customdata ?? '');
             if ((int) ($customdata->options->courseid ?? 0) === $courseid) {

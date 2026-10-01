@@ -58,6 +58,17 @@ Feature: Bulk edit group custom fields
     Then I should see "Groups"
     And I should not see "Unsaved changes"
 
+  Scenario: A refused value is marked in its cell and stays unsaved
+    Given I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (0)"
+    And I click on "Bulk edit groups" "button"
+    And I set the field "local-groupdist-massvalue" to "-3"
+    And I click on "Apply to all" "button"
+    And I click on "Save changes" "button"
+    Then I should see "1 change(s) could not be saved."
+    And I should see "Value must be greater than or equal to 0" in the "Group A" "table_row"
+    And I should see "1 group(s) with unsaved changes"
+
   Scenario: Edit one group's settings through the modal
     Given I am on the "Course 1" "groups" page logged in as "teacher1"
     When I set the field "Groups" to "Group A (0)"

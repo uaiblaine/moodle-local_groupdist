@@ -48,7 +48,7 @@ if (!$groupids) {
     $csv = optional_param('groupids', '', PARAM_SEQUENCE);
     $groupids = array_filter(array_map('intval', explode(',', $csv)));
 }
-$coursegroups = groups_get_all_groups($course->id);
+$coursegroups = \local_groupdist\local\distribution::get_destination_groups($context);
 $groupids = array_values(array_unique(array_intersect(
     array_map('intval', $groupids),
     array_map('intval', array_keys($coursegroups))
@@ -98,6 +98,16 @@ if ($form->is_cancelled()) {
 
 $data = $form->get_data();
 
+/* One seed per flow: it round-trips through preview and apply so the random
+   order stays identical end to end. A seed that a run has already written
+   under is replaced, whichever route brought it back (the preview's Back
+   button, an options form still open in another tab): see
+   runlog::is_seed_spent(). */
+$seed = optional_param('seed', 0, PARAM_INT);
+if (!$seed || \local_groupdist\local\runlog::is_seed_spent($course->id, $seed)) {
+    $seed = random_int(1, 2147483646);
+}
+
 if ($data && !empty($data->previewbutton)) {
     // Step 2: preview. Everything below the recap renders client-side from the
     // preview web service; apply/back live in a core sticky footer.
@@ -113,7 +123,7 @@ if ($data && !empty($data->previewbutton)) {
         'affinityrules' => \local_groupdist\local\options::rules_from_post(),
         'useseats' => !empty($data->useseats),
         'overbook' => $data->overbook ?? 0,
-        'seed' => $data->seed,
+        'seed' => $seed,
     ]);
 
     $PAGE->requires->js_call_amd('local_groupdist/preview', 'init');
@@ -152,64 +162,53 @@ if ($data && !empty($data->previewbutton)) {
     echo $OUTPUT->render($stickyfooter);
 
     echo $OUTPUT->footer();
-    exit;
-}
-
-// Step 1: options form (fresh entry, validation error, or back from preview).
-if (!$form->is_submitted()) {
-    $defaults = ['groupids' => implode(',', $groupids)];
-    if (optional_param('back', 0, PARAM_BOOL)) {
-        // Returning from the preview: repopulate every option the teacher chose.
-        $posted = \local_groupdist\local\options::from_array([
-            'courseid' => $course->id,
-            'groupids' => $groupids,
-            'roleid' => optional_param('roleid', 0, PARAM_INT),
-            'cohortid' => optional_param('cohortid', 0, PARAM_INT),
-            'allocateby' => optional_param('allocateby', 'random', PARAM_ALPHA),
-            'ignoregrouped' => optional_param('ignoregrouped', 0, PARAM_BOOL),
-            'onlyactive' => optional_param('onlyactive', 0, PARAM_BOOL),
-            'includefuture' => optional_param('includefuture', 0, PARAM_BOOL),
-            'affinityrules' => \local_groupdist\local\options::rules_from_post(),
-            'useseats' => optional_param('useseats', 0, PARAM_BOOL),
-            'overbook' => optional_param('overbook', 0, PARAM_INT),
-            'seed' => optional_param('seed', 0, PARAM_INT),
-        ]);
-        $defaults += [
-            'roleid' => $posted->roleid,
-            'cohortid' => $posted->cohortid,
-            'allocateby' => $posted->allocateby,
-            'ignoregrouped' => (int) $posted->ignoregrouped,
-            'includeonlyactiveenrol' => (int) $posted->onlyactive,
-            'includefuture' => (int) $posted->includefuture,
-            'useseats' => (int) $posted->useseats,
-            'overbook' => $posted->overbook,
-            'seed' => $posted->seed,
-        ];
-    }
-    if (empty($defaults['seed'])) {
-        // One fresh seed per flow; it round-trips through preview and apply so
-        // the random order stays identical end to end.
-        $defaults['seed'] = random_int(1, 2147483646);
-    }
-    $form->set_data($defaults);
-}
-
-echo $OUTPUT->header();
-echo $OUTPUT->heading(get_string('distributeparticipants', 'local_groupdist'));
-echo $OUTPUT->render_from_template('local_groupdist/selected_groups', [
-    'groups' => array_map(
-        function (int $groupid) use ($coursegroups, $context): array {
-            // Escaped once by the template's double stash, so not here too.
-            $name = format_string($coursegroups[$groupid]->name, true, [
-                'context' => $context,
-                'escape' => false,
+} else {
+    // Step 1: options form (fresh entry, validation error, or back from preview).
+    if (!$form->is_submitted()) {
+        $defaults = ['groupids' => implode(',', $groupids), 'seed' => $seed];
+        if (optional_param('back', 0, PARAM_BOOL)) {
+            // Returning from the preview: repopulate every option the teacher chose.
+            $posted = \local_groupdist\local\options::from_array([
+                'courseid' => $course->id,
+                'groupids' => $groupids,
+                'roleid' => optional_param('roleid', 0, PARAM_INT),
+                'cohortid' => optional_param('cohortid', 0, PARAM_INT),
+                'allocateby' => optional_param('allocateby', 'random', PARAM_ALPHA),
+                'ignoregrouped' => optional_param('ignoregrouped', 0, PARAM_BOOL),
+                'onlyactive' => optional_param('onlyactive', 0, PARAM_BOOL),
+                'includefuture' => optional_param('includefuture', 0, PARAM_BOOL),
+                'affinityrules' => \local_groupdist\local\options::rules_from_post(),
+                'useseats' => optional_param('useseats', 0, PARAM_BOOL),
+                'overbook' => optional_param('overbook', 0, PARAM_INT),
             ]);
-            return ['name' => $name];
-        },
-        array_slice($groupids, 0, 8)
-    ),
-    'morecount' => max(0, count($groupids) - 8),
-    'total' => count($groupids),
-]);
-$form->display();
-echo $OUTPUT->footer();
+            $defaults += [
+                'roleid' => $posted->roleid,
+                'cohortid' => $posted->cohortid,
+                'allocateby' => $posted->allocateby,
+                'ignoregrouped' => (int) $posted->ignoregrouped,
+                'includeonlyactiveenrol' => (int) $posted->onlyactive,
+                'includefuture' => (int) $posted->includefuture,
+                'useseats' => (int) $posted->useseats,
+                'overbook' => $posted->overbook,
+            ];
+        }
+        $form->set_data($defaults);
+    }
+
+    echo $OUTPUT->header();
+    echo $OUTPUT->heading(get_string('distributeparticipants', 'local_groupdist'));
+    echo $OUTPUT->render_from_template('local_groupdist/selected_groups', [
+        'groups' => array_map(
+            function (int $groupid) use ($coursegroups, $context): array {
+                // Escaped once by the template's double stash, so not here too.
+                $name = \local_groupdist\local\plaintext::format($coursegroups[$groupid]->name, $context);
+                return ['name' => $name];
+            },
+            array_slice($groupids, 0, 8)
+        ),
+        'morecount' => max(0, count($groupids) - 8),
+        'total' => count($groupids),
+    ]);
+    $form->display();
+    echo $OUTPUT->footer();
+}

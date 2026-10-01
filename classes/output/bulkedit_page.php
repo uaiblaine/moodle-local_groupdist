@@ -53,28 +53,28 @@ class bulkedit_page implements \renderable, \templatable {
     }
 
     /**
-     * Format a stored name for output, unescaped.
+     * Format a stored name for output, in the plain spelling
+     * ({@see \local_groupdist\local\plaintext::format()}).
      *
      * Every consumer of this class's context arrays escapes for itself: the
      * table renders through Mustache double stashes, and bulkedit.js writes
      * the same values with textContent after the settings modal saves. With
      * format_string()'s default escaping a group called "Ana & Bruno" would
-     * read "Ana &amp; Bruno" on screen in both. Same rule as the audit report;
-     * {@see \local_groupdist\local\auditreader}.
+     * read "Ana &amp; Bruno" on screen in both.
      *
      * @param string $text The stored name.
      * @param \core\context $context The context to format in.
      * @return string The formatted name, not HTML-escaped.
      */
     protected static function plain(string $text, \core\context $context): string {
-        return format_string($text, true, ['context' => $context, 'escape' => false]);
+        return \local_groupdist\local\plaintext::format($text, $context);
     }
 
     /**
      * Column metadata for every group custom field on the site.
      *
      * @return array List of column descriptors (key, shortname, label, type
-     *   flags, select options).
+     *   flags, the number input's hasmin/min/step, select options).
      */
     public static function get_field_columns(): array {
         /* Group custom fields are defined site-wide: group_handler's own
@@ -91,16 +91,34 @@ class bulkedit_page implements \renderable, \templatable {
                     $options[] = ['value' => $index + 1, 'label' => self::plain($label, $fieldcontext)];
                 }
             }
+            $isseats = $field->get('shortname') === fields::SHORTNAME_SEATS;
+            /* A number field whose value a provider computes (customfield_number's
+               "field type" setting) is not typed by hand: core's group form shows
+               it read-only, and so does the table. */
+            $computed = $field instanceof \customfield_number\field_controller && !$field->is_editable();
+            $isnumber = $type === 'number' && !$computed;
+            /* The input's min attribute states the floor the inline save enforces:
+               the field's own minimum, and for seats never below 0
+               ({@see \local_groupdist\external\save_group_fields::validate_cell()}). */
+            $minimum = $isnumber ? (string) ($field->get_configdata_property('minimumvalue') ?? '') : '';
+            if ($isseats && $isnumber && ($minimum === '' || (float) $minimum < 0)) {
+                $minimum = '0';
+            }
             $columns[] = [
                 'key' => 'cf_' . $field->get('shortname'),
                 'shortname' => $field->get('shortname'),
                 'label' => self::plain($field->get('name'), $fieldcontext),
-                'isseats' => $field->get('shortname') === fields::SHORTNAME_SEATS,
-                'isnumber' => $type === 'number',
+                'isseats' => $isseats,
+                'isnumber' => $isnumber,
                 'istext' => $type === 'text',
                 'isselect' => $type === 'select',
                 'ischeckbox' => $type === 'checkbox',
-                'isreadonly' => !in_array($type, self::INLINE_TYPES, true),
+                'isreadonly' => $computed || !in_array($type, self::INLINE_TYPES, true),
+                // A boolean beside the value: Mustache's PHP renderer skips a section whose value is the string "0".
+                'hasmin' => $minimum !== '',
+                'min' => $minimum,
+                // Seats take whole numbers only; other number fields keep their configured decimal places.
+                'step' => $isseats ? '1' : 'any',
                 'options' => $options,
             ];
         }

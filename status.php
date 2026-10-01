@@ -50,8 +50,30 @@ if ($taskid && ($task = \local_groupdist\task\apply_distribution::load($taskid))
     );
     echo $OUTPUT->render($indicator);
 } else {
-    // No pending task: the run finished (or none was queued).
-    echo $OUTPUT->notification(get_string('applyfinished', 'local_groupdist'), \core\output\notification::NOTIFY_SUCCESS);
+    /* No task left to run: the run finished, was aborted as stale, stopped
+       unfinished (its task ran out of attempts or was deleted), or none was
+       queued. The course's latest run tells these apart; the task's message
+       to its owner reports the first two. */
+    $runs = $DB->get_records('local_groupdist_run', ['courseid' => $course->id], 'id DESC', 'id, status, memberswritten', 0, 1);
+    $run = reset($runs);
+    $status = $run ? (int) $run->status : null;
+    if ($status === \local_groupdist\local\runlog::STATUS_ABORTED) {
+        echo $OUTPUT->notification(
+            get_string('applyaborted', 'local_groupdist', (int) $run->memberswritten),
+            \core\output\notification::NOTIFY_WARNING
+        );
+    } else if ($status === \local_groupdist\local\runlog::STATUS_PENDING) {
+        echo $OUTPUT->notification(get_string('applyunfinished', 'local_groupdist'), \core\output\notification::NOTIFY_WARNING);
+    } else {
+        echo $OUTPUT->notification(get_string('applyfinished', 'local_groupdist'), \core\output\notification::NOTIFY_SUCCESS);
+    }
+    if ($run && has_capability('local/groupdist:viewauditlog', $context)) {
+        echo $OUTPUT->single_button(
+            new moodle_url('/local/groupdist/audit.php', ['id' => $course->id, 'run' => $run->id]),
+            get_string('auditlog', 'local_groupdist'),
+            'get'
+        );
+    }
     echo $OUTPUT->continue_button($returnurl);
 }
 echo $OUTPUT->footer();

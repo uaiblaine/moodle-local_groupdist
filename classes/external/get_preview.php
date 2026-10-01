@@ -24,6 +24,7 @@ use core_external\external_value;
 use local_groupdist\local\allocator;
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
+use local_groupdist\local\plaintext;
 use local_groupdist\local\profilefields;
 
 /**
@@ -162,7 +163,7 @@ class get_preview extends external_api {
                 throw new \invalid_parameter_exception('cohortid');
             }
         }
-        $coursegroups = groups_get_all_groups($options->courseid);
+        $coursegroups = distribution::get_destination_groups($context);
         $options->groupids = array_values(array_intersect(
             $options->groupids,
             array_map('intval', array_keys($coursegroups))
@@ -257,11 +258,8 @@ class get_preview extends external_api {
             $denominator = ($seats !== null) ? max(1, $seats + $overflow) : 0;
             $groupspayload[] = [
                 'id' => $group['id'],
-                'name' => format_string($group['name'], true, ['context' => $context, 'escape' => false]),
-                'location' => format_string((string) ($group['location'] ?? ''), true, [
-                    'context' => $context,
-                    'escape' => false,
-                ]),
+                'name' => plaintext::format($group['name'], $context),
+                'location' => plaintext::format((string) ($group['location'] ?? ''), $context),
                 'seats' => $seats ?? -1,
                 'current' => $group['current'],
                 'allocated' => count($allocated),
@@ -379,7 +377,10 @@ class get_preview extends external_api {
     /**
      * Fetch up to MEMBER_SAMPLE existing members (names only) per windowed group.
      *
-     * Only groups whose allocated sample leaves room are queried for.
+     * Only groups whose allocated sample leaves room are queried for, and each
+     * of those with its own LIMIT, earliest members first: one query per group
+     * (at most MAX_PAGE of them) reads a handful of rows, where one query over
+     * the whole window would read every membership row of every group in it.
      *
      * @param distribution $distribution The distribution.
      * @param array $window The sliced group entries.
@@ -388,41 +389,33 @@ class get_preview extends external_api {
     private static function fetch_existing_samples(distribution $distribution, array $window): array {
         global $DB;
 
-        $need = [];
-        foreach ($window as $group) {
-            $allocated = count($distribution->allocation->assignments[$group['id']] ?? []);
-            if ($group['current'] > 0 && $allocated < self::MEMBER_SAMPLE) {
-                $need[$group['id']] = self::MEMBER_SAMPLE - $allocated;
-            }
-        }
-        if (!$need) {
-            return [];
-        }
-
-        [$insql, $params] = $DB->get_in_or_equal(array_keys($need), SQL_PARAMS_NAMED, 'sg');
         $namefields = implode(', ', array_map(
             function (string $field): string {
                 return 'u.' . $field;
             },
             \core_user\fields::for_name()->get_required_fields()
         ));
-        $recordset = $DB->get_recordset_sql(
-            "SELECT gm.id AS gmid, gm.groupid, u.id, {$namefields}
-               FROM {groups_members} gm
-               JOIN {user} u ON u.id = gm.userid
-              WHERE gm.groupid {$insql} AND u.deleted = 0
-           ORDER BY gm.groupid, gm.id",
-            $params
-        );
-
         $samples = [];
-        foreach ($recordset as $record) {
-            $groupid = (int) $record->groupid;
-            if (count($samples[$groupid] ?? []) < ($need[$groupid] ?? 0)) {
-                $samples[$groupid][] = $record;
+        foreach ($window as $group) {
+            $allocated = count($distribution->allocation->assignments[$group['id']] ?? []);
+            if ($group['current'] <= 0 || $allocated >= self::MEMBER_SAMPLE) {
+                continue;
+            }
+            // The results are keyed by the first column, and a membership id is unique.
+            $records = $DB->get_records_sql(
+                "SELECT gm.id AS gmid, u.id, {$namefields}
+                   FROM {groups_members} gm
+                   JOIN {user} u ON u.id = gm.userid
+                  WHERE gm.groupid = :groupid AND u.deleted = 0
+               ORDER BY gm.id",
+                ['groupid' => (int) $group['id']],
+                0,
+                self::MEMBER_SAMPLE - $allocated
+            );
+            if ($records) {
+                $samples[(int) $group['id']] = array_values($records);
             }
         }
-        $recordset->close();
         return $samples;
     }
 
@@ -459,11 +452,9 @@ class get_preview extends external_api {
      * A mapped source (country, cohort or group) resolves to its display text;
      * anything else is stored profile text and can hold markup: a textarea
      * custom profile field is PARAM_RAW, and profilefields::get_fields() offers
-     * every datatype. format_string() strips the markup, which the PARAM_TEXT
-     * return fields require: clean_returnvalue() throws when strip_tags() would
-     * change the string, and one participant's bare "<" would then fail the
-     * whole response. escape => false because every consumer escapes on output.
-     * Same treatment as {@see \local_groupdist\local\auditreader::display_value()}.
+     * every datatype. {@see plaintext::format()} makes it safe for the
+     * PARAM_TEXT return fields, where one participant's bare "<" would
+     * otherwise fail the whole response.
      *
      * @param array $valuemaps Maps from {@see build_value_maps()}.
      * @param int $ruleindex Position of the rule in the ruleset.
@@ -475,7 +466,7 @@ class get_preview extends external_api {
         if (isset($valuemaps[$ruleindex][$value])) {
             return (string) $valuemaps[$ruleindex][$value];
         }
-        return format_string($value, true, ['context' => $context, 'escape' => false]);
+        return plaintext::format($value, $context);
     }
 
     /**
@@ -503,10 +494,7 @@ class get_preview extends external_api {
 
         $groupnames = [];
         foreach ($distribution->groups as $group) {
-            $groupnames[$group['id']] = format_string($group['name'], true, [
-                'context' => $context,
-                'escape' => false,
-            ]);
+            $groupnames[$group['id']] = plaintext::format($group['name'], $context);
         }
 
         $violations = [];

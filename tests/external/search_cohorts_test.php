@@ -95,20 +95,54 @@ final class search_cohorts_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * The capability gate is real: a student is rejected.
+     * With formatstringstriptags off a cohort name still arrives plain, as the
+     * PARAM_TEXT label rules.js writes with textContent
+     * ({@see \local_groupdist\local\plaintext}).
+     *
+     * @return void
+     */
+    public function test_the_label_is_plain_with_formatstringstriptags_off(): void {
+        $this->resetAfterTest();
+        set_config('formatstringstriptags', 0);
+        $course = $this->getDataGenerator()->create_course();
+        foreach (['Turma A & B', 'Turma <3 anos'] as $name) {
+            $this->getDataGenerator()->create_cohort([
+                'contextid' => \core\context\system::instance()->id,
+                'name' => $name,
+            ]);
+        }
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $labels = array_column($this->call(['courseid' => (int) $course->id, 'query' => 'Turma'])['cohorts'], 'label');
+
+        sort($labels);
+        $this->assertSame(['Turma ', 'Turma A & B'], $labels);
+    }
+
+    /**
+     * The capability gate is real: a student is rejected, and a teacher making
+     * the same call is answered (control).
+     *
+     * The error code pins the refusal to the require_capability() call, not to
+     * any error the call could raise.
      */
     public function test_search_requires_capability(): void {
         $this->resetAfterTest();
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
+        $generator->create_cohort(['contextid' => \core\context\system::instance()->id, 'name' => 'Alpha Mentors']);
         $student = $generator->create_and_enrol($course, 'student');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $args = ['courseid' => (int) $course->id, 'query' => 'Alpha'];
+
+        $this->setUser($teacher);
+        $this->assertSame(['Alpha Mentors'], array_column($this->call($args)['cohorts'], 'label'));
 
         $this->setUser($student);
         $_POST['sesskey'] = sesskey();
-        $response = external_api::call_external_function(
-            'local_groupdist_search_cohorts',
-            ['courseid' => (int) $course->id, 'query' => '']
-        );
+        $response = external_api::call_external_function('local_groupdist_search_cohorts', $args);
         $this->assertTrue($response['error']);
+        $this->assertSame('nopermissions', $response['exception']->errorcode);
     }
 }

@@ -17,6 +17,7 @@
 namespace local_groupdist\output;
 
 use local_groupdist\local\options;
+use local_groupdist\local\plaintext;
 use local_groupdist\local\profilefields;
 
 /**
@@ -72,7 +73,7 @@ class preview_page implements \renderable, \templatable {
             if (cohort_get_cohort($options->cohortid, $this->context)) {
                 global $DB;
                 $name = (string) $DB->get_field('cohort', 'name', ['id' => $options->cohortid]);
-                $cohortname = format_string($name, true, ['context' => $this->context, 'escape' => false]);
+                $cohortname = plaintext::format($name, $this->context);
                 $memberchips[] = ['text' => get_string('recapcohort', 'local_groupdist', $cohortname)];
             }
         }

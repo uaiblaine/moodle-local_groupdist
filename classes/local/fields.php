@@ -127,7 +127,8 @@ class fields {
     }
 
     /**
-     * Format a stored field name for output, unescaped.
+     * Format a stored field name for output, in the plain spelling
+     * ({@see plaintext::format()}).
      *
      * Every consumer escapes for itself, so the default escaping would show a
      * field named "A & B" as "A &amp; B". That includes a {{#str}} parameter:
@@ -142,10 +143,7 @@ class fields {
      * @return string The formatted name, not HTML-escaped.
      */
     private static function plain(string $name): string {
-        return format_string($name, true, [
-            'context' => \core\context\system::instance(),
-            'escape' => false,
-        ]);
+        return plaintext::format($name, \core\context\system::instance());
     }
 
     /**

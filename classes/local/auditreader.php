@@ -125,14 +125,8 @@ class auditreader {
         foreach ($this->snapshotgroups as $group) {
             $groupid = (int) $group['id'];
             $raw = (string) $group['name'];
-            /* escape => false because the name lands in a Mustache double
-               stash and in a PARAM_TEXT web service field: format_string()'s
-               own encoding would be escaped a second time on the way to the
-               screen, so a group called "R&D" would read "R&amp;D". */
-            $this->groupnames[$groupid] = format_string($raw, true, [
-                'context' => $context,
-                'escape' => false,
-            ]);
+            // Plain: the name lands in a Mustache double stash and in a PARAM_TEXT field.
+            $this->groupnames[$groupid] = plaintext::format($raw, $context);
             // Filters may rewrite the name, so the search accepts either form.
             $this->searchnames[$groupid] = [$raw, $this->groupnames[$groupid]];
         }
@@ -862,11 +856,10 @@ class auditreader {
             }
             return $this->countries[$value] ?? $value;
         }
-        /* A profile field value is arbitrary stored text — a textarea source
-           can hold markup. format_string() strips it, which is also what keeps
-           the value passable through the web service's PARAM_TEXT fields;
-           escape => false because the caller renders it escaped already. */
-        return format_string($value, true, ['context' => $this->context, 'escape' => false]);
+        /* A profile field value is arbitrary stored text: a textarea source
+           can hold markup. The plain spelling is what the double stash and the
+           web service's PARAM_TEXT fields take; {@see plaintext::format()}. */
+        return plaintext::format($value, $this->context);
     }
 
     /**

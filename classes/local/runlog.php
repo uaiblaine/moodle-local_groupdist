@@ -41,7 +41,7 @@ class runlog {
     /** @var int Run status: finished with rejected writes. */
     public const STATUS_PARTIAL = 2;
 
-    /** @var int Run status: aborted before writing (stale fingerprint). */
+    /** @var int Run status: aborted on a stale fingerprint; an earlier interrupted attempt may have written some members. */
     public const STATUS_ABORTED = 3;
 
     /** @var int Member outcome: write planned, not performed yet. */
@@ -188,21 +188,117 @@ class runlog {
     }
 
     /**
-     * Mark a run as aborted before anything was written (stale fingerprint).
+     * Mark a run as aborted on a stale fingerprint, recording what it wrote.
      *
-     * Member rows keep their planned status — accurately: no write happened.
+     * The aborting attempt writes nothing, but a retried adhoc task may follow
+     * an attempt that committed some chunks and then died. Those
+     * memberships carry this run's stamp (component local_groupdist, itemid =
+     * the seed), so each planned member whose planned membership exists with
+     * that stamp is marked written, and memberswritten counts them. A
+     * membership added any other way stays planned: this run did not write it.
+     *
+     * A missing run (its course deleted, or the retention task purged it) is
+     * not an error: the caller is the adhoc task's stale branch, which must
+     * not throw.
      *
      * @param int $runid The run id.
-     * @return void
+     * @return int Memberships an earlier attempt of this run had written (0 on a
+     *   first attempt, and when the run no longer exists).
      */
-    public static function abort(int $runid): void {
+    public static function abort(int $runid): int {
         global $DB;
 
+        $run = $DB->get_record('local_groupdist_run', ['id' => $runid], 'id, seed', IGNORE_MISSING);
+        if (!$run) {
+            return 0;
+        }
+        $ids = $DB->get_fieldset_sql(
+            "SELECT ru.id
+               FROM {local_groupdist_run_user} ru
+               JOIN {groups_members} gm ON gm.groupid = ru.groupid AND gm.userid = ru.userid
+              WHERE ru.runid = :runid
+                AND ru.writestatus = :planned
+                AND ru.groupid <> 0
+                AND gm.component = :component
+                AND gm.itemid = :seed",
+            [
+                'runid' => $runid,
+                'planned' => self::WRITE_PLANNED,
+                'component' => 'local_groupdist',
+                'seed' => (int) $run->seed,
+            ]
+        );
+        foreach (array_chunk($ids, 500) as $chunk) {
+            [$insql, $params] = $DB->get_in_or_equal($chunk, SQL_PARAMS_NAMED, 'ru');
+            $DB->set_field_select('local_groupdist_run_user', 'writestatus', self::WRITE_WRITTEN, "id {$insql}", $params);
+        }
+
+        $written = $DB->count_records('local_groupdist_run_user', ['runid' => $runid, 'writestatus' => self::WRITE_WRITTEN]);
         $DB->update_record('local_groupdist_run', (object) [
             'id' => $runid,
             'status' => self::STATUS_ABORTED,
+            'memberswritten' => $written,
             'timecompleted' => time(),
         ]);
+        return $written;
+    }
+
+    /**
+     * Whether a distribution with this seed has already been applied to the course.
+     *
+     * Only a completed run counts. A pending run is an inline apply that was
+     * interrupted, which the teacher may retry with the same POST; an aborted
+     * run wrote at most what an interrupted attempt left behind and was
+     * refused as stale, so a fresh preview may apply again.
+     *
+     * @param int $courseid The course id.
+     * @param int $seed The distribution seed.
+     * @return bool True when a completed run exists for that course and seed.
+     */
+    public static function is_applied(int $courseid, int $seed): bool {
+        global $DB;
+
+        return $DB->record_exists('local_groupdist_run', [
+            'courseid' => $courseid,
+            'seed' => $seed,
+            'status' => self::STATUS_COMPLETED,
+        ]);
+    }
+
+    /**
+     * Whether a seed is spent: a run under it finished, or wrote before it was aborted.
+     *
+     * Every recompute hides the memberships stamped with its own seed, which is
+     * what lets an interrupted run resume with its original plan
+     * ({@see distribution::build()}). Once a run has written and stopped, that
+     * same invisibility makes a new plan under the seed treat those
+     * participants as ungrouped, so a changed plan can add one of them to a
+     * second group. A spent seed must therefore never start another plan.
+     *
+     * Spent means a completed or partial run, or an aborted one whose earlier
+     * attempt wrote memberships. A pending run does not count: its
+     * memberswritten stays 0 until complete() or abort() seals it, so this
+     * check cannot tell whether an interrupted attempt wrote.
+     *
+     * @param int $courseid The course id.
+     * @param int $seed The distribution seed.
+     * @return bool True when that course and seed has such a run.
+     */
+    public static function is_seed_spent(int $courseid, int $seed): bool {
+        global $DB;
+
+        return $DB->record_exists_select(
+            'local_groupdist_run',
+            'courseid = :courseid AND seed = :seed
+             AND (status IN (:completed, :partial) OR (status = :aborted AND memberswritten > 0))',
+            [
+                'courseid' => $courseid,
+                'seed' => $seed,
+                'completed' => self::STATUS_COMPLETED,
+                'partial' => self::STATUS_PARTIAL,
+                'aborted' => self::STATUS_ABORTED,
+            ]
+        );
     }
 
     /**

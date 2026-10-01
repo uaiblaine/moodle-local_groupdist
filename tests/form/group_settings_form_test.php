@@ -194,6 +194,31 @@ final class group_settings_form_test extends \advanced_testcase {
     }
 
     /**
+     * With formatstringstriptags off the picture's alt and title still carry
+     * the group name escaped exactly once: the template's double stash does
+     * the escaping, so the name reaches it plain
+     * ({@see \local_groupdist\local\plaintext::format()}).
+     *
+     * @return void
+     */
+    public function test_current_picture_names_the_group_once_with_formatstringstriptags_off(): void {
+        [$course] = $this->setup_course();
+        set_config('formatstringstriptags', 0);
+
+        foreach (['Ana & Bruno' => 'Ana &amp; Bruno', 'Turma <3 anos' => 'Turma '] as $name => $attribute) {
+            $group = $this->getDataGenerator()->create_group(['courseid' => $course->id, 'name' => $name]);
+            $this->make_group_picture($course, $group);
+
+            $form = $this->make_form((int) $group->id);
+            $form->definition_after_data();
+            $picture = $this->mform($form)->getElement('currentpicture')->toHtml();
+
+            $this->assertStringContainsString('alt="' . $attribute . '"', $picture);
+            $this->assertStringContainsString('title="' . $attribute . '"', $picture);
+        }
+    }
+
+    /**
      * Give a group a picture, the way groups_update_group_icon() does.
      *
      * @param \stdClass $course The course.
@@ -517,5 +542,51 @@ final class group_settings_form_test extends \advanced_testcase {
         $values = \local_groupdist\local\fields::get_group_values([(int) $group->id]);
         $this->assertSame(17, (int) $values[(int) $group->id]->seats);
         $this->assertSame('Lab 1', $values[(int) $group->id]->location);
+    }
+
+    /**
+     * The modal refuses a fractional seat count, as the inline save does,
+     * while another number field keeps the decimal places it is configured
+     * with. The control submission shows the refusal is the seats value's.
+     *
+     * @return void
+     */
+    public function test_seats_must_be_a_whole_number(): void {
+        [, $group] = $this->setup_course();
+        \local_groupdist\local\fields::reset_field_cache();
+        \local_groupdist\local\fields::ensure_fields_exist();
+        \local_groupdist\local\fields::reset_field_cache();
+        $cfgenerator = $this->getDataGenerator()->get_plugin_generator('core_customfield');
+        $category = $cfgenerator->create_category(['component' => 'core_group', 'area' => 'group', 'itemid' => 0]);
+        $cfgenerator->create_field([
+            'categoryid' => $category->get('id'),
+            'type' => 'number',
+            'shortname' => 'weight',
+            'configdata' => ['decimalplaces' => 2],
+        ]);
+
+        $seats = 'customfield_' . \local_groupdist\local\fields::SHORTNAME_SEATS;
+        $submit = function (string $seatsvalue) use ($group, $seats): group_settings_form {
+            return $this->make_form((int) $group->id, [
+                'name' => $group->name,
+                'description_editor' => ['text' => '', 'format' => FORMAT_HTML, 'itemid' => 0],
+                $seats => $seatsvalue,
+                // Each customfield_number element pairs its input with a hidden ceiling element.
+                $seats . '_maximum' => SQL_INT_MAX + 1,
+                'customfield_weight' => '2.5',
+                'customfield_weight_maximum' => SQL_INT_MAX + 1,
+                'customfield_' . \local_groupdist\local\fields::SHORTNAME_LOCATION => '',
+            ]);
+        };
+
+        $form = $submit('2.5');
+        $this->assertFalse($form->is_validated());
+        $errors = $this->mform($form)->_errors;
+        $this->assertSame(get_string('errorseatswhole', 'local_groupdist'), $errors[$seats] ?? null);
+        $this->assertSame([$seats], array_keys($errors));
+
+        // Control: a whole seat count validates beside the same fractional weight.
+        $form = $submit('3');
+        $this->assertTrue($form->is_validated(), 'Did not validate: ' . json_encode($this->mform($form)->_errors));
     }
 }

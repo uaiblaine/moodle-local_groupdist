@@ -40,6 +40,10 @@ final class bootstrap_compat_test extends \basic_testcase {
      * the 4.5:1 AA floor, and 15.37:1 with text-dark. The saturated backgrounds
      * are listed too, so that no badge relies on the default colour.
      *
+     * Each background takes exactly the utility named here. The bg-* utilities
+     * keep their colour in dark mode, while text-muted and text-body follow the
+     * theme: bg-light text-muted is about 1.2:1 there, light grey on near-white.
+     *
      * @return array Background utility => the text utility it needs.
      */
     private function badge_text_colours(): array {
@@ -120,7 +124,7 @@ final class bootstrap_compat_test extends \basic_testcase {
     }
 
     /**
-     * Every badge background states its own text colour.
+     * Every badge background states the text colour badge_text_colours() names.
      *
      * Checked on every line carrying a background utility, not only on lines
      * that also say "badge": the word may sit on another line, e.g. in a method
@@ -143,7 +147,8 @@ final class bootstrap_compat_test extends \basic_testcase {
                     if (!preg_match('/(?<!text-)\b' . preg_quote($background, '/') . '\b/', $line)) {
                         continue;
                     }
-                    if (!preg_match('/\btext-(white|dark|body|muted)\b/', $line)) {
+                    // The lookarounds keep text-dark-emphasis from passing for text-dark.
+                    if (!preg_match('/(?<![\w-])' . preg_quote($required, '/') . '(?![\w-])/', $line)) {
                         $offenders[] = basename($path) . ':' . ($number + 1) . ' needs ' . $required;
                     }
                 }
@@ -152,8 +157,38 @@ final class bootstrap_compat_test extends \basic_testcase {
         $this->assertSame(
             [],
             $offenders,
-            'Bootstrap 5 defaults .badge text to white, so a badge that does not state its own '
-                . 'colour fails contrast on a light background: ' . implode('; ', $offenders)
+            'Bootstrap 5 defaults .badge text to white, and a theme-relative text colour flips in dark '
+                . 'mode while the background does not: ' . implode('; ', $offenders)
+        );
+    }
+
+    /**
+     * Warning-coloured text uses text-warning-emphasis, never text-warning.
+     *
+     * text-warning paints the theme's warning colour, #f0ad4e on 5.1 and 5.2
+     * Boost: about 1.9:1 on white, under the 4.5:1 AA floor.
+     * text-warning-emphasis reads --bs-warning-text-emphasis, #60451f in light
+     * mode and #f6ce95 in dark mode, above 8:1 on the page background in both.
+     * Font Awesome icons are not checked: they are aria-hidden, and the text
+     * beside each states the same condition.
+     */
+    public function test_warning_text_uses_the_emphasis_colour(): void {
+        $offenders = [];
+        foreach ($this->markup_files() as $path) {
+            foreach (file($path) as $number => $line) {
+                if ($this->is_comment_line($line) || str_contains($line, '<i class="fa ')) {
+                    continue;
+                }
+                if (preg_match('/(?<![\w-])text-warning(?![\w-])/', $line)) {
+                    $offenders[] = basename($path) . ':' . ($number + 1);
+                }
+            }
+        }
+        $this->assertSame(
+            [],
+            $offenders,
+            'text-warning fails AA contrast on a light background; use text-warning-emphasis: '
+                . implode('; ', $offenders)
         );
     }
 

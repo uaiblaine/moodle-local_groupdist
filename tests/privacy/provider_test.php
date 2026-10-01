@@ -16,6 +16,9 @@
 
 namespace local_groupdist\privacy;
 
+use core_privacy\local\metadata\collection;
+use core_privacy\local\metadata\types\database_table;
+use core_privacy\local\metadata\types\user_preference;
 use core_privacy\local\request\approved_contextlist;
 use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\userlist;
@@ -73,6 +76,86 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
      */
     public function test_the_component_is_compliant(): void {
         $this->assertTrue((new \core_privacy\manager())->component_is_compliant('local_groupdist'));
+    }
+
+    /**
+     * Every user-linked table in install.xml is declared in the metadata with
+     * its user columns, and so is the bulk edit preference.
+     *
+     * component_is_compliant() does not look at tables. Core's
+     * test_table_coverage() does, by the same rule as below (a userid column or
+     * a foreign key to user.id), but it is not in this plugin's testsuite.
+     *
+     * @return void
+     */
+    public function test_the_metadata_declares_each_user_linked_table(): void {
+        global $DB;
+        // Loads the xmldb classes.
+        $DB->get_manager();
+
+        $xmldbfile = new \xmldb_file(dirname(__DIR__, 2) . '/db/install.xml');
+        $this->assertTrue($xmldbfile->loadXMLStructure());
+        $userlinked = [];
+        foreach ($xmldbfile->getStructure()->getTables() as $table) {
+            foreach ($table->getKeys() as $key) {
+                if ($key->getRefTable() === 'user' && $key->getRefFields() === ['id'] && count($key->getFields()) === 1) {
+                    $userlinked[$table->getName()][] = $key->getFields()[0];
+                }
+            }
+            if ($table->getField('userid')) {
+                $userlinked[$table->getName()][] = 'userid';
+            }
+        }
+        // Also the precondition: an unparsed file would leave nothing to check.
+        $this->assertEqualsCanonicalizing(
+            ['local_groupdist_run', 'local_groupdist_run_user'],
+            array_keys($userlinked)
+        );
+
+        $declared = [];
+        $preferences = [];
+        foreach (provider::get_metadata(new collection('local_groupdist'))->get_collection() as $item) {
+            if ($item instanceof database_table) {
+                $declared[$item->get_name()] = array_keys($item->get_privacy_fields());
+            } else if ($item instanceof user_preference) {
+                $preferences[] = $item->get_name();
+            }
+        }
+        foreach ($userlinked as $tablename => $userfields) {
+            $this->assertArrayHasKey($tablename, $declared, $tablename . ' holds user data but is not declared.');
+            foreach (array_unique($userfields) as $userfield) {
+                $this->assertContains($userfield, $declared[$tablename], $tablename . '.' . $userfield . ' is not declared.');
+            }
+        }
+        $this->assertContains('valuesjson', $declared['local_groupdist_run_user']);
+        $this->assertSame(['local_groupdist_bulkedit_hiddencols'], $preferences);
+    }
+
+    /**
+     * The bulk edit preference is exported when set, and nothing is when not.
+     *
+     * The first half is the control: without it the second would pass against
+     * a provider that exported a value for everybody.
+     *
+     * @return void
+     */
+    public function test_the_bulk_edit_preference_is_exported_only_when_set(): void {
+        $this->resetAfterTest();
+        $user = $this->getDataGenerator()->create_user();
+        $system = \core\context\system::instance();
+
+        provider::export_user_preferences((int) $user->id);
+        $this->assertFalse(writer::with_context($system)->has_any_data());
+
+        set_user_preference('local_groupdist_bulkedit_hiddencols', 'location,members', $user);
+        provider::export_user_preferences((int) $user->id);
+        $exported = writer::with_context($system)->get_user_preferences('local_groupdist');
+
+        $this->assertSame('location,members', $exported->local_groupdist_bulkedit_hiddencols->value);
+        $this->assertSame(
+            get_string('privacy:metadata:preference:bulkeditcols', 'local_groupdist'),
+            $exported->local_groupdist_bulkedit_hiddencols->description
+        );
     }
 
     /**

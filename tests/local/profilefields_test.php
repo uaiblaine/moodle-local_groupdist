@@ -99,6 +99,53 @@ final class profilefields_test extends \advanced_testcase {
     }
 
     /**
+     * With formatstringstriptags off, field, cohort and group labels still
+     * reach callers plain ({@see plaintext::format()}), while the escaped arm
+     * of get_source_groups() keeps the spelling a raw form sink needs.
+     *
+     * @return void
+     */
+    public function test_labels_are_plain_with_formatstringstriptags_off(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/user/profile/lib.php');
+        $this->resetAfterTest();
+        set_config('formatstringstriptags', 0);
+        $this->setAdminUser();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+
+        $field = $generator->create_custom_profile_field([
+            'shortname' => 'ampfield',
+            'name' => 'Turma A & B',
+            'datatype' => 'text',
+            'visible' => PROFILE_VISIBLE_ALL,
+        ]);
+        $cohort = $generator->create_cohort([
+            'contextid' => \core\context\system::instance()->id,
+            'name' => 'Turno <3 anos',
+        ]);
+        $group = $generator->create_group(['courseid' => $course->id, 'name' => 'Ciencias & Letras']);
+        $angled = $generator->create_group(['courseid' => $course->id, 'name' => 'Turma <3 anos']);
+
+        $this->assertSame('Turma A & B', profilefields::get_fields($context)['profile_' . $field->id]);
+        $this->assertSame('Turma A & B', profilefields::get_label('profile_' . $field->id, $context));
+        $this->assertSame(
+            get_string('cohortsourcelabel', 'local_groupdist', 'Turno '),
+            profilefields::get_label('cohort_' . $cohort->id, $context)
+        );
+        $groups = profilefields::get_source_groups($context);
+        $this->assertSame('Ciencias & Letras', $groups[(int) $group->id]);
+        $this->assertSame('Turma ', $groups[(int) $angled->id]);
+        $this->assertSame(
+            get_string('groupsourcelabel', 'local_groupdist', 'Ciencias & Letras'),
+            profilefields::get_label('group_' . $group->id, $context)
+        );
+        // Control: the escaped arm is a raw sink's spelling, and stays escaped.
+        $this->assertSame('Ciencias &amp; Letras', profilefields::get_source_groups($context, true)[(int) $group->id]);
+    }
+
+    /**
      * An editing teacher sees ALL and TEACHERS fields, never private/hidden ones.
      */
     public function test_editingteacher_sees_teacher_visible_fields_only(): void {

@@ -21,6 +21,7 @@ use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
+use local_groupdist\local\plaintext;
 
 /**
  * Cohort search for the affinity rule builder.
@@ -80,11 +81,8 @@ class search_cohorts extends external_api {
         foreach ($matches as $cohort) {
             $cohorts[] = [
                 'value' => 'cohort_' . (int) $cohort->id,
-                // Escaped by the client (rules.js writes it with textContent).
-                'label' => format_string($cohort->name, true, [
-                    'context' => \core\context::instance_by_id($cohort->contextid),
-                    'escape' => false,
-                ]),
+                // Plain: a PARAM_TEXT field that rules.js writes with textContent.
+                'label' => plaintext::format($cohort->name, \core\context::instance_by_id($cohort->contextid)),
             ];
         }
         return ['cohorts' => $cohorts];

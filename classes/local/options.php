@@ -186,31 +186,15 @@ class options {
     }
 
     /**
-     * The source key of the highest-priority rule.
-     *
-     * @return string The source key, or '' when no rule is set.
-     */
-    public function get_affinity_source(): string {
-        $first = $this->affinityrules->first();
-        return $first['source'] ?? '';
-    }
-
-    /**
-     * The mode of the highest-priority rule.
-     *
-     * @return string One of the AFFINITY_* constants (together when no rule).
-     */
-    public function get_affinity_mode(): string {
-        $first = $this->affinityrules->first();
-        return $first['mode'] ?? self::AFFINITY_TOGETHER;
-    }
-
-    /**
      * The effective ruleset guardrail (site setting, or the class default).
+     *
+     * The single authority for the limit: from_array() enforces it, and
+     * options_form both caps the rule builder and validates with it, so the
+     * form never accepts a ruleset the preview would then reject.
      *
      * @return int Maximum accepted number of rules.
      */
-    private static function max_affinity_rules(): int {
+    public static function max_affinity_rules(): int {
         $max = (int) get_config('local_groupdist', 'maxaffinityrules');
         return ($max > 0) ? $max : ruleset::DEFAULT_MAX_RULES;
     }

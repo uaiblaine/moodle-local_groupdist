@@ -83,7 +83,7 @@ class distribution {
         $distribution->options = $options;
 
         // Resolve and order the target groups (name, then id — stable between runs).
-        $coursegroups = groups_get_all_groups($options->courseid);
+        $coursegroups = self::get_destination_groups($context);
         $selected = [];
         foreach ($options->groupids as $groupid) {
             if (isset($coursegroups[$groupid])) {
@@ -175,6 +175,58 @@ class distribution {
         $distribution->warnings = array_merge($distribution->warnings, $distribution->allocation->warnings);
         $distribution->fingerprint = self::compute_fingerprint($distribution);
         return $distribution;
+    }
+
+    /**
+     * The course groups the acting user may distribute into, keyed by id.
+     *
+     * Every entry point resolves submitted destination ids against this set
+     * (distribute.php, get_preview, apply.php and build() itself), so it must
+     * be the same set on every call or the fingerprint turns the difference
+     * into a spurious "stale" refusal. The bulk edit page and save_group_fields
+     * use it too, to limit which groups a user can see and edit.
+     *
+     * A viewhiddengroups holder gets every group; anyone else gets ALL groups
+     * plus the MEMBERS groups they belong to. That is the rule
+     * groups_get_all_groups() applies in its SQL path minus OWN groups, which
+     * that helper admits for a member: core shows a member of an OWN group
+     * only their own row, while the preview lists a destination's existing
+     * members and counts them. NONE and OWN groups are therefore distributed
+     * into only by a holder.
+     *
+     * The rule is stated here rather than delegated: groups_get_all_groups()
+     * reads core/coursehiddengroups to decide whether to filter at all, and on
+     * a cold cache that check reports "nothing hidden", so one call returns
+     * every group, NONE included ({@see profilefields::get_source_groups()}
+     * explains the mechanism).
+     *
+     * @param \core\context\course $context The course context.
+     * @return array Group records (every {groups} column) keyed by id, ordered by name, then id.
+     */
+    public static function get_destination_groups(\core\context\course $context): array {
+        global $DB, $USER;
+
+        $params = ['courseid' => (int) $context->instanceid];
+        $visibility = '';
+        if (!has_capability('moodle/course:viewhiddengroups', $context)) {
+            $visibility = "AND (g.visibility = :all
+                                OR (g.visibility = :members
+                                    AND EXISTS (SELECT 1
+                                                  FROM {groups_members} gm
+                                                 WHERE gm.groupid = g.id AND gm.userid = :userid)))";
+            $params += [
+                'all' => GROUPS_VISIBILITY_ALL,
+                'members' => GROUPS_VISIBILITY_MEMBERS,
+                'userid' => (int) $USER->id,
+            ];
+        }
+        return $DB->get_records_sql(
+            "SELECT g.*
+               FROM {groups} g
+              WHERE g.courseid = :courseid {$visibility}
+           ORDER BY g.name, g.id",
+            $params
+        );
     }
 
     /**

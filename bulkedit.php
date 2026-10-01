@@ -45,7 +45,10 @@ if (!$groupids) {
     $csv = optional_param('groupids', '', PARAM_SEQUENCE);
     $groupids = array_filter(array_map('intval', explode(',', $csv)));
 }
-$coursegroups = groups_get_all_groups($course->id);
+/* Core's group listing rule, stated in one place and never delegated to
+   groups_get_all_groups(), which returns hidden groups on a cold cache
+   ({@see \local_groupdist\local\distribution::get_destination_groups()}). */
+$coursegroups = \local_groupdist\local\distribution::get_destination_groups($context);
 $selected = [];
 foreach (array_unique(array_map('intval', $groupids)) as $groupid) {
     if (isset($coursegroups[$groupid])) {

@@ -55,7 +55,7 @@ $options = \local_groupdist\local\options::from_array([
 ]);
 
 // Server-side re-validation: never trust the round-tripped fields.
-$coursegroups = groups_get_all_groups($course->id);
+$coursegroups = \local_groupdist\local\distribution::get_destination_groups($context);
 $options->groupids = array_values(array_intersect($options->groupids, array_map('intval', array_keys($coursegroups))));
 if (!$options->groupids) {
     redirect($returnurl, get_string('errornogroups', 'local_groupdist'), null, \core\output\notification::NOTIFY_ERROR);
@@ -80,6 +80,15 @@ if (\local_groupdist\task\apply_distribution::get_taskid_for_course($course->id)
         null,
         \core\output\notification::NOTIFY_WARNING
     );
+}
+
+/* A replayed POST (back button and resubmit, a double submit) would pass the
+   fingerprint check: every recompute hides this seed's own memberships, so a
+   completed run reproduces its own plan. Only a completed run refuses; an
+   interrupted inline apply (still pending) stays retryable, see
+   runlog::is_applied(). */
+if (\local_groupdist\local\runlog::is_applied($course->id, $options->seed)) {
+    redirect($returnurl, get_string('erroralreadyapplied', 'local_groupdist'), null, \core\output\notification::NOTIFY_WARNING);
 }
 
 $distribution = \local_groupdist\local\distribution::build($options, $context);

@@ -43,11 +43,13 @@ class options_form extends \moodleform {
     public const COHORT_MENU_LIMIT = 10;
 
     /* Higher than the cohort limit: cohorts are site-level and can number in
-       the thousands, while a course with a dozen groups is ordinary. The value
-       matches get_preview::GROUP_CAP, the most groups the preview shows; keep
-       the two in step. */
+       the thousands, while a course with a dozen groups is ordinary. It is the
+       preview's own cap, the most groups the preview shows. */
     /** @var int Most course groups shown as a plain menu; beyond it the picker becomes a search. */
-    public const GROUP_MENU_LIMIT = 25;
+    public const GROUP_MENU_LIMIT = \local_groupdist\external\get_preview::GROUP_CAP;
+
+    /** @var int Rule count guardrail, resolved once in definition() so the builder and validation() agree. */
+    private int $maxrules = \local_groupdist\local\ruleset::DEFAULT_MAX_RULES;
 
     /**
      * Form definition.
@@ -156,10 +158,10 @@ class options_form extends \moodleform {
                     /* Plain: the rule builder's row template escapes it (double
                        stash), unlike the cohortid select above, which core
                        renders through a triple stash and so stays escaped. */
-                    'label' => format_string($cohort->name, true, [
-                        'context' => \core\context::instance_by_id($cohort->contextid),
-                        'escape' => false,
-                    ]),
+                    'label' => \local_groupdist\local\plaintext::format(
+                        $cohort->name,
+                        \core\context::instance_by_id($cohort->contextid)
+                    ),
                 ];
             }
         }
@@ -185,6 +187,8 @@ class options_form extends \moodleform {
             ];
         }
 
+        $this->maxrules = options::max_affinity_rules();
+
         $mform->addElement('header', 'affinityhdr', get_string('affinitysection', 'local_groupdist'));
         $mform->setExpanded('affinityhdr', true);
         $mform->addElement('html', $OUTPUT->render_from_template('local_groupdist/rules_builder', [
@@ -196,7 +200,7 @@ class options_form extends \moodleform {
             'destinationsjson' => json_encode(array_values(array_map('intval', (array) $groupids))),
             'courseid' => $courseid,
             'rulesjson' => json_encode($initialrules),
-            'maxrules' => \local_groupdist\local\ruleset::DEFAULT_MAX_RULES,
+            'maxrules' => $this->maxrules,
         ]));
         $mform->addElement('static', 'affinityruleserr', '', '');
         $PAGE->requires->js_call_amd('local_groupdist/rules', 'init');
@@ -271,7 +275,7 @@ class options_form extends \moodleform {
            run here so a bad ruleset never reaches the preview. */
         $rules = options::rules_from_post();
         try {
-            $ruleset = \local_groupdist\local\ruleset::from_array($rules);
+            $ruleset = \local_groupdist\local\ruleset::from_array($rules, $this->maxrules);
             $destinations = array_map('intval', (array) ($this->_customdata['groupids'] ?? []));
             $ignoregrouped = !empty($data['ignoregrouped']);
             foreach ($ruleset->get_rules() as $i => $rule) {

@@ -95,6 +95,36 @@ final class fields_test extends \advanced_testcase {
     }
 
     /**
+     * With formatstringstriptags off the plain labels stay plain
+     * ({@see plaintext::format()}), while the escaped seats label keeps the
+     * spelling options_form's raw sinks need.
+     *
+     * Only ampersands make a fixture here: a field name is read through
+     * core\persistent::get(), which cleans it as PARAM_TEXT, so a bare "<"
+     * and what follows it never reach the formatting.
+     *
+     * @return void
+     */
+    public function test_labels_are_plain_with_formatstringstriptags_off(): void {
+        global $DB;
+        $this->resetAfterTest();
+        set_config('formatstringstriptags', 0);
+        $this->setAdminUser();
+        fields::reset_field_cache();
+        fields::ensure_fields_exist();
+        fields::reset_field_cache();
+
+        $DB->set_field('customfield_field', 'name', 'Vagas & Lugares', ['id' => fields::get_seats_field()->get('id')]);
+        $DB->set_field('customfield_field', 'name', 'Sala & Local', ['id' => fields::get_location_field()->get('id')]);
+        fields::reset_field_cache();
+
+        $this->assertSame('Vagas & Lugares', fields::get_seats_label());
+        $this->assertSame('Sala & Local', fields::get_location_label());
+        // Control: the escaped spelling is for raw sinks, and stays escaped.
+        $this->assertSame('Vagas &amp; Lugares', fields::get_seats_label(true));
+    }
+
+    /**
      * With no field provisioned the labels fall back to the lang pack, which
      * is never escaped either — so both branches agree.
      *

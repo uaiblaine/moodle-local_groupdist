@@ -70,6 +70,9 @@
                         "isselect": false,
                         "ischeckbox": false,
                         "isreadonly": false,
+                        "hasmin": true,
+                        "min": "0",
+                        "step": "1",
                         "value": "12",
                         "displayvalue": "",
                         "checked": false,
@@ -91,7 +94,7 @@
             <span class="fw-bold">{{#str}} massactions, local_groupdist {{/str}}</span>
             <label class="mb-0" for="local-groupdist-massvalue">{{#str}} massapplyseats, local_groupdist, {{seatslabel}} {{/str}}</label>
             <input type="number" id="local-groupdist-massvalue" class="form-control form-control-sm local-groupdist-massvalue"
-                   min="0" max="99" data-region="massvalue">
+                   min="0" max="99" step="1" data-region="massvalue">
             <button type="button" class="btn btn-secondary btn-sm" data-action="massapply">
                 {{#str}} applytoall, local_groupdist {{/str}}
             </button>
@@ -118,7 +121,7 @@
             <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
                     data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                 {{#str}} columnsbutton, local_groupdist {{/str}}
-                <span class="badge bg-light text-muted border fw-normal" data-region="hiddencount" hidden></span>
+                <span class="badge bg-light text-dark border fw-normal" data-region="hiddencount" hidden></span>
             </button>
             <div class="dropdown-menu dropdown-menu-end p-2">
                 <div class="small text-muted px-2 pb-1">{{#str}} columnsmenuhead, local_groupdist, {{seatslabel}} {{/str}}</div>
@@ -160,7 +163,7 @@
                             <img src="{{.}}" class="local-groupdist-gavatar rounded-circle" alt="">
                             {{/pictureurl}}
                             {{^pictureurl}}
-                            <span class="local-groupdist-gavatar local-groupdist-ginitial rounded-circle bg-secondary text-white"
+                            <span class="local-groupdist-gavatar local-groupdist-ginitial rounded-circle bg-secondary text-dark"
                                   aria-hidden="true">{{initial}}</span>
                             {{/pictureurl}}
                             <span class="fw-bold text-truncate local-groupdist-gname" tabindex="0"
@@ -171,7 +174,7 @@
                     <td data-colkey="id" data-label="{{#str}} idnumbercolumn, local_groupdist {{/str}}" class="text-muted small text-nowrap">
                         #{{groupid}}
                         {{#idnumber}}
-                        <span class="badge bg-light text-muted border fw-normal local-groupdist-idn text-truncate" tabindex="0"
+                        <span class="badge bg-light text-dark border fw-normal local-groupdist-idn text-truncate" tabindex="0"
                               data-bs-toggle="tooltip" title="{{.}}">{{.}}</span>
                         {{/idnumber}}
                     </td>
@@ -185,7 +188,8 @@
                     <td data-colkey="{{key}}" data-shortname="{{shortname}}" data-label="{{label}}"
                         class="{{#empty}}table-warning{{/empty}}">
                         {{#isnumber}}
-                        <input type="number" class="form-control form-control-sm local-groupdist-numinput" min="0"
+                        <input type="number" class="form-control form-control-sm local-groupdist-numinput"
+                               {{#hasmin}}min="{{min}}"{{/hasmin}} step="{{step}}"
                                data-fieldtype="number" value="{{value}}" aria-label="{{label}}">
                         {{/isnumber}}
                         {{#istext}}

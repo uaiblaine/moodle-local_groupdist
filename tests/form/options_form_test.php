@@ -52,9 +52,10 @@ final class options_form_test extends \advanced_testcase {
      *
      * @param int $extracohorts Additional eligible cohorts to seed.
      * @param int $offroster Additional cohorts with NO enrolled member.
+     * @param int $noseats How many selected groups the form is told lack a seats value.
      * @return string The rendered form HTML.
      */
-    private function render_with_cohort(int $extracohorts = 0, int $offroster = 0): string {
+    private function render_with_cohort(int $extracohorts = 0, int $offroster = 0, int $noseats = 0): string {
         global $CFG, $DB, $PAGE;
         require_once($CFG->dirroot . '/cohort/lib.php');
         $this->resetAfterTest();
@@ -105,7 +106,7 @@ final class options_form_test extends \advanced_testcase {
             'courseid' => (int) $course->id,
             'groupids' => [(int) $group->id],
             'roles' => [],
-            'noseats' => 0,
+            'noseats' => $noseats,
             'initialrules' => [],
         ]);
         return $form->render();
@@ -161,9 +162,8 @@ final class options_form_test extends \advanced_testcase {
      * Core renders that label through a triple stash (element-advcheckbox),
      * while every other consumer of fields::get_seats_label() wants the plain
      * spelling. Hence its $escape switch, the shape of core's
-     * field_controller::get_formatted_name(). The static no-seats note is a
-     * second triple-stash sink of the same value, not rendered here because
-     * the fixture passes noseats = 0.
+     * field_controller::get_formatted_name(). The static no-seats note is the
+     * second sink; see test_the_seats_label_reaches_the_no_seats_note_escaped().
      *
      * @return void
      */
@@ -172,6 +172,31 @@ final class options_form_test extends \advanced_testcase {
 
         $this->assertStringContainsString('Vagas &amp; Lugares', $html);
         $this->assertStringNotContainsString('Vagas & Lugares', $html);
+    }
+
+    /**
+     * The seats label must arrive escaped in the static no-seats note too.
+     *
+     * Core renders a static element's text through a triple stash
+     * (element-static.mustache). The note appears only when some selected
+     * groups lack a seats value, so the fixture says one does.
+     *
+     * @return void
+     */
+    public function test_the_seats_label_reaches_the_no_seats_note_escaped(): void {
+        $html = $this->render_with_cohort(0, 0, 1);
+
+        // Scoped to the note's own markup: the checkbox label above carries the same value.
+        $this->assertSame(
+            1,
+            preg_match('~data-name="noseatsnote">(.*?)</div>~s', $html, $matches),
+            'The no-seats note was not rendered at all.'
+        );
+        $note = $matches[1];
+
+        $this->assertStringContainsString('1 of the 1 selected groups', $note);
+        $this->assertStringContainsString('"Vagas &amp; Lugares"', $note);
+        $this->assertStringNotContainsString('Vagas & Lugares', $note);
     }
 
     /**
@@ -501,6 +526,68 @@ final class options_form_test extends \advanced_testcase {
         $this->assertStringContainsString('data-groupsearch="1"', $html);
         $this->assertStringContainsString('data-groups="[]"', $html);
         $this->assertStringNotContainsString('One too many', $html);
+    }
+
+    /**
+     * A site limit below the default caps the builder and fails validation,
+     * so a ruleset the preview would reject never leaves the form.
+     *
+     * Changes that must make it fail: validation() calling
+     * ruleset::from_array() without the resolved limit, or the builder being
+     * handed DEFAULT_MAX_RULES instead of it.
+     *
+     * @return void
+     */
+    public function test_a_lowered_rule_limit_binds_the_builder_and_validation(): void {
+        $this->render_with_cohort();
+        set_config('maxaffinityrules', 2, 'local_groupdist');
+
+        $this->assertStringContainsString('data-maxrules="2"', $this->render_form());
+
+        $errors = $this->validate_with([
+            'affinityrulesources' => ['city', 'department', 'institution'],
+            'affinityrulemodes' => [options::AFFINITY_TOGETHER, options::AFFINITY_APART, options::AFFINITY_APART],
+        ], []);
+        $this->assertArrayHasKey('affinityruleserr', $errors);
+
+        // Control: at the limit the same kind of ruleset passes.
+        $errors = $this->validate_with([
+            'affinityrulesources' => ['city', 'department'],
+            'affinityrulemodes' => [options::AFFINITY_TOGETHER, options::AFFINITY_APART],
+        ], []);
+        $this->assertArrayNotHasKey('affinityruleserr', $errors);
+    }
+
+    /**
+     * A site limit above the default is reachable: the builder offers it and
+     * validation accepts a ruleset longer than DEFAULT_MAX_RULES.
+     *
+     * @return void
+     */
+    public function test_a_raised_rule_limit_is_reachable(): void {
+        global $DB;
+
+        // Four native columns and seven cohorts give eleven distinct sources.
+        $this->render_with_cohort(6);
+        $cohortids = $DB->get_fieldset_select('cohort', 'id', 'contextid = ?', [\core\context\system::instance()->id]);
+        $sources = array_merge(
+            options::NATIVE_AFFINITY_FIELDS,
+            array_map(static function ($id): string {
+                return 'cohort_' . (int) $id;
+            }, $cohortids)
+        );
+        $this->assertCount(\local_groupdist\local\ruleset::DEFAULT_MAX_RULES + 1, $sources);
+        $rules = [
+            'affinityrulesources' => $sources,
+            'affinityrulemodes' => array_fill(0, count($sources), options::AFFINITY_APART),
+        ];
+
+        // Control: under the default limit the same ruleset is one rule too many.
+        $this->assertArrayHasKey('affinityruleserr', $this->validate_with($rules, []));
+
+        set_config('maxaffinityrules', count($sources), 'local_groupdist');
+        $this->assertStringContainsString('data-maxrules="' . count($sources) . '"', $this->render_form());
+        $this->assertArrayNotHasKey('affinityruleserr', $this->validate_with($rules, []));
     }
 
     /**

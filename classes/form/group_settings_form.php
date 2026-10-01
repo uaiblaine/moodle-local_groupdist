@@ -19,6 +19,7 @@ namespace local_groupdist\form;
 use core_form\dynamic_form;
 use core_group\customfield\group_handler;
 use local_groupdist\local\fields;
+use local_groupdist\local\plaintext;
 use local_groupdist\output\bulkedit_page;
 
 /**
@@ -212,7 +213,7 @@ class group_settings_form extends dynamic_form {
             return '';
         }
         $context = $this->get_context_for_dynamic_submission();
-        $name = format_string($group->name, true, ['context' => $context, 'escape' => false]);
+        $name = plaintext::format($group->name, $context);
         return $OUTPUT->render_from_template('local_groupdist/group_picture', [
             'url' => $url->out(false),
             'name' => $name,
@@ -260,8 +261,9 @@ class group_settings_form extends dynamic_form {
     }
 
     /**
-     * Core's group form validation: unique name, unique ID number, and the
-     * enrolment key rules.
+     * Core's group form validation: unique name, unique ID number, the
+     * enrolment key rules and the custom fields. The picture check and the
+     * seats rule are this plugin's own.
      *
      * @param array $data Submitted data.
      * @param array $files Submitted files.
@@ -290,8 +292,27 @@ class group_settings_form extends dynamic_form {
 
         $errors += $this->validate_picture((int) ($data['imagefile'] ?? 0));
 
-        $handlererrors = group_handler::create()->instance_form_validation($data, $files);
-        return array_merge($errors, $handlererrors);
+        $errors = array_merge($errors, group_handler::create()->instance_form_validation($data, $files));
+        // After core's checks, so a value outside the field's own range keeps core's message.
+        return $errors + $this->validate_seats($data);
+    }
+
+    /**
+     * Reject a seat count that is not a whole number, the rule the inline save
+     * applies ({@see \local_groupdist\external\save_group_fields::validate_cell()}
+     * says why). The float element parses the value first and reports one that
+     * does not parse itself, so a non-number here is not this rule's to report.
+     *
+     * @param array $data Submitted data.
+     * @return array Errors keyed by element name, empty when the value is fine.
+     */
+    protected function validate_seats(array $data): array {
+        $element = 'customfield_' . fields::SHORTNAME_SEATS;
+        $seats = $data[$element] ?? '';
+        if (!is_numeric($seats) || floor((float) $seats) == (float) $seats) {
+            return [];
+        }
+        return [$element => get_string('errorseatswhole', 'local_groupdist')];
     }
 
     /**

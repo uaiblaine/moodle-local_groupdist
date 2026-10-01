@@ -24,11 +24,12 @@ namespace local_groupdist\local;
  * Cohorts follow cohort_get_cohort()'s parent-context and visibility rules, so
  * a hidden cohort id can never become a membership oracle.
  *
- * Course groups start from groups_get_all_groups(), the call every entry point
- * validates submitted destination groups against, so a group source is never
- * more permissive than a destination in the same request; the visibility
+ * Course groups start from groups_get_all_groups(), and the visibility
  * decision is then made here rather than trusted from that helper
- * ({@see self::get_source_groups()}).
+ * ({@see self::get_source_groups()}). The result is never more permissive than
+ * the destination set of the same request
+ * ({@see distribution::get_destination_groups()}); both leave out OWN groups
+ * for a user without viewhiddengroups.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -192,14 +193,16 @@ class profilefields {
     }
 
     /**
-     * Format an admin-set name for output, unescaped.
+     * Format an admin-set name for output, in the plain spelling
+     * ({@see plaintext::format()}).
      *
      * Every consumer of these labels escapes for itself (the rule builder
-     * prints them through Mustache double stashes and rules.js writes search
-     * results with textContent), so the default escaping would show a cohort
-     * named "A & B" as "A &amp; B". The context is always passed explicitly
-     * so a label is filtered in its own context whatever code builds it,
-     * rather than in whatever $PAGE->context happens to be.
+     * prints them through Mustache double stashes, rules.js writes search
+     * results with textContent, and get_preview returns them in PARAM_TEXT
+     * fields), so the default escaping would show a cohort named "A & B" as
+     * "A &amp; B". The context is always passed explicitly so a label is
+     * filtered in its own context whatever code builds it, rather than in
+     * whatever $PAGE->context happens to be.
      *
      * options_form's cohortid select does not come through here: core renders
      * a select's options through a triple stash
@@ -211,7 +214,7 @@ class profilefields {
      * @return string The formatted name, not HTML-escaped.
      */
     private static function plain(string $name, \core\context $context): string {
-        return format_string($name, true, ['context' => $context, 'escape' => false]);
+        return plaintext::format($name, $context);
     }
 
     /**

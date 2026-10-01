@@ -16,6 +16,7 @@
 
 namespace local_groupdist\output;
 
+use core_group\customfield\group_handler;
 use local_groupdist\local\fields;
 use PHPUnit\Framework\Attributes\CoversClass;
 
@@ -120,6 +121,33 @@ final class bulkedit_page_test extends \advanced_testcase {
     }
 
     /**
+     * With formatstringstriptags off, group names and column labels still
+     * reach the row context plain
+     * ({@see \local_groupdist\local\plaintext::format()}).
+     *
+     * @return void
+     */
+    public function test_names_are_plain_with_formatstringstriptags_off(): void {
+        global $DB;
+        $this->resetAfterTest();
+        set_config('formatstringstriptags', 0);
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $ampersand = $this->getDataGenerator()->create_group(['courseid' => $course->id, 'name' => 'Ana & Bruno']);
+        $angled = $this->getDataGenerator()->create_group(['courseid' => $course->id, 'name' => 'Turma <3 anos']);
+        fields::reset_field_cache();
+        fields::ensure_fields_exist();
+        fields::reset_field_cache();
+        $DB->set_field('customfield_field', 'name', 'Vagas & Lugares', ['id' => fields::get_seats_field()->get('id')]);
+        fields::reset_field_cache();
+
+        $this->assertSame('Ana & Bruno', bulkedit_page::build_row($ampersand, [], [], 0)['name']);
+        $this->assertSame('Turma ', bulkedit_page::build_row($angled, [], [], 0)['name']);
+        $labels = array_column(bulkedit_page::get_field_columns(), 'label', 'shortname');
+        $this->assertSame('Vagas & Lugares', $labels[fields::SHORTNAME_SEATS]);
+    }
+
+    /**
      * Column headers come from admin-editable field names and carry the same
      * rule.
      *
@@ -142,5 +170,141 @@ final class bulkedit_page_test extends \advanced_testcase {
 
         $this->assertArrayHasKey(fields::SHORTNAME_SEATS, $labels);
         $this->assertSame('Vagas & Lugares', $labels[fields::SHORTNAME_SEATS]);
+    }
+
+    /**
+     * Create a group custom field.
+     *
+     * @param string $type The field type.
+     * @param string $shortname The field shortname.
+     * @param array $configdata Field configuration on top of the generator's defaults.
+     * @return \core_customfield\field_controller The field.
+     */
+    private function create_group_field(
+        string $type,
+        string $shortname,
+        array $configdata = []
+    ): \core_customfield\field_controller {
+        $cfgenerator = $this->getDataGenerator()->get_plugin_generator('core_customfield');
+        $category = $cfgenerator->create_category(['component' => 'core_group', 'area' => 'group', 'itemid' => 0]);
+        return $cfgenerator->create_field([
+            'categoryid' => $category->get('id'),
+            'type' => $type,
+            'shortname' => $shortname,
+            'configdata' => $configdata,
+        ]);
+    }
+
+    /**
+     * A number field whose value a provider computes is shown read-only, as
+     * core's group form shows it, and a hand-typed number field beside it
+     * stays inline-editable.
+     *
+     * Core's only provider, nofactivities, is offered for course fields alone,
+     * so such a group field exists only through a provider another plugin
+     * registers with the add_custom_providers hook; the test registers one
+     * that way and first checks core offers it for a group field. Changes that
+     * must make it fail: dropping the is_editable() check from
+     * get_field_columns().
+     *
+     * @return void
+     */
+    public function test_a_provider_backed_number_field_is_read_only(): void {
+        global $CFG;
+        require_once($CFG->dirroot . '/local/groupdist/tests/fixtures/group_number_provider.php');
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $this->redirectHook(
+            \customfield_number\hook\add_custom_providers::class,
+            static function (\customfield_number\hook\add_custom_providers $hook): void {
+                $hook->add_provider(new \local_groupdist\fixtures\group_number_provider($hook->field));
+            }
+        );
+        $course = $this->getDataGenerator()->create_course();
+        $group = $this->getDataGenerator()->create_group(['courseid' => $course->id]);
+        $typed = $this->create_group_field('number', 'typed', ['decimalplaces' => 0]);
+
+        // Precondition: core offers the hook's provider for a group field, and not its own.
+        $offered = array_map('get_class', array_values(\customfield_number\provider_base::get_all_providers($typed)));
+        $this->assertSame([\local_groupdist\fixtures\group_number_provider::class], $offered);
+
+        $this->create_group_field('number', 'computed', [
+            'fieldtype' => \local_groupdist\fixtures\group_number_provider::class,
+            'decimalplaces' => 0,
+        ]);
+        group_handler::create()->instance_form_save((object) ['id' => $group->id, 'customfield_computed' => 7]);
+
+        $columns = array_column(bulkedit_page::get_field_columns(), null, 'shortname');
+        $this->assertTrue($columns['computed']['isreadonly']);
+        $this->assertFalse($columns['computed']['isnumber']);
+        $this->assertFalse($columns['typed']['isreadonly']);
+        $this->assertTrue($columns['typed']['isnumber']);
+
+        $data = group_handler::create()->get_instances_data([(int) $group->id], true);
+        $row = bulkedit_page::build_row($group, array_values($columns), $data[(int) $group->id], 0);
+        $cells = array_column($row['cells'], null, 'shortname');
+        $this->assertSame('7', $cells['computed']['displayvalue']);
+        $this->assertSame('', $cells['computed']['value']);
+    }
+
+    /**
+     * Each number input states the floor the inline save enforces and the
+     * step its field allows: seats never below 0 and whole, even with the
+     * field's own minimum cleared; another field its configured minimum and
+     * any decimals; a field without a minimum no min attribute at all.
+     *
+     * Each assertion reads the input inside its own cell, never the whole
+     * page, since every number input shares the same markup.
+     *
+     * @return void
+     */
+    public function test_number_inputs_state_the_bounds_the_save_enforces(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $group = $this->getDataGenerator()->create_group(['courseid' => $course->id]);
+        fields::reset_field_cache();
+        fields::ensure_fields_exist();
+        fields::reset_field_cache();
+        $seats = fields::get_seats_field();
+        group_handler::create()->save_field_configuration($seats, (object) [
+            'configdata' => ['minimumvalue' => ''] + $seats->get('configdata'),
+        ]);
+        fields::reset_field_cache();
+        $this->create_group_field('number', 'quota', ['decimalplaces' => 2, 'minimumvalue' => 2]);
+        $this->create_group_field('number', 'temperature', ['decimalplaces' => 1, 'minimumvalue' => '']);
+
+        $PAGE->set_url('/local/groupdist/bulkedit.php');
+        $PAGE->set_context(\core\context\course::instance($course->id));
+        $renderer = $PAGE->get_renderer('core');
+        $page = new bulkedit_page($course, [$group]);
+        $html = $renderer->render_from_template('local_groupdist/bulkedit', $page->export_for_template($renderer));
+
+        $seatsinput = $this->number_input($html, fields::SHORTNAME_SEATS);
+        $this->assertStringContainsString('min="0"', $seatsinput);
+        $this->assertStringContainsString('step="1"', $seatsinput);
+
+        $quotainput = $this->number_input($html, 'quota');
+        $this->assertStringContainsString('min="2"', $quotainput);
+        $this->assertStringContainsString('step="any"', $quotainput);
+
+        $temperatureinput = $this->number_input($html, 'temperature');
+        $this->assertStringNotContainsString('min=', $temperatureinput);
+        $this->assertStringContainsString('step="any"', $temperatureinput);
+    }
+
+    /**
+     * The number input inside one field's cell of the rendered table.
+     *
+     * @param string $html The rendered page.
+     * @param string $shortname The field shortname.
+     * @return string The input tag.
+     */
+    private function number_input(string $html, string $shortname): string {
+        $cell = '/<td data-colkey="cf_' . preg_quote($shortname, '/') . '"[^>]*>.*?<\/td>/s';
+        $this->assertSame(1, preg_match($cell, $html, $cellmatch), "No cell for {$shortname}.");
+        $this->assertSame(1, preg_match('/<input type="number"[^>]*>/', $cellmatch[0], $inputmatch));
+        return $inputmatch[0];
     }
 }

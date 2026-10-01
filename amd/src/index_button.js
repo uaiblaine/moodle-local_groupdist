@@ -110,7 +110,8 @@ export const init = async(courseid, candistribute, canbulkedit) => {
         previous = wrapper;
     });
 
-    // Own listener only — the page's three legacy layers keep their own state.
+    // Own listener: core's scripts on this page (clientlib.js, module.js and
+    // core_group/index) each toggle only a fixed list of their own buttons.
     const sync = () => {
         const none = !groups.querySelector('option:checked');
         document.querySelectorAll(SELECTORS.OWNBUTTONS).forEach((button) => {

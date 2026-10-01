@@ -18,7 +18,8 @@
  * Bulk edit of group custom fields for the selected groups.
  *
  * Reached by POST from the injected button on group/index.php (groups[], id,
- * sesskey). Rendering mutates nothing: saves go through the chunked
+ * sesskey). Apart from provisioning the plugin's group custom fields when
+ * they are missing, rendering writes nothing: saves go through the chunked
  * local_groupdist_save_group_fields web service and the settings modal.
  *
  * @package    local_groupdist

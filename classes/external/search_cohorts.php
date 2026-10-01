@@ -25,11 +25,11 @@ use core_external\external_value;
 /**
  * Cohort search for the affinity rule builder.
  *
- * Platforms can carry thousands of cohorts, so the builder never enumerates
- * them: above a small threshold the cohort picker becomes this search. The
- * result set follows cohort_get_available_cohorts() — the same parent-context
- * and visibility rules the rule validation applies via cohort_get_cohort() —
- * so nothing is offered here that would be rejected on submit.
+ * Platforms can carry thousands of cohorts, so past
+ * options_form::COHORT_MENU_LIMIT the builder's cohort picker becomes this
+ * search. Matches come from cohort_get_available_cohorts(), which applies the
+ * same parent-context and visibility rules as the cohort_get_cohort() check
+ * on submit, so nothing offered here is rejected there.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine

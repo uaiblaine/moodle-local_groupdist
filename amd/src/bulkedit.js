@@ -429,9 +429,8 @@ export const init = async() => {
         save().catch(Notification.exception);
     });
 
-    /* Cells are written as they are saved, so leaving discards only what has
-       not been saved yet — which is worth one confirmation, because the
-       control that leaves no longer reads as "cancel". */
+    // Saved cells are already written, so leaving loses only unsaved edits.
+    // Confirm that once: "Back to groups" does not read as discarding them.
     const back = document.querySelector(SELECTORS.BACK);
     if (back) {
         back.addEventListener('click', (event) => {

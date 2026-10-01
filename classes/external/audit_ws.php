@@ -24,10 +24,9 @@ use core_external\external_value;
  * Shared plumbing for the two audit report web services.
  *
  * Both services window the same snapshot, so they share one security preamble
- * and one member return structure. Keeping the structure in a single place is
- * what stops the allowlist of the two services drifting apart —
- * clean_returnvalue() strips undeclared keys silently, so a field added to the
- * member payload has to be added here once rather than in two lists.
+ * and one member return structure. clean_returnvalue() silently strips
+ * undeclared keys, so a field added to the member payload is declared here,
+ * once for both services.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -51,11 +50,9 @@ class audit_ws {
     public static function resolve_run(int $runid, int $courseid): array {
         global $DB;
 
-        /* Authorise before reading anything. The course id is the caller's
-           claim, so it is what the context is derived from and what the run
-           has to agree with: loading the run first would answer "does this
-           run id exist, and in which course" to a caller who has not yet
-           passed require_login, which is a site-wide run enumerator. */
+        /* Authorise against the caller's course before loading the run:
+           loading it first would tell a caller who has not passed
+           require_login whether a run id exists, site-wide. */
         $context = \core\context\course::instance($courseid, MUST_EXIST);
         \core_external\external_api::validate_context($context);
         if (isguestuser()) {

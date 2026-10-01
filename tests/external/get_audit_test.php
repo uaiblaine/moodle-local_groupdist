@@ -207,8 +207,8 @@ final class get_audit_test extends \externallib_advanced_testcase {
 
     /**
      * The capability is the gate: a student enrolled in the same course, who
-     * can reach the context, is refused. The control is the teacher above,
-     * who receives the same payload from the same call.
+     * can reach the context, is refused. The control is the teacher in
+     * test_sections_payload(), who receives the payload from the same call.
      */
     public function test_capability_gate(): void {
         $this->resetAfterTest();

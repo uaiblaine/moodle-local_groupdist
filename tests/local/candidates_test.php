@@ -238,13 +238,11 @@ final class candidates_test extends \advanced_testcase {
     }
 
     /**
-     * A membership this same run wrote is invisible to the value column.
+     * A membership this same run wrote is invisible to the group value column.
      *
-     * This is what lets an interrupted adhoc apply resume: every recompute
-     * must skip rows stamped (component = local_groupdist, itemid = seed), or
-     * the retry reads different values, the fingerprint shifts and the task
-     * aborts as stale with the remainder unwritten. It can only bite when the
-     * source group is also one of the destinations, which is what this seeds.
+     * {@see candidates::fetch()} explains why every recompute skips the rows
+     * stamped with this run's seed. The clause can only match when the source
+     * group is also a destination, so that is what this fixture seeds.
      */
     public function test_group_rule_column_ignores_this_runs_own_writes(): void {
         $this->resetAfterTest();

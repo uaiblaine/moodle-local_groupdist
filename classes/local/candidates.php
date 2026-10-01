@@ -20,10 +20,10 @@ namespace local_groupdist\local;
  * Candidate selection: who takes part in a distribution.
  *
  * One query fetches ids, name fields and the native affinity columns for
- * every candidate; custom profile field rules add one bulk lookup each.
- * groups_get_potential_members() is not reusable here: it cannot
- * carry a custom profile field as an extra column (MDL-70456 — mixed parameter
- * types) and it materialises full user records.
+ * every candidate; profile field, cohort and group rules add one bulk lookup
+ * each. groups_get_potential_members() is not reusable here: it cannot carry a
+ * custom profile field as an extra column (MDL-70456, mixed parameter types)
+ * and always selects the whole user picture field set.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -41,7 +41,8 @@ class candidates {
      * @param options $options The distribution options.
      * @param \core\context\course $context The course context.
      * @return array Ordered map of userid => user record (id, name fields,
-     *   idnumber, one affinityN column per rule).
+     *   idnumber, deleted, one affinityN column per rule, and futurestart when
+     *   the only qualifying enrolment starts in the future).
      */
     public static function fetch(options $options, \core\context\course $context): array {
         global $DB;
@@ -121,9 +122,9 @@ class candidates {
         }
 
         // One value column per rule (affinity0, affinity1, ...). Native sources
-        // are free columns on {user}; custom profile fields are bulk-fetched
-        // per rule after the base query — one indexed lookup each, so there is
-        // no join fan-out as the rule count grows.
+        // are free columns on {user}; the other kinds are bulk-fetched per rule
+        // after the base query, one indexed lookup each, so there is no join
+        // fan-out as the rule count grows.
         $affinityselects = [];
         $profilerules = [];
         $cohortrules = [];
@@ -136,10 +137,9 @@ class candidates {
                 continue;
             }
             $affinityselects[] = 'NULL AS affinity' . $i;
-            /* One explicit arm per kind, and no else: a catch-all here would
-               silently route any future source key into the cohort lookup,
-               where it resolves to cohort 0, matches nobody and yields an
-               all-empty column with no exception and nothing in the log. */
+            /* One explicit arm per kind and no else: a catch-all would route a
+               new source kind into the cohort lookup, where it resolves to
+               cohort 0 and silently yields an all-empty column. */
             if ($kind === ruleset::KIND_PROFILE) {
                 $profilerules[$i] = ruleset::source_profile_fieldid($rule['source']);
             } else if ($kind === ruleset::KIND_COHORT) {
@@ -212,21 +212,17 @@ class candidates {
             if (!$users) {
                 break;
             }
-            /* Binary source: '1' for members, empty otherwise — the same shape
-               as a cohort source, so keep-apart separates group mates pairwise
-               and keep-together clusters them.
+            /* Binary source like the cohort one above: '1' for members, empty
+               otherwise.
 
-               The seed exclusion is the same rule the ignoregrouped predicate
-               and distribution::build() apply: a membership this very run wrote
+               The seed exclusion is the rule the ignoregrouped predicate and
+               distribution::build() apply: a membership this run wrote
                (component + itemid = seed) must be invisible to every recompute,
                or a resumed adhoc apply reads different values, the fingerprint
                shifts and the task aborts as stale with the remainder unwritten.
-               It can only ever match when the source group is also one of the
-               destinations; for any other source group the predicate is inert.
-               It is written unconditionally anyway, because "this source group
-               happens not to be a destination" is a property of one run's
-               options, not of the query — and the version of this clause that
-               is only correct sometimes is the one that rots. */
+               It only matches when the source group is also a destination, and
+               is written unconditionally because that is a property of one
+               run's options, not of the query. */
             [$insql, $inparams] = $DB->get_in_or_equal(array_keys($users), SQL_PARAMS_NAMED, 'gs');
             $members = $DB->get_records_sql_menu(
                 "SELECT gm.userid, 1 AS member

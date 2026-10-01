@@ -54,7 +54,8 @@ class distribution {
 
     /**
      * @var array Ordered group entries: arrays with 'id', 'name', 'seats' (?int),
-     *   'location' (?string), 'current' (int), 'capacity' (?int, null = unlimited).
+     *   'location' (?string), 'current' (int), 'capacity' (?int, null = unlimited),
+     *   'existing' (map of userid => true; filled only when ignoregrouped is off).
      */
     public array $groups = [];
 
@@ -64,7 +65,7 @@ class distribution {
     /** @var array Typed warnings (allocator warnings plus builder warnings). */
     public array $warnings = [];
 
-    /** @var string Fingerprint of candidates + group capacities, checked again at apply time. */
+    /** @var string Fingerprint of the allocator's inputs (see compute_fingerprint()), checked again at apply time. */
     public string $fingerprint = '';
 
     /**
@@ -150,8 +151,8 @@ class distribution {
 
         global $CFG;
         if (!empty($CFG->enablecommunicationsubsystem)) {
-            // Each membership write then triggers a communication-room sync with
-            // a full course-roster query — large applies get slow.
+            // In a course whose communication runs in group mode, each membership
+            // write syncs the group room with a full course-roster query.
             $distribution->warnings[] = ['type' => self::WARNING_COMMSLOW, 'count' => 0];
         }
 
@@ -181,7 +182,7 @@ class distribution {
      *
      * @return array Keys: candidates, groups, memberships, unassigned, seatstotal
      *   (sum of declared seats, -1 when none declared), overbooked (memberships
-     *   beyond declared seats).
+     *   beyond declared seats; 0 when seats are not used as capacity).
      */
     public function totals(): array {
         $seatstotal = -1;
@@ -214,9 +215,7 @@ class distribution {
      * Keyed on memberships === 0 rather than on an empty candidate list,
      * because that is the condition the preview's Apply button is disabled by
      * and there is more than one way to reach it. The arms are exhaustive and
-     * ordered outermost first, so every no-op falls into exactly one of them
-     * and a state added later cannot land back in the silence this method
-     * exists to remove.
+     * ordered outermost first, so every no-op gets exactly one reason.
      *
      * Display only: nothing here feeds compute_fingerprint(), which must stay
      * a function of the allocator's inputs alone.
@@ -239,19 +238,18 @@ class distribution {
             return self::NOOP_NOROOM;
         }
         /* Candidates, groups, nobody unassigned and still nothing to write:
-           every one of them already sits in the group the plan chose. That is
-           a third outcome beside "placed" and "unplaced", not a miscount —
-           the allocator skips a member it would only re-add. */
+           every one of them already sits in the group the plan chose, and the
+           allocator skips a member it would only re-add. */
         return self::NOOP_ALLPLACED;
     }
 
     /**
      * The teacher-facing explanation of a no-op run.
      *
-     * A literal match, never a composed string id: the fleet rule bans
-     * get_string() on a built key. The keep-grouped hint is appended rather
-     * than folded in because it states that a filter is switched on, which is
-     * a fact, and not that the filter is the cause, which would need a probe.
+     * Each reason maps to a literal string id, never a composed one. The
+     * ignore-grouped hint is appended rather than folded in because it states
+     * that the filter is switched on, not that the filter is the cause, which
+     * would need a probe.
      *
      * @return string The localised message, or '' when the run would write.
      */
@@ -281,12 +279,11 @@ class distribution {
      * change to one of these shifts the fingerprint and the apply step refuses
      * to write a plan the teacher never saw.
      *
-     * Static, and called as self::compute_fingerprint(), only so that phpmd can
-     * see the call: its UnusedPrivateMethod rule resolves $this-> and self::
-     * invocations and nothing else, so the natural $distribution->... call from
-     * this static factory was reported as dead code. It is not — every build()
-     * runs it, and deleting it would silently disable staleness detection and
-     * resumable applies. Keep the call in a form the rule can resolve.
+     * Static and called as self::compute_fingerprint() because phpmd's
+     * UnusedPrivateMethod rule does not resolve a call made on a local variable
+     * of the class, which is what this static factory would otherwise write.
+     * It is not dead code: every build() runs it, and removing it would
+     * silently disable both the staleness check and resumable applies.
      *
      * @param self $distribution The fully built distribution to fingerprint.
      * @return string The sha256 fingerprint.

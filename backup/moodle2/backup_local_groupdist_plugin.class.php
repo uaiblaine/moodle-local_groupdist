@@ -26,9 +26,10 @@
  * Adds the distribution audit log to course backups.
  *
  * The audit rows are personal data (who applied a run and each participant's
- * rule values at apply time), so they follow core's course log handling: they
- * travel only when the "Include course logs" root setting is on AND the
- * backup carries user data AND the backup is not anonymised.
+ * rule values at apply time). Like core's course logs, they travel only when
+ * the "Include course logs" root setting is on and the backup carries user
+ * data; unlike them, they are also left out of anonymised backups, where the
+ * stored rule values would identify the participants.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -44,10 +45,9 @@ class backup_local_groupdist_plugin extends backup_local_plugin {
     protected function define_course_plugin_structure() {
         $plugin = $this->get_plugin_element();
 
-        /* Settings gate, mirroring core's course log handling. The three
-           root settings exist in every plan mode, so the lookups are safe;
-           in import mode "users" defaults to off, which keeps the audit out
-           of course imports by the same rule. */
+        /* The three root settings exist in every plan mode, so the lookups
+           are safe. Core forces "users" off in import mode, which keeps the
+           audit out of course imports. */
         if (
             !$this->get_setting_value('logs')
             || !$this->get_setting_value('users')

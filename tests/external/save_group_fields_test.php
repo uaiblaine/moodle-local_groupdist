@@ -87,7 +87,7 @@ final class save_group_fields_test extends \externallib_advanced_testcase {
         $this->assertSame(12, $values[(int) $group1->id]->seats);
         $this->assertSame('Room 101', $values[(int) $group1->id]->location);
         $this->assertSame(8, $values[(int) $group2->id]->seats);
-        // Untouched: group2's location stays unset (the partial save is partial).
+        // Untouched: group2's location stays unset, as only sent cells are written.
         $this->assertNull($values[(int) $group2->id]->location);
     }
 

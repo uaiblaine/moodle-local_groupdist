@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Changed
+
+- The code comments were rewritten to say what the code does and why, and every
+  comment that contradicted its code was corrected. Comments only; the rebuilt
+  `amd/build` source maps and the version bump are the sole non-comment changes.
+
 ### Added
 
 - **An existing course group can be an affinity rule source (v2 backlog item 2,
@@ -572,8 +578,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - The audit log now travels in course backups, behind the standard "Include
-  course logs" root setting (excluded from anonymised backups and from
-  backups without user data, matching core's log handling). On restore the
+  course logs" root setting (left out of backups without user data, as
+  core does for course logs, and of anonymised backups, which is this plugin's
+  own rule because the snapshot values would deanonymise participants). On restore the
   runs are recreated in the target course marked "Restored from backup" (a
   badge in the audit UI): the applier and every participant are remapped to
   the restored users, participants missing from the backup become

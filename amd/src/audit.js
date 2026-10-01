@@ -201,7 +201,7 @@ const loadMembers = async(root, section) => {
  * The zero-based page a paging bar link points at.
  *
  * @param {HTMLAnchorElement} link The link.
- * @returns {Number} The page, or -1 when the link carries none.
+ * @returns {Number} The page, or 0 when the link carries none.
  */
 const pageOf = (link) => {
     const page = new URL(link.href, window.location.origin).searchParams.get('page');

@@ -57,12 +57,8 @@ final class profilefields_test extends \advanced_testcase {
     }
 
     /**
-     * Field and cohort labels reach callers unescaped. Every consumer escapes
-     * for itself: the rule builder prints them through Mustache double
-     * stashes, rules.js writes search results with textContent, and the
-     * preview payload lands in double stashes too. Escaping here showed a
-     * cohort named "Ciencias & Letras" as "Ciencias &amp; Letras" on the first
-     * screen of the flow.
+     * Field and cohort labels reach callers unescaped, because every consumer
+     * escapes for itself ({@see profilefields::plain()}).
      *
      * A bare ampersand is a valid fixture; a tag-shaped one would not be,
      * since format_string strips tags identically in both escape modes.
@@ -213,11 +209,10 @@ final class profilefields_test extends \advanced_testcase {
     /**
      * Which visibility levels may be a rule source, and for whom.
      *
-     * A rule source exposes who is in the group — the preview paints a badge
-     * on each member — so the set is "groups whose full membership the actor
-     * can already read". groups_get_all_groups() gives all of that except the
-     * OWN case, where core shows a member only their own row; that one is
-     * subtracted on top, and only for an actor without viewhiddengroups.
+     * A rule source exposes who is in the group (the preview paints a badge on
+     * each member), so the set is the groups whose full membership the actor
+     * can already read: ALL for anyone, MEMBERS for a member, OWN and NONE
+     * only with viewhiddengroups ({@see profilefields::get_source_groups()}).
      */
     public function test_group_source_visibility_matrix(): void {
         $this->resetAfterTest();
@@ -259,10 +254,9 @@ final class profilefields_test extends \advanced_testcase {
         $this->assertArrayNotHasKey((int) $groups['none']->id, $offered);
         $this->assertFalse(profilefields::is_allowed('group_' . $groups['own']->id, $context));
 
-        /* The control, and the reason this is a capability question rather
-           than a broken listing: an actor holding viewhiddengroups sees every
-           group of the course, OWN and NONE included. If this half failed, the
-           exclusion above would be proving nothing about the capability. */
+        /* The control: an actor holding viewhiddengroups is offered every
+           group, OWN and NONE included, so the exclusions above come from the
+           capability and not from a broken listing. */
         $teacher = $generator->create_and_enrol($course, 'editingteacher');
         $this->setUser($teacher);
         $offered = profilefields::get_source_groups($context);
@@ -273,21 +267,15 @@ final class profilefields_test extends \advanced_testcase {
     }
 
     /**
-     * The visibility rule holds on a COLD cache, which is the case
-     * groups_get_all_groups() cannot be trusted for.
+     * The visibility rule holds on a cold cache, where groups_get_all_groups()
+     * fails open and returns every group of the course
+     * ({@see profilefields::get_source_groups()} explains why).
      *
-     * core_group\visibility::can_view_all_groups() re-reads its cache entry
-     * after warming it and then discards the value, so a missing entry
-     * evaluates `false > 0` and reports "this course has no hidden groups".
-     * groups_get_all_groups() then takes its unfiltered MUC shortcut and hands
-     * back every group of the course. Anything that merely subtracts OWN from
-     * that result leaks a NONE-visibility group — its name to the picker, and
-     * its whole membership to the preview — for one call after each cache
-     * purge, which every plugin install or upgrade performs.
-     *
-     * create_group() warms that entry, so the matrix test above only ever sees
-     * the warm path; this one purges it first. Delete the MEMBERS/OWN/NONE
-     * arms in get_source_groups() and this goes red while that one stays green.
+     * create_group() warms the core/coursehiddengroups entry, so the matrix
+     * test above only sees the warm path; this one purges it first. Changes
+     * that must make it fail while the matrix test passes: replacing the
+     * visibility arms in get_source_groups() with the groups_get_all_groups()
+     * result minus the OWN groups for an actor without viewhiddengroups.
      */
     public function test_group_source_visibility_holds_on_a_cold_cache(): void {
         $this->resetAfterTest();

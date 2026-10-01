@@ -229,12 +229,9 @@ final class distribution_test extends \advanced_testcase {
      * Every way the preview can end up writing nothing reports a reason, and
      * a run that would write reports none.
      *
-     * noop_reason() is keyed on memberships === 0 rather than on an empty
-     * candidate list precisely so that the arms stay exhaustive: each case
-     * below reached the teacher as a page of zeros with no sentence on it.
-     *
-     * Mutation: delete any one arm and its case falls through to the next,
-     * returning the wrong reason.
+     * Changes that must make it fail: deleting any one arm of
+     * {@see distribution::noop_reason()}, so that its case falls through to
+     * the next arm and returns the wrong reason.
      *
      * @return void
      */
@@ -340,7 +337,8 @@ final class distribution_test extends \advanced_testcase {
      * here — and stays silent about it when it is off, so the hint never
      * claims a cause that cannot apply.
      *
-     * Mutation: delete the ignoregrouped branch in noop_message().
+     * Changes that must make it fail: deleting the ignoregrouped branch of
+     * {@see distribution::noop_message()}.
      *
      * @return void
      */

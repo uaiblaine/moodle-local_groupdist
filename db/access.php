@@ -27,8 +27,9 @@ defined('MOODLE_INTERNAL') || die();
 $capabilities = [
 
     /*
-     * The distribution preview lists course users together with the value of
-     * the chosen profile field, hence RISK_PERSONAL.
+     * The distribution preview lists course users together with their values
+     * for the chosen rule sources (profile fields, cohort and group
+     * membership), hence RISK_PERSONAL.
      */
     'local/groupdist:distribute' => [
         'riskbitmask' => RISK_PERSONAL,
@@ -43,7 +44,7 @@ $capabilities = [
 
     /*
      * The audit log shows who was distributed where with rule value
-     * snapshots (masked per the reader's field visibility), hence
+     * snapshots (masked per the reader's access to each rule source), hence
      * RISK_PERSONAL.
      */
     'local/groupdist:viewauditlog' => [

@@ -21,10 +21,9 @@
     the way back to group management. Action buttons only — the unsaved
     changes counter is page content and lives in the toolbar.
 
-    There is no cancel here on purpose: saving writes through a web service
-    as it goes, so by the time this footer is reached there is nothing a
-    cancel could undo. Leaving with unsaved cells is confirmed by the AMD
-    module instead.
+    There is no cancel here on purpose: a save writes through the web service
+    chunk by chunk, so there is nothing a cancel could undo. Leaving with
+    unsaved cells is confirmed by the AMD module instead.
 
     Context variables required for this template:
     * returnurl - the group management page URL

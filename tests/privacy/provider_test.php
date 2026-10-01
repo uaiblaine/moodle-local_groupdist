@@ -65,8 +65,8 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     /**
      * The plugin counts as compliant with the privacy API.
      *
-     * Core's own compliance test sweeps every component but is not in the plugin's testsuite,
-     * which is all moodle-plugin-ci runs, so the check is repeated here: a metadata provider
+     * Core's own compliance test sweeps every component but belongs to core_privacy_testsuite,
+     * not to this plugin's testsuite, so the check is repeated here: a metadata provider
      * without a request data provider fails it ({@see \core_privacy\manager::component_is_compliant()}).
      *
      * @return void

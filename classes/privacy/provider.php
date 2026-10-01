@@ -29,11 +29,11 @@ use local_groupdist\local\runlog;
  *
  * The audit log stores personal data by design: each applied run snapshots
  * who ran it and, per participant, the rule values at apply time (profile
- * field values, cohort membership flags), the planned group and the write
- * outcome. Deletion requests pseudonymise the rows (userid zeroed, values
- * blanked) instead of removing them, so run counts and group compositions
- * stay intact for the remaining participants. The bulk edit column
- * preference is the only other personal data.
+ * field values, cohort and group membership flags), the planned group and
+ * the write outcome. Deletion requests pseudonymise the rows (userid zeroed,
+ * values blanked) instead of removing them, so run counts and group
+ * compositions stay intact for the remaining participants. The bulk edit
+ * column preference is the only other personal data.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine

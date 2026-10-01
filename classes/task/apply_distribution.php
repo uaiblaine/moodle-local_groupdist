@@ -24,9 +24,11 @@ use local_groupdist\local\runlog;
 /**
  * Adhoc task applying a large distribution in the background.
  *
- * Runs as the teacher who queued it (set_userid at queue time), so the
- * capability-dependent parts of the recompute — suspended enrolment
- * visibility, group membership prechecks — behave exactly as in the preview.
+ * Runs as the teacher who queued it (set_userid() at queue time), so the
+ * capability-dependent parts behave as they did for that teacher: the
+ * recompute's suspended-enrolment filter, which the fingerprint check depends
+ * on, and the visibility-filtered groups_is_member() check inside
+ * groups_add_member().
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -67,8 +69,9 @@ class apply_distribution extends \core\task\adhoc_task {
      * Recompute the distribution, re-verify the fingerprint, write memberships.
      *
      * A fingerprint mismatch is permanent (the course changed since the
-     * preview), so it must NOT throw — a throwing adhoc task is retried and
-     * would keep failing forever. It logs and ends; the teacher re-runs the flow.
+     * preview), so it must not throw: a throwing adhoc task is retried and
+     * would fail the same way on every attempt. Instead it aborts the run and
+     * messages the teacher, who previews again.
      *
      * @return void
      */

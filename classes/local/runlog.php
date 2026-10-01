@@ -53,7 +53,7 @@ class runlog {
     /** @var int Member outcome: rejected by core (deleted/unenrolled meanwhile). */
     public const WRITE_FAILED = 2;
 
-    /** @var int Member outcome: no group had capacity left. */
+    /** @var int Member outcome: no room left in a group they did not already belong to. */
     public const WRITE_UNASSIGNED = 3;
 
     /** @var int Member outcome: no write needed (already sat with their peers). */
@@ -206,8 +206,11 @@ class runlog {
     }
 
     /**
-     * Delete every run of a course (course deletion; the recycle bin keeps a
-     * backup file, not the course, so the rows would be unreachable orphans).
+     * Delete every run of a course, on course deletion.
+     *
+     * The recycle bin keeps a backup file, not the course, so the rows would be
+     * unreachable orphans: a restore creates a new course, and the audit travels
+     * in the backup only when course logs are included.
      *
      * @param int $courseid The course id.
      * @return void

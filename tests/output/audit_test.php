@@ -88,8 +88,8 @@ final class audit_test extends \advanced_testcase {
     }
 
     /**
-     * Explanations come from the stored facts: kept-with counts and the
-     * separated-from peer list with their snapshot group names.
+     * Explanations come from the stored facts: the keep-together line names
+     * the shared value.
      */
     public function test_detail_explanations(): void {
         global $DB;
@@ -103,8 +103,8 @@ final class audit_test extends \advanced_testcase {
         $this->assertFalse($export['rules'][0]['masked']);
         $this->assertNotEmpty($export['sections'], 'The first page of sections is server-rendered');
 
-        // The two Maria guardians were split across groups by the apart rule:
-        // one member's explanations must include a keep-apart separation line.
+        // City outranks the guardian rule, so both Marias stay in the X cluster:
+        // the explanations must include a keep-together line naming the shared value.
         $alltexts = [];
         foreach ($export['sections'] as $group) {
             foreach ($group['members'] as $member) {

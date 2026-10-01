@@ -69,13 +69,12 @@ final class fields_test extends \advanced_testcase {
 
     /**
      * Field names reach callers unescaped, because every consumer escapes for
-     * itself. Measured on 5.2: with the default escaping, a field named
-     * "Vagas & Lugares" reached the bulk edit page as "Vagas &amp;amp;
-     * Lugares" and read "Vagas &amp; Lugares" on screen.
+     * itself; a pre-escaped "Vagas & Lugares" would read "Vagas &amp; Lugares"
+     * on the bulk edit page.
      *
-     * Measured: format_string's escape flag rewrites & and any < or > that
-     * survives strip_tags(), so a bare ampersand is a valid fixture while a
-     * tag-shaped one is not — <b>x</b> is stripped identically in both modes.
+     * format_string()'s escape flag rewrites & and any < or > that survives
+     * strip_tags(), so a bare ampersand is a valid fixture while a tag-shaped
+     * one is not: <b>x</b> is stripped identically in both modes.
      *
      * @return void
      */

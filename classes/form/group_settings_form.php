@@ -145,15 +145,14 @@ class group_settings_form extends dynamic_form {
         $mform->addElement('checkbox', 'deletepicture', get_string('delete'));
         $mform->setDefault('deletepicture', 0);
 
-        /* Core passes no options here, which accepts any file and then lets
-           process_new_icon() fail inside groups_update_group_icon() — and that
-           failure path DELETES the group's existing picture. This list mirrors
-           process_new_icon()'s own switch (gdlib.php: GIF, JPEG, PNG) so the
-           loss becomes a form error instead. Do NOT simplify it to a file-type
-           group: 'web_image' carries svg, svgz and webp and 'optimised_image'
-           carries webp, none of which GD writes here, so the picker would
-           advertise formats that destroy the picture on save. The extension is
-           only half the check — validation() reads the file itself. */
+        /* Core passes no options here, so any file is accepted and
+           process_new_icon() then fails inside groups_update_group_icon(),
+           whose failure branch deletes the group's existing picture. This list
+           mirrors the types process_new_icon() decodes (GIF, JPEG, PNG). Do not
+           replace it with a file-type group: 'web_image' includes svg, svgz and
+           webp, and 'optimised_image' includes webp, none of which it decodes.
+           The extension is only half the check: validate_picture() reads the
+           file itself. */
         $mform->addElement('filepicker', 'imagefile', get_string('newpicture', 'group'), null, [
             'accepted_types' => self::PICTURE_TYPES,
         ]);
@@ -387,11 +386,10 @@ class group_settings_form extends dynamic_form {
             unset($data->idnumber);
         }
 
-        /* Two arguments on purpose. Passing $editform is what makes
-           groups_update_group() write the picture through
-           groups_update_group_icon(); passing $editoroptions as a third would
-           re-run the editor post-update already done above. The call also
-           saves the group custom fields, so this method must not. */
+        /* Two arguments on purpose: $editform makes groups_update_group() write
+           the picture through groups_update_group_icon(), while $editoroptions
+           as a third would re-run the editor post-update already done above.
+           The call also saves the group custom fields, so this method must not. */
         groups_update_group($data, $this);
 
         // Refreshed row for the client-side table update.

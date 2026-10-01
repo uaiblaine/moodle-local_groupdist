@@ -26,18 +26,14 @@ use local_groupdist\local\profilefields;
 /**
  * Course group search for the affinity rule builder.
  *
- * Groups are course-bounded, so unlike cohorts they are enumerated server-side
- * — the options form already holds the whole list to validate this run's
- * destination groups. The picker is nonetheless bounded for usability: past
- * options_form::GROUP_MENU_LIMIT a menu of every group in the course is worse
- * to use than a search box, and this is that search.
+ * Groups are course-bounded, so unlike cohorts they are enumerated
+ * server-side; past options_form::GROUP_MENU_LIMIT the picker becomes this
+ * search for usability, not disclosure.
  *
- * The result set comes from profilefields::get_source_groups(), which is the
- * SAME helper profilefields::is_allowed() validates a submitted rule against,
- * so this can never offer a group the submit side would reject. Filtering is
- * done in PHP over that already-authorized list rather than in SQL, which is
- * what keeps the two in step; a second query with its own predicates is how
- * a picker and its validator drift apart.
+ * Matches come from profilefields::get_source_groups(), the helper
+ * profilefields::is_allowed() validates a submitted rule against, filtered in
+ * PHP rather than by a second query, so this never offers a group the submit
+ * side would reject.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine

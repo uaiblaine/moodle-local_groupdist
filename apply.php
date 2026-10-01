@@ -89,9 +89,8 @@ if ($distribution->fingerprint !== $fingerprint) {
 
 $memberships = $distribution->allocation->count_memberships();
 if ($memberships === 0) {
-    // The same reason the preview gave, carried one screen further: landing
-    // back on the groups page with "nothing was applied" and no why is what
-    // this message existed as before.
+    // Repeat the reason the preview gave, so the groups page does not report
+    // that nothing was applied without saying why.
     $nothing = trim(get_string('nothingtoapply', 'local_groupdist') . ' ' . $distribution->noop_message());
     redirect($returnurl, $nothing, null, \core\output\notification::NOTIFY_INFO);
 }

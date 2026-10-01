@@ -77,7 +77,7 @@ final class allocator_test extends \basic_testcase {
     }
 
     /**
-     * Balanced fill equalises FINAL sizes when groups start unequal.
+     * Balanced fill equalises final sizes when groups start unequal.
      */
     public function test_balanced_counts_existing_members(): void {
         // Group 1 already has 4 members; group 2 none. 6 users: 1 + 5 split.
@@ -230,9 +230,8 @@ final class allocator_test extends \basic_testcase {
         ]);
         $result = allocator::allocate([1, 2], [$affinity], $groups, $options);
 
-        // User 1 already sits in group 1 (the emptiest-by-final choice is group 2,
-        // but bucket packing prefers max remaining; either way user 1 must not be
-        // duplicated into a group they already belong to).
+        // User 1 already sits in group 1: wherever the bucket lands, user 1 is
+        // never added to group 1 again.
         $this->assertNotContains(1, $result->assignments[1]);
     }
 
@@ -278,8 +277,8 @@ final class allocator_test extends \basic_testcase {
     }
 
     /**
-     * Two apart rules are enforced simultaneously (conflict-edge union): no
-     * two users sharing either value land in one group.
+     * Two apart rules are enforced simultaneously: no two users sharing either
+     * value land in one group.
      */
     public function test_two_apart_rules_enforced_simultaneously(): void {
         $groups = [
@@ -469,17 +468,12 @@ final class allocator_test extends \basic_testcase {
 
     /**
      * A clustered member who already sits in the group the plan chose is
-     * neither added nor reported unplaced — a third outcome beside the two.
+     * neither added nor reported unplaced.
      *
-     * This is what makes distribution::NOOP_ALLPLACED a distinct reason
-     * rather than a rounding error: the identity
-     * candidates == memberships + unassigned does not hold once
-     * "ignore users already in the selected groups" is off, because a member
-     * the allocator would only re-add is skipped instead. The preview used to
-     * render that as zeros with no explanation.
-     *
-     * Mutation: delete the already-a-member `continue` in place_cluster() and
-     * the two are assigned instead, so memberships becomes 2.
+     * So candidates == memberships + unassigned does not hold once "ignore
+     * users already in the selected groups" is off, which is why
+     * distribution::NOOP_ALLPLACED is a no-op reason of its own. Changes that
+     * must make it fail: deleting the already-a-member skip in place_cluster().
      *
      * @return void
      */
@@ -492,8 +486,7 @@ final class allocator_test extends \basic_testcase {
         ]);
         $result = allocator::allocate([1, 2, 3], [$affinity], $groups, $options);
 
-        /* Control first: without it this passes on an allocator that places
-           nobody at all, which is the mutation the test exists to catch. */
+        // Control: without it this would pass on an allocator that places nobody.
         $this->assertSame([3], $result->assignments[1]);
         $this->assertSame(1, $result->count_memberships());
 

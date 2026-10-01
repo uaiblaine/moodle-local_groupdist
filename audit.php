@@ -17,9 +17,11 @@
 /**
  * Distribution audit log (course report): run list and run detail.
  *
- * Read-only. Everything displayed comes from the stored snapshots; the only
- * reader-side overlays are field-visibility masking and the removed marker
- * for pseudonymised participants.
+ * Read-only. Groups, rule labels and rule values come from the run's stored
+ * snapshot. Resolved at view time: rule values the viewer may not see are
+ * masked, participant names are read from the user table (pseudonymised
+ * rows, which deleting a user produces, show as removed), and groups deleted
+ * since the run are marked.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine

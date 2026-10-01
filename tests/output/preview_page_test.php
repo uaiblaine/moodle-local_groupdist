@@ -83,14 +83,13 @@ final class preview_page_test extends \advanced_testcase {
      * The recap names the filters that will actually run, not the ones the
      * form posted.
      *
-     * candidates::fetch() forces only-active ON for anyone without
-     * moodle/course:viewsuspendedusers, and makes the future-start relaxation
-     * inert for them — so the recap used to omit the single filter that had
-     * narrowed their candidate list. That matters most in the state where the
-     * list came back empty, because the explanation points at this recap.
+     * Without moodle/course:viewsuspendedusers, candidates::fetch() forces
+     * only-active on and makes the future-start option inert. This matters
+     * most when the candidate list comes back empty, because the no-op
+     * explanation points at this recap.
      *
-     * Mutation: drop the capability mirroring in export_for_template() and
-     * rows 1 and 2 below stop differing.
+     * Changes that must make it fail: dropping the capability mirroring in
+     * {@see preview_page::export_for_template()}.
      *
      * @return void
      */

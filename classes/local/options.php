@@ -55,7 +55,7 @@ class options {
     /** @var int Course id. */
     public int $courseid = 0;
 
-    /** @var array Target group ids, in display order. */
+    /** @var array Target group ids, as submitted (distribution::build() orders them by name). */
     public array $groupids = [];
 
     /** @var int Role id filter (0 = any role). */
@@ -187,9 +187,6 @@ class options {
 
     /**
      * The source key of the highest-priority rule.
-     *
-     * For the paths that surface a single rule: the (still single-rule) form
-     * repopulation and first-rule display decisions.
      *
      * @return string The source key, or '' when no rule is set.
      */

@@ -27,10 +27,8 @@ use local_groupdist\output\bulkedit_page;
 /**
  * Chunked save of group custom field values from the bulk edit table.
  *
- * Payload discipline: the client sends only CHANGED cells and slices them
- * into sequential requests; this end enforces a hard cap per call
- * ({@see self::MAX_CHANGES}) so no single request can grow unbounded no
- * matter how many groups and fields a course carries.
+ * The client sends only changed cells, in sequential chunks; this end caps
+ * each call at {@see self::MAX_CHANGES} cells, whatever the size of the course.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -113,6 +111,9 @@ class save_group_fields extends external_api {
         $handler = group_handler::create();
         $results = [];
         foreach ($bygroup as $groupid => $properties) {
+            // Only the changed customfield_* properties are set: the data
+            // controller skips a field whose property is absent, so the
+            // group's other values stay as they are.
             $handler->instance_form_save((object) (['id' => $groupid] + $properties));
             foreach ($properties as $element => $value) {
                 $shortname = substr($element, strlen('customfield_'));
@@ -172,7 +173,7 @@ class save_group_fields extends external_api {
         if ($column['ischeckbox']) {
             return $value ? 1 : 0;
         }
-        // Text: strip tags and control characters, like the form would.
+        // Text: PARAM_TEXT, the type the field's own form element declares.
         return clean_param($value, PARAM_TEXT);
     }
 }

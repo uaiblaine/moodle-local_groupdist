@@ -103,7 +103,7 @@ final class get_preview_test extends \externallib_advanced_testcase {
         $ids2 = array_column($page2['groups'], 'id');
         $this->assertSame([], array_intersect($ids1, $ids2));
 
-        // Member samples are capped and marked new.
+        // Member samples are capped.
         foreach ($page1['groups'] as $group) {
             $this->assertLessThanOrEqual(get_preview::MEMBER_SAMPLE, count($group['members']));
         }
@@ -112,13 +112,10 @@ final class get_preview_test extends \externallib_advanced_testcase {
     /**
      * The location label survives the web service unescaped.
      *
-     * This is the one path where the escape => false rule could have gone the
-     * other way: the value is declared PARAM_TEXT, so it passes through
-     * clean_returnvalue() before the client sees it. PARAM_TEXT only handles
-     * tags and multilang markup (core\param::clean_param_value_text) and never
-     * touches entities, so an ampersand arrives intact — and it has to, because
-     * preview.js hands the value to a Mustache double stash and writes warning
-     * messages with textContent, both of which escape for themselves.
+     * The value is a PARAM_TEXT return field, and PARAM_TEXT strips tags but
+     * never touches entities ({@see \core\param::clean_param_value_text()}), so
+     * the plain spelling arrives intact. It must: preview.js renders it in
+     * preview_groups.mustache through a double stash, which escapes for itself.
      *
      * @return void
      */
@@ -200,7 +197,8 @@ final class get_preview_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * An affinity field the user may not see is rejected server-side.
+     * An affinity source the caller is not offered (here a profile field id
+     * that does not exist) is rejected server-side.
      */
     public function test_preview_rejects_disallowed_affinity_field(): void {
         $this->resetAfterTest();
@@ -262,18 +260,11 @@ final class get_preview_test extends \externallib_advanced_testcase {
      * A profile value containing a bare "<" must not take the whole preview
      * down.
      *
-     * The vector is a TEXTAREA custom profile field, and it is the only one
-     * that reaches this: profile_field_textarea declares PARAM_RAW with the
-     * comment "We MUST clean this before display!"
-     * (user/profile/field/textarea/field.class.php:40), while the standard
-     * fields self-sanitise — user_update_user() runs city/department/
-     * institution through core_user::clean_field() with PARAM_TEXT — and
-     * profilefields::get_fields() offers every custom field with no filter on
-     * datatype. The value then reaches the payload straight from
-     * {user_info_data} with no format_string() on the path, into PARAM_TEXT
-     * return fields, where clean_param_value_text()'s strip_tags() eats the
-     * tail and validate_param() throws because cleaned !== original. One
-     * participant used to fail every page of the preview for everyone.
+     * A textarea custom profile field is the fixture because it stores PARAM_RAW,
+     * while core cleans the standard user fields on save. The value lands in
+     * PARAM_TEXT return fields, and clean_returnvalue() throws when strip_tags()
+     * would change it, failing every page of the preview for everyone.
+     * {@see get_preview::display_value()} strips it first.
      *
      * @return void
      */
@@ -412,7 +403,7 @@ final class get_preview_test extends \externallib_advanced_testcase {
      * land in Mustache double stashes client-side (preview_groups.mustache
      * for the card heading and the per-rule footer, preview_rulereport for
      * the section title and the destination list), so escaping them here
-     * showed a group called "Turma A & B" as "Turma A &amp; B".
+     * would show a group called "Turma A & B" as "Turma A &amp; B".
      *
      * @return void
      */
@@ -452,7 +443,7 @@ final class get_preview_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * A hidden cohort as a RULE source is rejected — same oracle rule as the
+     * A hidden cohort as a rule source is rejected — same oracle rule as the
      * cohort member filter. A visible cohort passes (control).
      */
     public function test_preview_rejects_hidden_cohort_rule(): void {
@@ -484,14 +475,10 @@ final class get_preview_test extends \externallib_advanced_testcase {
      * The no-op reason and its message survive the return-structure allowlist
      * and reach the client.
      *
-     * clean_returnvalue() strips any key execute_returns() does not declare,
-     * so a payload field added without its declaration disappears in silence —
-     * which is how the preview came to render a page of zeros with nothing on
-     * it in the first place. The control leg is a run that WOULD write: it
-     * must carry the empty sentinel, not a reason.
-     *
-     * Mutation: remove either key from execute_returns() and the assertions
-     * below fail on the missing index.
+     * clean_returnvalue() silently strips any key execute_returns() does not
+     * declare. The control is a run that would write: it carries the empty
+     * sentinel, not a reason. Changes that must make it fail: removing
+     * noopreason or noopmessage from execute_returns().
      *
      * @return void
      */
@@ -519,14 +506,13 @@ final class get_preview_test extends \externallib_advanced_testcase {
         );
     }
     /**
-     * A group rule renders the group's NAME everywhere the preview shows a
+     * A group rule renders the group's name everywhere the preview shows a
      * value, never the raw '1' the candidate query stores.
      *
-     * build_value_maps() is a second source-kind dispatch, independent of the
-     * one in candidates.php: a group source missing from it ships green — the
-     * web service returns, the returns structure validates — while every
-     * member badge, the per-group rule status and the rules report all read
-     * "1".
+     * get_preview::build_value_maps() dispatches on the source kind
+     * independently of candidates.php. Without a group branch the response
+     * still validates, while every member badge, the per-group rule status and
+     * the rules report read "1".
      */
     public function test_group_rule_shows_the_group_name_not_the_raw_flag(): void {
         $generator = $this->getDataGenerator();
@@ -588,7 +574,7 @@ final class get_preview_test extends \externallib_advanced_testcase {
         );
         $this->assertTrue($response['error'], 'Another course\'s group was accepted as a rule source.');
 
-        // Control: a group of THIS course is accepted, so the rejection above
+        // Control: a group of this course is accepted, so the rejection above
         // is the course check and not a broken payload.
         $control = $this->call($args + [
             'affinityrules' => [['source' => 'group_' . $mine->id, 'mode' => 'apart']],

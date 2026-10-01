@@ -19,18 +19,12 @@ namespace local_groupdist\local;
 use PHPUnit\Framework\Attributes\CoversNothing;
 
 /**
- * Guards the class-name rules nothing else in the pipeline can see.
+ * Pins the class-name and stylesheet rules no linter checks.
  *
- * phpcs reads PHP, the mustache lint reads HTML structure and stylelint reads
- * CSS; none of them reads a class name out of a Mustache or a JS file and asks
- * whether it resolves, or whether it is legible once it does. So those rules
- * fail silently with CI fully green — which is how a badge shipped at 1.05:1
- * here: Bootstrap 5's .badge defaults to white text, and "bg-light" with no
- * text utility put white on #f8f9fa.
- *
- * This plugin supports 5.1 and 5.2 only, so it needs none of the Bootstrap 4
- * polyfill machinery a 4.5-supporting plugin carries. What it does need is the
- * half of the contract that binds on 5.x too.
+ * phpcs, the mustache lint and stylelint never read a class name out of a
+ * Mustache or JS file, so an illegible badge or a deprecated Bootstrap 4
+ * spelling passes every other check. The plugin supports 5.1+ only, so it
+ * needs no Bootstrap 4 polyfill; these are the rules that bind on 5.x.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -41,12 +35,10 @@ final class bootstrap_compat_test extends \basic_testcase {
     /**
      * Background utilities that need an explicit text colour on a badge.
      *
-     * Bootstrap 5's .badge sets color: #fff, so a LIGHT background renders
-     * white on near-white; Bootstrap 4's set no colour at all, so a SATURATED
-     * background rendered near-black on a dark fill. Measured against the
-     * compiled Boost sheet on the running 5.2 stack: bg-light (#f8f9fa) with
-     * the default badge colour is 1.05:1, against the 4.5:1 AA floor, and
-     * 15.37:1 once text-dark is stated.
+     * Bootstrap 5's .badge defaults to white text, so a light background is
+     * illegible: bg-light (#f8f9fa) with the default colour is 1.05:1 against
+     * the 4.5:1 AA floor, and 15.37:1 with text-dark. The saturated backgrounds
+     * are listed too, so that no badge relies on the default colour.
      *
      * @return array Background utility => the text utility it needs.
      */
@@ -130,11 +122,10 @@ final class bootstrap_compat_test extends \basic_testcase {
     /**
      * Every badge background states its own text colour.
      *
-     * Checked on every line carrying a background utility, never only on lines
-     * that also say "badge": the word is as likely to sit one line up in a
-     * method name as on the markup itself. Two exemptions, both because the
-     * element provably carries no text of its own — the text-bg-* utilities,
-     * which set the pair together, and progress bar fills.
+     * Checked on every line carrying a background utility, not only on lines
+     * that also say "badge": the word may sit on another line, e.g. in a method
+     * name. Two exemptions: the text-bg-* utilities, which set background and
+     * text colour together, and progress bar fills, which carry no text.
      */
     public function test_badges_state_their_text_colour(): void {
         $offenders = [];
@@ -194,9 +185,10 @@ final class bootstrap_compat_test extends \basic_testcase {
     /**
      * The plugin never declares a custom property in core's own namespace.
      *
-     * Moodle 5.2 ships theme/boost/scss/design-system with $mds-* tokens and
-     * 5.3 brings MDS React; declaring those names squats a namespace core is
-     * actively expanding.
+     * Core's design system prefixes its tokens with mds- (the $mds-* SCSS
+     * tokens of theme/boost/scss/design-system in Moodle 5.2; Boost reads
+     * --mds-* custom properties in 5.3), so a plugin declaring --mds-* can
+     * collide with core.
      */
     public function test_no_mds_namespace(): void {
         $css = file_get_contents(dirname(__DIR__, 2) . '/styles.css');
@@ -209,14 +201,9 @@ final class bootstrap_compat_test extends \basic_testcase {
     /**
      * The source-search suggestion list must be laid out by styles.css.
      *
-     * It is rendered `position-absolute`, and it shipped with NO css rule at
-     * all: no z-index, no background, no width and no height bound. Up to 20
-     * matches then drew as a transparent column roughly a thousand pixels tall
-     * that ran under the sibling alert and off the fold — and an option
-     * painted beneath other content is not clickable, so a chosen cohort or
-     * group could not be changed at all, only removed with its whole rule.
-     * Nothing else in the pipeline reads a stylesheet against the markup that
-     * needs it, which is why this is asserted here.
+     * The list is rendered position-absolute with up to 20 matches. Without a
+     * z-index, a background and a height bound it draws as a transparent column
+     * under the neighbouring content, where its options cannot be clicked.
      */
     public function test_the_source_suggestion_list_is_laid_out(): void {
         $css = file_get_contents(__DIR__ . '/../../styles.css');
@@ -243,8 +230,8 @@ final class bootstrap_compat_test extends \basic_testcase {
     /**
      * A chosen search value can be cleared, and it replaces the search box.
      *
-     * Leaving the box beside the chip read as "nothing was selected", and with
-     * no clear control the only way out was deleting the rule.
+     * A search box left beside the chip reads as "nothing selected", and without
+     * a clear control the only way to change the value is to delete the rule.
      */
     public function test_a_chosen_search_value_can_be_cleared(): void {
         $row = file_get_contents(__DIR__ . '/../../templates/rules_row.mustache');

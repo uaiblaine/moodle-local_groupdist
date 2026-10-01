@@ -4,9 +4,8 @@ name: ci
 # a push whose commits would otherwise skip CI, without pushing another commit.
 on:
   push:
-    # Filtered to the merge targets. Without this, a push to a feature branch
-    # ran the whole pipeline AND the pull_request event ran it again on the same
-    # commit - double, for no extra information.
+    # Filtered to the merge targets: a feature branch with an open pull request
+    # is already built by the pull_request event, on the same commit.
     branches:
       - main
       - 'MOODLE_*_STABLE'

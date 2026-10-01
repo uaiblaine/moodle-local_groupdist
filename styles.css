@@ -87,10 +87,10 @@
 }
 
 /*
-   The unsaved-changes accent reads from the theme's own emphasis token, which
-   flips with dark mode. The literal it falls back to measures 4.67:1 on the
-   light body but only 3.30:1 on the 5.2 dark body (--bs-body-bg #1d2125),
-   under the 4.5:1 AA floor for text this size.
+   The unsaved-changes accent reads the theme's own emphasis token, which flips
+   with dark mode. The fallback literal is 4.67:1 on the light body but only
+   3.47:1 on the dark body (--bs-body-bg #1d2125), under the 4.5:1 AA floor
+   for text this size.
 */
 .local-groupdist-dot {
     display: inline-block;
@@ -223,11 +223,11 @@
 
 /* Distribution audit report. */
 
-/* Three sections to a row on a wide container, two, then one as it narrows.
-   A percentage flex-basis is what caps the column COUNT — four cards of 30%
-   cannot share a row — while repeat(auto-fit, minmax()) caps nothing, and the
-   rem floor keeps a column readable. Governed by the container rather than the
-   viewport, so the block drawer narrowing #region-main is handled. */
+/* Three sections to a row on a wide container, then two, then one. A
+   percentage flex-basis caps the column count (four cards of 30% cannot share
+   a row), which repeat(auto-fit, minmax()) does not, and the rem floor keeps
+   a column readable. It follows the container rather than the viewport, so it
+   also adapts when the block drawer narrows #region-main. */
 .local-groupdist-auditgrid {
     display: flex;
     flex-wrap: wrap;
@@ -237,16 +237,13 @@
 
 .local-groupdist-auditgrid .local-groupdist-auditsection {
     flex: 1 1 30%;
-    /* Measured on the real report: at 17rem three columns still fit an 860px
-       region, which puts a participant name into 286px and wraps it. 19rem
-       moves the three-to-two break to about 930px, so three columns means a
-       genuinely wide region. */
+    /* At 17rem three columns still fit an 860px region and wrap participant
+       names; 19rem moves the three-to-two break to about 930px. */
     min-width: 19rem;
 }
 
-/* A flex item refuses to shrink below its content, so a long unbroken group
-   name used to overflow the card and paint over its neighbour — invisible
-   while sections were full width, reachable now that a card is a third of it. */
+/* A flex item does not shrink below its content by default, so without this a
+   long unbroken group name overflows the card and paints over its neighbour. */
 .local-groupdist-auditgrid .local-groupdist-auditsection h3 {
     min-width: 0;
 }
@@ -286,12 +283,10 @@
     transform: rotate(90deg);
 }
 
-/* t/collapsedchevron is direction-SPECIFIC, not direction-aware: it maps to
-   fa-chevron-right on both branches and nothing flips the glyph — core's own
-   rtlcss leaves transform alone, and core pairs the icon with its _rtl twin
-   behind dir-rtl-hide/dir-ltr-hide instead of rotating it. The template emits
-   both, so here the RTL base glyph is chevron-LEFT and -90deg is what points
-   it down. */
+/* t/collapsedchevron is direction-specific, not direction-aware: it maps to
+   fa-chevron-right and rtlcss leaves transform alone. Like core, the template
+   pairs it with its _rtl twin behind dir-rtl-hide/dir-ltr-hide, so in RTL the
+   base glyph is chevron-left and -90deg points it down. */
 [dir="rtl"] .local-groupdist-auditdisclosure[open] summary .icon {
     transform: rotate(-90deg);
 }
@@ -308,14 +303,12 @@
     object-fit: cover;
 }
 
-/* Rule builder: the source search suggestion list.
-   The widget shipped with NO css at all — position-absolute with no z-index,
-   no background, no width and no height bound — so up to 20 matches rendered
-   as a transparent column roughly a thousand pixels tall that ran under the
-   sibling alert and off the fold. Options that landed under other painted
-   content were not clickable, which is why the only way to change a chosen
-   cohort was to delete the whole rule. Colours come from the theme with a
-   fallback chain, because 5.1 and 5.2 ship dark mode. */
+/* Rule builder: the source search suggestion list. It is position-absolute,
+   so it needs its own z-index, an opaque background and a height bound:
+   without them its up to 20 matches run under the content below and an option
+   painted beneath other content cannot be clicked. Colours come from the
+   theme with a fallback chain, because 5.1 and 5.2 ship dark mode; pinned by
+   bootstrap_compat_test. */
 .local-groupdist-sourcepick {
     min-width: 16rem;
 }

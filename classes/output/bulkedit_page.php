@@ -57,11 +57,10 @@ class bulkedit_page implements \renderable, \templatable {
      *
      * Every consumer of this class's context arrays escapes for itself: the
      * table renders through Mustache double stashes, and bulkedit.js writes
-     * the same values with textContent after the settings modal saves. Leaving
-     * format_string's default escaping on would encode them a second time, so
-     * a group called "Ana & Bruno" reads "Ana &amp;amp; Bruno" on the page and
-     * "Ana &amp; Bruno" once the modal has refreshed the row — the same group,
-     * two spellings. Same rule as the audit report; see auditreader.
+     * the same values with textContent after the settings modal saves. With
+     * format_string()'s default escaping a group called "Ana & Bruno" would
+     * read "Ana &amp; Bruno" on screen in both. Same rule as the audit report;
+     * {@see \local_groupdist\local\auditreader}.
      *
      * @param string $text The stored name.
      * @param \core\context $context The context to format in.
@@ -217,7 +216,7 @@ class bulkedit_page implements \renderable, \templatable {
         );
         foreach ($togglable as $column) {
             if (!empty($column['isseats'])) {
-                // Seats stays visible: it is the one field the distribution requires.
+                // Seats stays visible: it is the capacity field the distribution reads.
                 continue;
             }
             $menucolumns[] = [

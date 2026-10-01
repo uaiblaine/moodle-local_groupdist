@@ -25,7 +25,7 @@
  * they are course-bounded and the server already holds the whole list, so the
  * bound is about a usable picker rather than about disclosure.
  *
- * A group this run distributes INTO is offered but disabled while the "ignore
+ * A group this run distributes into is offered but disabled while the "ignore
  * users already in the selected groups" checkbox is ticked: that filter
  * removes every user who could carry the value, so such a rule would match
  * nobody. The checkbox is watched live, because it can be unticked after a
@@ -70,12 +70,9 @@ const SEARCHMETHOD = {
 
 const SEARCHDELAY = 300;
 
-/* The placeholder handed to getString() once at init, then swapped for each
-   group's own name at render time. Prefetching this way lets optionsFor() stay
-   synchronous while the WHOLE option label — word order and punctuation
-   included — stays in the language pack: a translation is free to put the
-   marker before the name, because the name is substituted INTO the string
-   rather than the string being appended to the name. */
+// Placeholder passed to getString() once at init and replaced by each group's
+// name at render time, so optionsFor() stays synchronous while the whole label,
+// word order included, stays in the language pack.
 const NAMETOKEN = '%%name%%';
 
 const state = {
@@ -212,9 +209,8 @@ const optionsFor = (rule) => {
         value: option.value,
         label: optionLabel(option.value, option.label),
         selected: option.value === rule.source,
-        /* A destination group stays VISIBLE and disabled rather than being
-           dropped: someone looking for "Group 02" has to find it and read why
-           it cannot be used, or the picker just looks broken. */
+        // A blocked destination stays listed but disabled, so the reader finds
+        // it and its label says why it cannot be used.
         disabled: isBlockedDestination(option.value) && option.value !== rule.source,
     }));
 };
@@ -229,11 +225,9 @@ const optionsFor = (rule) => {
  * @returns {Promise<void>}
  */
 const searchSources = async(row, index, kind, query) => {
-    /* The kind is captured when the keystroke is scheduled, not read here: by
-       the time the debounce fires, the row may have been deleted (state.rules
-       [index] undefined) or switched to another type, and resolving it now
-       would throw or query the other kind's service. A row that is gone or has
-       changed kind simply drops its stale result. */
+    // The kind was captured when the keystroke was scheduled: by the time the
+    // debounce fires, the row may be gone or switched to another kind, and
+    // then its stale result is dropped.
     const search = SEARCHMETHOD[kind];
     if (!search || !state.rules[index] || state.rules[index].kind !== kind) {
         return;
@@ -285,9 +279,8 @@ const searchSources = async(row, index, kind, query) => {
 /**
  * Hide every open suggestion list.
  *
- * Nothing else ever closed one: the list was shown and then left open until
- * the next full re-render replaced the row, so it kept covering the page after
- * the pointer had moved on.
+ * Called on Escape in a search box and on any click outside a picker;
+ * otherwise a list stays open until the next re-render replaces its row.
  */
 const closeResults = () => {
     if (!state.root) {

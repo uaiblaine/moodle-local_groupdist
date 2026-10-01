@@ -19,14 +19,11 @@ namespace local_groupdist\local;
 /**
  * Ordered affinity ruleset value object.
  *
- * A ruleset is a flat, ordered list of rules; every rule always applies (the
- * rules are summed, an implicit AND) and the list position is the priority:
- * when rules conflict, or a cluster must be split for capacity, the rule
- * closest to the top prevails and violations are charged to the rule further
- * down. There is deliberately no OR and no nesting — boolean composition is
- * reserved for per-rule scope matchers in a future schema version, which is
- * why entries carrying structural keys such as an operator are rejected here:
- * modes must never appear inside a tree node.
+ * A ruleset is a flat, ordered list of rules: every rule always applies (an
+ * implicit AND) and the list position is the priority; {@see allocator}
+ * defines how priority settles conflicts. There is deliberately no OR and no
+ * nesting, so an entry carrying any key besides 'source' and 'mode' (an
+ * operator, say) is rejected; a richer shape would need a new VERSION.
  *
  * Pure and DB-free by design (the guardrail maximum comes in as a parameter),
  * so it stays testable as a basic_testcase.
@@ -36,7 +33,7 @@ namespace local_groupdist\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class ruleset {
-    /** @var int Schema version emitted by to_json() — the upgrade hinge for richer shapes. */
+    /** @var int Schema version of the JSON envelope ('v'), written by to_json() and runlog::create(). */
     public const VERSION = 1;
 
     /** @var int Guardrail maximum when no site setting overrides it. */
@@ -225,11 +222,9 @@ class ruleset {
      *
      * The pattern is anchored on both ends, so 'grouping_7' can never be read
      * as a group source (nor 'group_7x', 'group_-1' or 'Group_7'). Groupings
-     * are deliberately not part of this vocabulary: their value is which group
-     * of the grouping a participant is in, which is keyed and — since
-     * {groupings_groups} has no unique constraint on (groupingid, groupid) —
-     * potentially set-valued, and the allocator holds one scalar per
-     * (rule, participant). See docs/mockups/rule-source-groups.html.
+     * are deliberately not a source: their value would be which group of the
+     * grouping a participant is in, which can be several groups at once, while
+     * the allocator holds one scalar per (rule, participant).
      *
      * @param string $source The source key.
      * @return int The group id, or 0 when the source is not a course group.

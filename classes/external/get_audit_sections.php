@@ -27,10 +27,9 @@ use local_groupdist\output\audit_detail;
 /**
  * One page of group sections of an applied distribution run.
  *
- * Serves the search box and the "load more groups" control of the audit
- * report. Nothing is computed here: the payload is the stored snapshot,
- * windowed, and it comes out of the same reader the server-rendered first
- * page uses.
+ * Serves the live search and the paging bar of the audit report. The payload
+ * comes from the same auditreader the server-rendered page uses, so both
+ * windows of the stored snapshot agree.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine

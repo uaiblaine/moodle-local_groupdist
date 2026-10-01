@@ -77,9 +77,8 @@ final class search_groups_test extends \externallib_advanced_testcase {
     /**
      * Every match this offers is one the submit-side validator accepts.
      *
-     * That is the whole reason both sides call profilefields, rather than the
-     * search running a second query with its own predicates: a picker and its
-     * validator that are separately written are a picker and a validator that
+     * Both sides read profilefields::get_source_groups() rather than the search
+     * running a query of its own, so the offer set and the validator cannot
      * drift apart.
      */
     public function test_every_offered_group_is_accepted_by_the_validator(): void {

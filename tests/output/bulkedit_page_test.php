@@ -30,9 +30,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 final class bulkedit_page_test extends \advanced_testcase {
     /**
      * Names reach the row context unescaped, because every consumer escapes
-     * for itself: Mustache double stashes on the page, textContent in
-     * bulkedit.js after the settings modal saves. Escaping here shows the
-     * ampersand twice on load and once after a save.
+     * for itself ({@see bulkedit_page::plain()}).
      *
      * @return void
      */
@@ -50,23 +48,19 @@ final class bulkedit_page_test extends \advanced_testcase {
         $this->assertSame('Ana & Bruno', $row['name']);
         $this->assertStringNotContainsString('&amp;', $row['name']);
         $this->assertSame('A', $row['initial']);
-        /* The initial is asserted separately below, with a fixture whose
-           FIRST character actually differs between the two spellings. An
-           ampersand does not: '&' escapes to '&amp;', which still starts
-           with '&'. */
+        /* Both spellings of this name start with A, so
+           test_the_initial_comes_from_the_unescaped_name pins the initial with
+           a fixture whose first character escaping changes. */
     }
 
     /**
      * The whole page renders with each name escaped exactly once.
      *
-     * This is the assertion that would have caught the defect the unit tests
-     * above miss by construction: the seats label does not reach the template
-     * through a plain double stash but as a {{#str}} parameter, and the string
-     * helper renders that parameter through a double stash of its own before
-     * substituting it, while the lambda's return is inserted unescaped. Only a
-     * real render exercises that. It also covers any consumer added later —
-     * a new template line escaping an already-escaped label fails here without
-     * anyone having to remember this rule.
+     * Only a real render covers the seats label: it reaches the template as a
+     * {{#str}} parameter, which the string helper escapes through a double
+     * stash of its own before substituting it, and the helper's return is
+     * inserted unescaped. It also catches a template line added later that
+     * escapes an already-escaped label.
      *
      * @return void
      */

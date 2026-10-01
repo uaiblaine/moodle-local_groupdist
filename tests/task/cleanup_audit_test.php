@@ -77,7 +77,8 @@ final class cleanup_audit_test extends \advanced_testcase {
     }
 
     /**
-     * Retention 0 keeps everything (the sweep proves it ran by the control above).
+     * Retention 0 keeps everything; test_expired_runs_removed() is the control
+     * showing the same fixture is swept under a positive retention.
      */
     public function test_retention_zero_keeps_forever(): void {
         global $DB;

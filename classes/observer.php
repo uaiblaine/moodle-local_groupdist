@@ -17,13 +17,12 @@
 namespace local_groupdist;
 
 /**
- * Event observers keeping the audit log's lifecycle honest.
+ * Event observers keeping the audit log in step with course and user deletion.
  *
- * Course deletion purges the course's runs — the recycle bin stores a backup
- * file, not the course, so the rows would be unreachable orphans (restoring
- * creates a new course; the audit travels in the backup only when course logs
- * are included). User deletion pseudonymises instead of deleting, so run
- * counts and group compositions stay intact.
+ * Course deletion purges the course's runs; user deletion pseudonymises the
+ * user's rows instead of deleting them. The reasons are on
+ * {@see \local_groupdist\local\runlog::purge_course()} and
+ * {@see \local_groupdist\local\runlog::pseudonymise_user()}.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine

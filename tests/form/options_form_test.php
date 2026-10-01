@@ -22,8 +22,9 @@ use local_groupdist\local\profilefields;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
- * Distribution options form: the two cohort menus escape their labels
- * differently on purpose, and this pins that apart.
+ * Distribution options form: label escaping per sink (the cohort and group
+ * lists escape differently on purpose), the member filter's cohort bound and
+ * the rule source validation.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -44,12 +45,10 @@ final class options_form_test extends \advanced_testcase {
      * A course, a cohort whose name contains an ampersand, and the rendered
      * options form.
      *
-     * Extra cohorts all share the SINGLE enrolled user: the member filter's
-     * "HAVING COUNT(DISTINCT u.id) > 0" groups per cohort, so one user who is
-     * enrolled in the course and a member of every cohort makes all of them
-     * eligible. They are named "Filler NN" so the ordering
-     * (cohort/lib.php: ORDER BY cohort.name) keeps "Ciencias & Letras" in
-     * place for the escaping tests.
+     * Extra cohorts all share the single enrolled user: the member filter
+     * admits a cohort when at least one of its members is enrolled in the
+     * course, so that one user makes all of them eligible. Off-roster cohorts
+     * share a user who is not enrolled.
      *
      * @param int $extracohorts Additional eligible cohorts to seed.
      * @param int $offroster Additional cohorts with NO enrolled member.
@@ -113,10 +112,10 @@ final class options_form_test extends \advanced_testcase {
     }
 
     /**
-     * The rule builder's cohort list must arrive PLAIN: its own template
-     * prints each option through a Mustache double stash, and rules.js writes
-     * search results with textContent. Escaping here would show the teacher
-     * "Ciencias &amp;amp; Letras" on the first screen of the flow.
+     * The rule builder's cohort list must arrive plain: rules_row.mustache
+     * prints each option through a double stash, and rules.js writes search
+     * results with textContent. Escaping here would show the teacher
+     * "Ciencias &amp; Letras".
      *
      * @return void
      */
@@ -129,24 +128,18 @@ final class options_form_test extends \advanced_testcase {
     }
 
     /**
-     * The cohortid SELECT must stay escaped, and this is the assertion that
-     * stops someone "fixing" it to match its neighbour.
+     * The cohortid select must stay escaped, unlike the rule builder's list.
      *
-     * Core renders a select's options through a TRIPLE stash
-     * (lib/form/templates/element-select.mustache: option text is {{{text}}}),
-     * so the value has to arrive already escaped. Same widget, same page, and
-     * the opposite requirement from the rule builder list above.
+     * Core renders a select's option text through a triple stash
+     * (lib/form/templates/element-select.mustache), so the value has to arrive
+     * already escaped.
      *
      * @return void
      */
     public function test_the_cohortid_select_stays_escaped(): void {
         $html = $this->render_with_cohort();
 
-        /* Scoped to the select's own markup. An unanchored regex over the
-           whole page passes even when the select is wrong, because the rule
-           builder's data-cohorts attribute further down carries the escaped
-           spelling legitimately — the first draft of this test did exactly
-           that and survived the mutation it exists to catch. */
+        // Scoped to the select's own markup, for the reason given at extract_cohort_select().
         $this->assertSame(
             1,
             preg_match('~<select[^>]*name="cohortid".*?</select>~s', $html, $matches),
@@ -163,14 +156,14 @@ final class options_form_test extends \advanced_testcase {
     }
 
     /**
-     * The seats label must arrive ESCAPED at this form's two sinks, and this
-     * is the assertion that stops the opposite mistake.
+     * The seats label must arrive escaped in the "use seats" checkbox label.
      *
-     * Commit 8676cba flipped fields::get_seats_label() to the plain spelling
-     * for its many double-stash consumers and put a raw ampersand into these
-     * two, which core renders through {{{label}}} (element-advcheckbox) and
-     * {{{element.html}}} (element-static). Hence the $escape switch, which
-     * core draws the same way in field_controller::get_formatted_name().
+     * Core renders that label through a triple stash (element-advcheckbox),
+     * while every other consumer of fields::get_seats_label() wants the plain
+     * spelling. Hence its $escape switch, the shape of core's
+     * field_controller::get_formatted_name(). The static no-seats note is a
+     * second triple-stash sink of the same value, not rendered here because
+     * the fixture passes noseats = 0.
      *
      * @return void
      */
@@ -183,16 +176,13 @@ final class options_form_test extends \advanced_testcase {
 
     /**
      * The member filter offers only cohorts that share a member with this
-     * course's roster — the bound the unbounded call at definition() rests on.
+     * course's roster.
      *
-     * This is what makes the decision recorded there enforceable rather than
-     * prose. The plugin's never-enumerate rule governs the rule builder, whose
-     * COHORT_ALL call really would list the platform's whole cohort table; the
-     * member filter is allowed to be unbounded precisely BECAUSE
-     * COHORT_WITH_ENROLLED_MEMBERS_ONLY narrows it to the roster first.
-     *
-     * Mutation: widen the mode at options_form::definition() to COHORT_ALL (or
-     * COHORT_WITH_MEMBERS_ONLY) and the off-roster cohorts appear as options.
+     * That bound is why options_form::definition() fetches the member filter's
+     * cohorts with no limit, while the rule builder's COHORT_ALL list switches
+     * to a search past a small menu; the reasoning is at the call. Changes that
+     * must make it fail: widening the mode there to COHORT_ALL or
+     * COHORT_WITH_MEMBERS_ONLY.
      *
      * @return void
      */
@@ -202,11 +192,8 @@ final class options_form_test extends \advanced_testcase {
 
         $html = $this->render_with_cohort(3, 4);
 
-        /* Fixture-drift guard: the option count below only means "the
-           off-roster cohorts were filtered out" if they were really created
-           and really visible from this context. Without this, a generator
-           change that stopped producing them would leave the assertion
-           passing while testing nothing. */
+        /* The option count below only shows that the off-roster cohorts were
+           filtered out if they exist and are visible from this context. */
         $this->assertCount(
             8,
             cohort_get_available_cohorts($this->context, COHORT_ALL, 0, 0),
@@ -227,20 +214,14 @@ final class options_form_test extends \advanced_testcase {
     }
 
     /**
-     * The two halves of the invariant this form has to keep: everything the
-     * picker offers is something the validator accepts, and nothing it did
-     * not offer survives a submit.
+     * Everything the member filter offers is accepted by the validator, and
+     * nothing it did not offer survives a submit.
      *
-     * The negative case is deliberately a cohort the validator WOULD accept —
-     * an off-roster one is visible and in a parent context, so
-     * cohort_get_cohort() says yes to it. What stops it is the offer set, and
-     * that is the point: the picker's list is load-bearing on the submit path
-     * too, not only on screen. Rejection for a visibility reason is the other
-     * mechanism and is covered by
-     * test_validation_rejects_a_cohort_the_user_cannot_see.
-     *
-     * Mutation: widen the mode at definition() and the off-roster cohort both
-     * appears as an option and survives the submit.
+     * The refused id is an off-roster cohort that cohort_get_cohort() would
+     * accept (visible, in a parent context), so only the offer set stops it.
+     * Rejection on visibility is covered by
+     * test_validation_rejects_a_cohort_the_user_cannot_see(). Changes that must
+     * make it fail: widening the mode in options_form::definition().
      *
      * @return void
      */
@@ -267,10 +248,8 @@ final class options_form_test extends \advanced_testcase {
         $this->assertNotEmpty($this->offroster);
         $this->assertSame(0, $this->submit_cohortid($this->offroster[0]));
 
-        /* Control: a legitimately offered id does survive, so the assertion
-           above is not passing because the form rejects everything — which is
-           what a broken fixture or a failing unrelated validator would look
-           like from here. */
+        /* Control: an offered id does survive, so the refusal above is not the
+           form rejecting everything. */
         $offeredid = (int) $found[1][array_key_last($found[1])];
         $this->assertGreaterThan(0, $offeredid);
         $this->assertSame($offeredid, $this->submit_cohortid($offeredid));
@@ -279,16 +258,12 @@ final class options_form_test extends \advanced_testcase {
     /**
      * validation() rejects a cohortid the acting user may not see.
      *
-     * Called directly rather than through a submit, because the gate is
-     * deliberately unreachable via the current element: a plain select's
-     * exportValue() drops a value matching no registered option, so a forged
-     * id never reaches validation() at all. That is exactly why the gate is
-     * written down — the protection is an accident of PEAR, and it evaporates
-     * the moment the element type changes (an ajax autocomplete's
-     * exportValue() returns the submitted value unchecked). This pins the
-     * gate itself so the accident is no longer the only thing holding.
-     *
-     * Mutation: delete the cohort_get_cohort() branch in validation().
+     * Called directly rather than through a submit: a select's exportValue()
+     * drops a value matching no option, so through the current element a
+     * forged id never reaches validation(). The gate still matters, because an
+     * ajax autocomplete's exportValue() returns the submitted value unchecked.
+     * Changes that must make it fail: deleting the cohort_get_cohort() check
+     * in validation().
      *
      * @return void
      */
@@ -303,12 +278,10 @@ final class options_form_test extends \advanced_testcase {
             'contextid' => \core\context\system::instance()->id,
             'visible' => 1,
         ]);
-        /* An editing teacher DOES hold moodle/cohort:view, but the capability
-           is declared at CONTEXT_COURSE and their role is assigned in the
-           course — while cohort_get_cohort() checks it at the COHORT's own
-           context, which is system here. That is what rejects the hidden
-           cohort; do not "simplify" this fixture by assigning the role at
-           system level, which would grant it and flip the result. */
+        /* An editing teacher holds moodle/cohort:view in the course, but
+           cohort_get_cohort() checks it in the cohort's own context, system
+           here; that is what rejects the hidden cohort. Assigning the role at
+           system level would grant it and flip the result. */
         $teacher = $this->getDataGenerator()->create_and_enrol(
             get_course($this->context->instanceid),
             'editingteacher'
@@ -324,8 +297,8 @@ final class options_form_test extends \advanced_testcase {
             'A hidden cohort id was accepted by the form.'
         );
 
-        /* Controls. Without them this passes whenever validation() errors on
-           everything — including on the cohortid key for an unrelated reason. */
+        /* Controls: without them this would pass whenever validation() flags
+           cohortid for any reason. */
         $this->assertArrayNotHasKey(
             'cohortid',
             $form->validation($base + ['cohortid' => (int) $visible->id], [])
@@ -413,10 +386,10 @@ final class options_form_test extends \advanced_testcase {
         return (int) ($data->cohortid ?? 0);
     }
     /**
-     * The rule builder's GROUP list must arrive plain, for exactly the same
-     * reason the cohort list beside it does — same template, same double
-     * stash. A group name reproduces the escaping split of this file: plain
-     * here, escaped in the cohortid select above.
+     * The rule builder's group list must arrive plain, for the same reason as
+     * its cohort list: same template, same double stash. The same group name
+     * arrives escaped in a validation error; see
+     * test_a_destination_group_is_rejected_as_its_own_source().
      */
     public function test_the_rule_builder_group_list_is_not_pre_escaped(): void {
         $html = $this->render_with_cohort();
@@ -443,10 +416,10 @@ final class options_form_test extends \advanced_testcase {
      * A destination group used as its own rule source is rejected while the
      * ignore filter is on — and accepted the moment it is off.
      *
-     * The two halves are the whole point: this is a conjunction, not a ban on
-     * the source. With the filter on, candidates::fetch() has already removed
-     * every user who could carry the value, so the rule matches nobody; with
-     * it off those members take part and the rule is real.
+     * The gate is the conjunction, not a ban on the source. With the filter
+     * on, candidates::fetch() has already removed every user who could carry
+     * the value, so the rule matches nobody; with it off those members take
+     * part and the rule is real.
      */
     public function test_a_destination_group_is_rejected_as_its_own_source(): void {
         $this->render_with_cohort();
@@ -458,13 +431,10 @@ final class options_form_test extends \advanced_testcase {
 
         $errors = $this->validate_with($rules, ['ignoregrouped' => 1]);
         $this->assertArrayHasKey('affinityruleserr', $errors);
-        /* The message has to name the rule and the group: the generic
-           "Data submitted is invalid" beside it cannot tell the teacher which
-           of four different problems they have. And it must carry the ESCAPED
-           spelling — core renders a form element's error through a triple
-           stash, so this is the opposite direction from the rule builder's
-           data attribute a few tests above, and the same direction as the
-           cohortid select. */
+        /* The message names the rule and the group, in the escaped spelling:
+           core renders a form element's error through a triple stash
+           (element-template.mustache), unlike the rule builder's data
+           attribute. */
         $this->assertStringContainsString('Turma A &amp; B', $errors['affinityruleserr']);
         $this->assertStringNotContainsString('Turma A & B', $errors['affinityruleserr']);
         $this->assertStringContainsString('1', $errors['affinityruleserr']);
@@ -500,10 +470,9 @@ final class options_form_test extends \advanced_testcase {
     /**
      * The group picker is a menu at the limit and a search past it.
      *
-     * This is the only branch in the new form code, and both sides of it are
-     * silent: over the limit the menu is deliberately EMPTY (data-groups="[]")
-     * and the client switches to the search web service, which reads exactly
-     * like a picker that lost its options.
+     * Past the limit the menu is deliberately empty (data-groups="[]") and the
+     * client switches to the search web service, which in the markup looks
+     * like a picker that lost its options, so both sides are asserted.
      */
     public function test_the_group_picker_switches_to_a_search_past_the_limit(): void {
         $this->render_with_cohort();

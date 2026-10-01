@@ -24,13 +24,11 @@ namespace local_groupdist\local;
  * Cohorts follow cohort_get_cohort()'s parent-context and visibility rules, so
  * a hidden cohort id can never become a membership oracle.
  *
- * Course groups start from groups_get_all_groups(), the same call the plugin
- * already validates submitted DESTINATION groups against in six places — so a
- * group SOURCE is never more permissive than a group destination in the same
- * request — but the visibility decision is then made HERE rather than trusted
- * from that helper, which fails open on a cold cache. get_source_groups()
- * carries the mechanism; docs/mockups/rule-source-groups.html carries the
- * design decision.
+ * Course groups start from groups_get_all_groups(), the call every entry point
+ * validates submitted destination groups against, so a group source is never
+ * more permissive than a destination in the same request; the visibility
+ * decision is then made here rather than trusted from that helper
+ * ({@see self::get_source_groups()}).
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -101,25 +99,20 @@ class profilefields {
      * holder, since core shows a plain member only their own row
      * (visibility::sql_member_visibility_where()); NONE likewise.
      *
-     * **Every arm is stated here rather than delegated to
-     * groups_get_all_groups().** That helper does apply the same predicate in
-     * its SQL path, but it short-circuits to an unfiltered MUC read whenever
-     * core_group\visibility::can_view_all_groups() says the course has no
-     * hidden groups — and that check FAILS OPEN on a cold cache: it re-reads
-     * the cache after warming it and then discards the value, so a missing
-     * entry evaluates `false > 0` and reports "nothing hidden" (grouplib
-     * visibility.php, identical on 405/501/502/503-dev). Measured on m501: with
-     * the core/coursehiddengroups entry purged, one call returns every group of
-     * the course including NONE-visibility ones. Anything that merely subtracts
-     * OWN from that result therefore leaks a hidden group's name — and, through
-     * is_allowed(), its whole membership — for one call after every cache
-     * purge. Core's own group/index.php is not exposed because it passes
-     * $withmembers, which skips the shortcut; this helper cannot.
+     * Every arm is stated here rather than delegated to groups_get_all_groups().
+     * That helper filters by visibility in its SQL path (admitting OWN groups the
+     * actor belongs to, which a source must not), but it short-circuits to an
+     * unfiltered cache read whenever core_group\visibility::can_view_all_groups()
+     * says the course has no hidden groups, and that check fails open on a cold
+     * cache: course_has_hidden_groups() warms the core/coursehiddengroups entry
+     * but returns the value it read before warming, so a missing entry reports
+     * "nothing hidden". After a cache purge one call therefore returns every
+     * group, NONE-visibility ones included, and anything trusting that result
+     * would leak a hidden group's name and, through is_allowed(), its membership.
      *
-     * Do NOT reach for groups_get_group() (no course check, no visibility
-     * check — a cross-course membership oracle) or groups_group_visible()
-     * (that tests the activity GROUPMODE, a different axis from the
-     * visibility column).
+     * Do not use groups_get_group() (no course check, no visibility check: a
+     * cross-course membership oracle) or groups_group_visible() (that tests the
+     * activity group mode, a different axis from the visibility column).
      *
      * @param \core\context\course $context The course context.
      * @param bool $escape Whether to HTML-escape the names. The default is the
@@ -132,11 +125,9 @@ class profilefields {
     public static function get_source_groups(\core\context\course $context, bool $escape = false): array {
         global $DB, $USER;
 
-        /* Deliberately not memoised. This is one indexed query (two at most),
-           so the worst case is one cheap call per rule; a static keyed by
-           course id is the shape that survives resetAfterTest() holding a
-           stale listing for a REUSED course id, which only ever shows up as a
-           mystery failure in someone else's test. */
+        /* Deliberately not memoised: this is one indexed query (two at most),
+           and a static keyed by course id would survive resetAfterTest() and
+           serve a stale listing when a later test reuses the course id. */
         $courseid = (int) $context->instanceid;
         $viewhidden = has_capability('moodle/course:viewhiddengroups', $context);
         $mine = null;
@@ -150,10 +141,9 @@ class profilefields {
                     continue;
                 }
                 if ($mine === null) {
-                    /* Membership is a fact about the course, so it is asked of
-                       the table directly — the same reasoning as
-                       auditreader::live_group_ids(). Fetched at most once, and
-                       only when a MEMBERS group is actually in play. */
+                    /* The actor's memberships, read from the table in one query,
+                       fetched at most once and only when a MEMBERS group is in
+                       play. */
                     $mine = $DB->get_records_sql_menu(
                         "SELECT gm.groupid, 1 AS ismember
                            FROM {groups_members} gm
@@ -204,19 +194,17 @@ class profilefields {
     /**
      * Format an admin-set name for output, unescaped.
      *
-     * Every consumer of these labels escapes for itself — the rule builder
+     * Every consumer of these labels escapes for itself (the rule builder
      * prints them through Mustache double stashes and rules.js writes search
-     * results with textContent — so the default escaping would show a cohort
-     * named "Ciencias & Letras" as "Ciencias &amp; Letras" on the first screen
-     * of the flow. The context is explicit rather than left to fall back on
-     * $PAGE->context, which is not merely tidier: get_label() is reached from
-     * runlog::create() and so runs inside the adhoc apply task, where the
-     * fallback would throw.
+     * results with textContent), so the default escaping would show a cohort
+     * named "A & B" as "A &amp; B". The context is always passed explicitly
+     * so a label is filtered in its own context whatever code builds it,
+     * rather than in whatever $PAGE->context happens to be.
      *
-     * Note what does NOT come through here: options_form's cohortid select.
-     * Core renders a select's options through a TRIPLE stash
-     * (lib/form/templates/element-select.mustache), so that one label must
-     * stay escaped and builds its own format_string call.
+     * options_form's cohortid select does not come through here: core renders
+     * a select's options through a triple stash
+     * (lib/form/templates/element-select.mustache), so that label must stay
+     * escaped and builds its own format_string() call.
      *
      * @param string $name The stored name.
      * @param \core\context $context The context to format in.
@@ -248,10 +236,8 @@ class profilefields {
             return get_string('cohortsourcelabel', 'local_groupdist', self::plain($name, $cohortcontext));
         }
         if ($groupid = ruleset::source_groupid($key)) {
-            // Reached from runlog::create() inside the adhoc apply task, so the
-            // name is formatted in the course context passed in rather than any
-            // $PAGE fallback. An unresolvable group returns '' exactly as an
-            // unresolvable cohort does.
+            // Formatted in the course context passed in (see plain()). An
+            // unresolvable group returns '' exactly as an unresolvable cohort does.
             $name = self::get_source_groups($context)[$groupid] ?? '';
             return $name === '' ? '' : get_string('groupsourcelabel', 'local_groupdist', $name);
         }

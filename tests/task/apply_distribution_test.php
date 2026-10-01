@@ -32,7 +32,7 @@ final class apply_distribution_test extends \advanced_testcase {
     /**
      * Prepare a course with one group and users, returning options + fingerprint.
      *
-     * @return array [course, context, group, options, fingerprint].
+     * @return array [course, context, group, options, fingerprint, runid].
      */
     private function make_plan(): array {
         $generator = $this->getDataGenerator();
@@ -80,8 +80,9 @@ final class apply_distribution_test extends \advanced_testcase {
     }
 
     /**
-     * The staleness guard: a fingerprint mismatch writes NOTHING — proven with
-     * a control run showing the same plan does write when the world is unchanged.
+     * The staleness guard: a fingerprint mismatch writes nothing.
+     * test_execute_applies_on_matching_fingerprint() is the control: the same
+     * plan does write when nothing changed.
      */
     public function test_execute_refuses_stale_fingerprint(): void {
         global $DB;

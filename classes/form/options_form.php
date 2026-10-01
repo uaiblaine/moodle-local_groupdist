@@ -30,10 +30,9 @@ require_once($CFG->dirroot . '/cohort/lib.php');
  *
  * Member-source and allocation options mirror core group/autogroup_form.php;
  * the affinity and seats sections are this plugin's own. Core's "prevent last
- * small group" checkbox is deliberately absent: it only applies when the group
- * COUNT is derived from a members-per-group number (core disables it in the
- * fixed-count mode, which is the only mode here), and this allocator always
- * balances sizes within one member.
+ * small group" checkbox is deliberately absent: core disables it unless the
+ * group count is derived from a members-per-group number, and this plugin
+ * always fills a fixed set of groups, balancing sizes within one member.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -43,13 +42,10 @@ class options_form extends \moodleform {
     /** @var int Most cohorts shown as a plain menu; beyond it the picker becomes a search. */
     public const COHORT_MENU_LIMIT = 10;
 
-    /* Groups get their own, higher limit rather than sharing the cohort one.
-       The cohort bound exists because cohorts are site-level and platforms
-       carry thousands; groups are course-bounded and a course with a dozen
-       groups is ordinary, so flipping such a course to a search box would be
-       worse UI, not safer. 25 is deliberately the number the plugin already
-       treats as "too many groups to show at once" — get_preview::GROUP_CAP —
-       so there is one such constant in the plugin, not two. */
+    /* Higher than the cohort limit: cohorts are site-level and can number in
+       the thousands, while a course with a dozen groups is ordinary. The value
+       matches get_preview::GROUP_CAP, the most groups the preview shows; keep
+       the two in step. */
     /** @var int Most course groups shown as a plain menu; beyond it the picker becomes a search. */
     public const GROUP_MENU_LIMIT = 25;
 
@@ -77,54 +73,23 @@ class options_form extends \moodleform {
             $mform->setDefault('roleid', $student->id);
         }
 
-        /* Unbounded ON PURPOSE, and not the same posture as the rule builder
-           below — the two calls select different sets, and that difference is
-           the whole justification.
+        /* Unbounded on purpose, unlike the rule builder's cohort list below
+           (COHORT_ALL, bounded only by the context chain, hence its search).
+           COHORT_WITH_ENROLLED_MEMBERS_ONLY offers a cohort only when one of
+           its members is enrolled in this course; core counts any enrolment,
+           active or not, so a cohort may be offered and still yield nobody.
+           This is argument-for-argument core's call in group/autogroup_form.php.
+           A limit would not make it cheaper: cohort_get_available_cohorts()
+           aggregates in a derived table and the LIMIT applies to the outer
+           query, so every membership row is scanned either way. A search
+           instead of a menu would pay the same aggregate on every keystroke,
+           so this stays a menu.
 
-           1. This is COHORT_WITH_ENROLLED_MEMBERS_ONLY, whose
-              "HAVING COUNT(DISTINCT u.id) > 0" (cohort/lib.php) admits a
-              cohort only when one of its members appears in this course's
-              enrolment list. Note that core builds that list with
-              get_enrolled_sql($context) and no only-active flag, so it counts
-              suspended users, disabled enrol instances and expired or future
-              enrolments — a looser roster than this plugin's own candidate
-              query, which defaults to active enrolments only. The bound is
-              therefore real but wider than the eventual candidate set: a
-              cohort whose sole overlap is a suspended enrolment is offered
-              here and yields nothing.
-              The rule builder's call below is COHORT_ALL, which is bounded
-              only by the course's context chain — hence the never-enumerate
-              rule there, and hence its search fallback beyond a small menu.
-           2. The call is argument-for-argument core's own in
-              group/autogroup_form.php, reached from the same group management
-              page this plugin's button sits on. A site pays here exactly what
-              core already charges it on the Auto-create groups form beside it.
-           3. A limit would not reduce that cost, which is the measured reason
-              for keeping the call as it stands rather than capping it.
-              cohort/lib.php puts the grouping and the HAVING in a derived
-              table, joins it back on cohort.id and orders the OUTER query, so
-              the LIMIT get_records_sql() appends to the finished outer string
-              cannot reach the aggregate — every membership row of every
-              visible cohort is scanned either way, and a run with LIMIT 11
-              showed no measurable saving over an unbounded one. Capping would
-              buy no query time, hide valid choices, and falsify the autogroup
-              parity this section claims; and the honest alternative, a
-              members-filtered search, would pay that same aggregate on every
-              keystroke instead of once per render. The aggregate is core's to
-              fix upstream, where autogroup_form gets the fix too.
+           On the front page the bound does not hold: get_enrolled_join() skips
+           the enrolment join at SITEID, so every system-context cohort with a
+           non-deleted member is offered.
 
-           Where the bound does NOT hold: the front page. get_enrolled_join()
-           skips the {user_enrolments} join entirely at SITEID (everyone counts
-           as enrolled there), so the HAVING degenerates to "the cohort has any
-           member whose account is not deleted". The site course's context
-           chain is itself plus system, so what that offers is every
-           system-context cohort — honest rather than misleading, since on the
-           front page each of them genuinely can yield participants, but
-           unbounded by anything course-shaped. It is the case to revisit first
-           if this decision is reopened.
-
-           Pinned by options_form_test::test_the_member_filter_is_bounded_by_the_roster,
-           which goes red if this mode is widened. */
+           Pinned by options_form_test::test_the_member_filter_is_bounded_by_the_roster. */
         if ($cohorts = cohort_get_available_cohorts($context, COHORT_WITH_ENROLLED_MEMBERS_ONLY, 0, 0)) {
             $cohortoptions = [0 => get_string('anycohort', 'cohort')];
             foreach ($cohorts as $cohort) {
@@ -168,14 +133,10 @@ class options_form extends \moodleform {
         $mform->addElement('select', 'allocateby', get_string('allocateby', 'group'), $allocateoptions);
         $mform->setDefault('allocateby', options::ALLOCATE_RANDOM);
 
-        // Section: affinity rules. The builder is an AMD-driven widget whose
-        // rows post through the flattened affinityrulesources[]/modes[]
-        // hidden inputs (read back via options::rules_from_post()). Each row
-        // picks a type first (profile field, cohort or course group); cohorts
-        // are a bounded list up to COHORT_MENU_LIMIT and a search beyond it —
-        // platforms can carry thousands, so they are never enumerated — and
-        // course groups follow the same two-mode shape at GROUP_MENU_LIMIT,
-        // for usability rather than disclosure.
+        // Section: affinity rules. The local_groupdist/rules AMD widget posts its
+        // rows as flattened affinityrulesources[]/affinityrulemodes[] inputs,
+        // read back by options::rules_from_post(). Cohorts and course groups are
+        // a menu up to COHORT_MENU_LIMIT / GROUP_MENU_LIMIT and a search beyond.
         global $CFG, $OUTPUT, $PAGE;
         require_once($CFG->dirroot . '/cohort/lib.php');
 
@@ -192,10 +153,9 @@ class options_form extends \moodleform {
             foreach ($sample as $cohort) {
                 $cohorts[] = [
                     'value' => 'cohort_' . (int) $cohort->id,
-                    /* Escaped by the rule builder's own template, which prints
-                       an <option> through a DOUBLE stash — unlike the cohortid
-                       select above, which core renders through a triple stash
-                       and whose label must therefore stay escaped. */
+                    /* Plain: the rule builder's row template escapes it (double
+                       stash), unlike the cohortid select above, which core
+                       renders through a triple stash and so stays escaped. */
                     'label' => format_string($cohort->name, true, [
                         'context' => \core\context::instance_by_id($cohort->contextid),
                         'escape' => false,
@@ -203,20 +163,17 @@ class options_form extends \moodleform {
                 ];
             }
         }
-        /* The group picker is served from the same helper the submit-side
-           validator uses, so the picker can never offer what validation()
-           rejects. The destination ids travel too: a destination group used as
-           a rule source is vacuous while "ignore users already in the selected
-           groups" is on (every candidate carrying the value has been filtered
-           out of the run by construction), so the builder disables those
-           options live and re-enables them when that checkbox is unticked. */
+        /* Served by the helper profilefields::is_allowed() validates against,
+           so the picker never offers what validation() rejects. The destination
+           ids travel too: the builder disables a destination group as a source
+           while the ignore-grouped filter is on (see validation()). */
         $sourcegroups = profilefields::get_source_groups($context);
         $groups = [];
         $groupsearch = count($sourcegroups) > self::GROUP_MENU_LIMIT;
         if (!$groupsearch) {
             foreach ($sourcegroups as $id => $name) {
                 // Plain, like the cohort labels beside them: the row template
-                // prints an <option> through a DOUBLE stash.
+                // prints an <option> through a double stash.
                 $groups[] = ['value' => 'group_' . $id, 'label' => $name];
             }
         }
@@ -244,13 +201,11 @@ class options_form extends \moodleform {
         $mform->addElement('static', 'affinityruleserr', '', '');
         $PAGE->requires->js_call_amd('local_groupdist/rules', 'init');
 
-        // Section: seats and overbooking. Labels echo the field's STORED name
-        // (set once at provisioning time): a site provisioned in English shows
-        // "Seats" here even when the UI language is Portuguese.
-        /* Escaped, not plain: both sinks below are triple stashes — core
-           renders an element label through {{{label}}} and a static element
-           through {{{element.html}}}. Every other consumer of this label
-           escapes for itself and takes the plain spelling. */
+        // Section: seats and overbooking. Labels echo the field's stored name,
+        // set once at provisioning, so they do not follow the UI language.
+        /* Escaped, not plain: both sinks below are triple stashes (core's
+           element label and static element templates). Every other consumer
+           of this label escapes for itself and takes the plain spelling. */
         $seatslabel = fields::get_seats_label(true);
         $mform->addElement('header', 'seatshdr', get_string('seatssection', 'local_groupdist'));
         $mform->setExpanded('seatshdr', true);
@@ -299,20 +254,13 @@ class options_form extends \moodleform {
             $errors['overbook'] = get_string('erroroverbookrange', 'local_groupdist');
         }
 
-        /* Defence in depth, and deliberately unreachable today. The member
-           filter is a plain select, and HTML_QuickForm_select::exportValue()
-           silently drops a submitted value matching no registered option — so
-           a forged cohortid never reaches this method at all; the key is
-           absent from $data, which is why distribute.php needs its "?? 0".
-           That makes the option list, built from
-           cohort_get_available_cohorts(), an authorization allowlist by
-           accident of PEAR rather than by any decision this plugin wrote
-           down, and the accident evaporates the moment the element type
-           changes: an ajax autocomplete's exportValue() returns the submitted
-           value unchecked. Stating the check makes this form agree with the
-           other three entry points (apply.php, get_preview, preview_page),
-           all of which gate a raw cohortid on cohort_get_cohort() so a hidden
-           cohort can never be used as a membership oracle. */
+        /* Defence in depth. HTML_QuickForm_select::exportValue() already drops
+           a value matching no option, so a forged cohortid is absent from $data
+           (hence distribute.php's "?? 0"); that guard disappears if the element
+           becomes an ajax autocomplete, whose exportValue() returns the value
+           unchecked. The check matches the other entry points (apply.php,
+           get_preview, preview_page): a hidden cohort is never a membership
+           oracle. */
         if (!empty($data['cohortid']) && !cohort_get_cohort((int) $data['cohortid'], $context)) {
             $errors['cohortid'] = get_string('invaliddata', 'error');
         }
@@ -331,28 +279,19 @@ class options_form extends \moodleform {
                     $errors['affinityruleserr'] = get_string('invaliddata', 'error');
                     break;
                 }
-                /* A destination group as a rule source is vacuous EXACTLY when
+                /* A destination group as a rule source is vacuous exactly when
                    the ignore filter is on: candidates::fetch() then excludes
-                   every user already holding a membership row in the selected
-                   groups, so the value column is empty for 100% of survivors
-                   and the only trace is one "no value" warning naming the whole
-                   candidate count. With the filter off those members do take
-                   part and the rule genuinely constrains them, so this is a
-                   conjunction, never a blanket ban on the source.
-
-                   The builder disables these options while the filter is on, so
-                   reaching this needs a forged POST or the filter being unticked
-                   after the rule was picked — but the message still has to say
-                   which rule and why, because the generic invaliddata above
-                   cannot. */
+                   every user already in the selected groups, so no survivor
+                   holds the value. With the filter off the rule constrains real
+                   members, so this is a conjunction, not a ban on the source.
+                   The builder disables these options while the filter is on;
+                   this catches a forged POST or the filter ticked after the
+                   rule was picked, and names the rule and the reason. */
                 $groupid = \local_groupdist\local\ruleset::source_groupid($rule['source']);
                 if ($ignoregrouped && $groupid && in_array($groupid, $destinations, true)) {
-                    /* ESCAPED, unlike the picker list a few lines above: core
-                       renders a moodleform element's error through a TRIPLE
-                       stash (lib/form/templates/element-template.mustache), so
-                       a group named "A & B" would otherwise reach the page raw.
-                       Same split this form already holds for the cohortid
-                       select against the rule builder's data attribute. */
+                    /* Escaped, unlike the picker list in definition(): core
+                       renders an element's error through a triple stash
+                       (lib/form/templates/element-template.mustache). */
                     $errors['affinityruleserr'] = get_string('errorruleselfreference', 'local_groupdist', (object) [
                         'index' => $i + 1,
                         'group' => profilefields::get_source_groups($context, true)[$groupid] ?? '',

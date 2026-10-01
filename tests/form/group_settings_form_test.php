@@ -335,10 +335,9 @@ final class group_settings_form_test extends \advanced_testcase {
     }
 
     /**
-     * Opening the modal and saving it untouched must change nothing. Every
-     * element added for parity is a way to silently destroy a stored value:
-     * a field that renders empty where the record holds a value wipes it on
-     * the next save, and the modal is the fast path teachers will use.
+     * Opening the modal and saving it untouched must change nothing: an element
+     * that renders empty where the record holds a value would wipe that value
+     * on the next save.
      *
      * @return void
      */
@@ -371,10 +370,9 @@ final class group_settings_form_test extends \advanced_testcase {
     }
 
     /**
-     * The picture really saves through the modal. This is the path with no
-     * core precedent on a group: the filepicker posts a draft item id rather
-     * than a file, and groups_update_group_icon() reads it back out of the
-     * draft area through moodleform::save_temp_file().
+     * The picture really saves through the modal. The filepicker posts a draft
+     * item id rather than a file, and groups_update_group_icon() reads it back
+     * out of the draft area through moodleform::save_temp_file().
      *
      * @return void
      */
@@ -410,11 +408,10 @@ final class group_settings_form_test extends \advanced_testcase {
      * silent deletion of the existing picture that reaching
      * groups_update_group_icon() would cause.
      *
-     * Every case here is one the obvious allowlist would have let through:
-     * svg/svgz/webp are all in core's 'web_image' group (webp is in
-     * 'optimised_image' too) and GD writes none of them, and the renamed text
-     * file is what proves the check reads the file rather than its name. A
-     * plain .txt would pass this test against any allowlist at all.
+     * svg, svgz and webp are in core's 'web_image' file type group (webp is in
+     * 'optimised_image' too), so an allowlist naming a group would accept them,
+     * yet process_new_icon() decodes only GIF, JPEG and PNG. The text file
+     * renamed to .png proves the check reads the content rather than the name.
      *
      * @param string $filename The uploaded name.
      * @param string $content The uploaded bytes.
@@ -489,11 +486,11 @@ final class group_settings_form_test extends \advanced_testcase {
     }
 
     /**
-     * Group custom fields still save now that the modal's own
-     * instance_form_save() call is gone and groups_update_group() makes the
-     * only one. Once-ness itself is NOT asserted here and cannot be by a value
-     * assertion: instance_form_save() reloads its data controllers from
-     * {customfield_data} on every call, so a second call is idempotent.
+     * Group custom fields save through the instance_form_save() call inside
+     * groups_update_group(); the modal makes no call of its own. That it runs
+     * only once cannot be asserted from stored values: instance_form_save()
+     * reloads its data controllers from {customfield_data} on every call, so a
+     * second call is idempotent.
      *
      * @return void
      */

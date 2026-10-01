@@ -27,12 +27,12 @@ class allocation {
     /** @var array Map of groupid => list of allocated user ids, in allocation order. */
     public array $assignments = [];
 
-    /** @var array User ids that could not be placed (no capacity left). */
+    /** @var array User ids that could not be placed (every group with room left already holds them, or none has room). */
     public array $unassigned = [];
 
     /**
      * @var array Typed warnings: each an array with 'type' (an allocator::WARNING_*
-     *   constant) plus type-specific keys ('value', 'count').
+     *   constant) plus type-specific keys ('rule', 'value', 'count').
      */
     public array $warnings = [];
 

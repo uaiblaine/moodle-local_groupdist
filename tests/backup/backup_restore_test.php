@@ -223,9 +223,8 @@ final class backup_restore_test extends \advanced_testcase {
 
     /**
      * The backup gate: with the logs setting off the audit never enters the
-     * backup file. The control is the artifact itself — the same backup with
-     * logs on does contain the plugin subtree (asserted in the round-trip
-     * test via restored rows and here at the XML level before restoring).
+     * backup file. The same backup with logs on does contain the plugin subtree
+     * (asserted by test_restore_without_logs_skips_the_audit()).
      */
     public function test_backup_without_logs_excludes_the_audit(): void {
         global $DB;
@@ -261,8 +260,8 @@ final class backup_restore_test extends \advanced_testcase {
 
     /**
      * The restore-side gate: the backup carries the audit (asserted at the
-     * XML level — the non-vacuity control), but a restore with logs off
-     * skips it.
+     * XML level, so the skip is the restore's doing), but a restore with logs
+     * off skips it.
      */
     public function test_restore_without_logs_skips_the_audit(): void {
         global $DB;

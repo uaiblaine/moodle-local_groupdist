@@ -456,18 +456,14 @@ class get_preview extends external_api {
     /**
      * One affinity value as the preview should show it.
      *
-     * A mapped source (country, cohort) resolves to its label; anything else
-     * is arbitrary stored profile text. A textarea custom profile field
-     * declares PARAM_RAW — its own class comment says "We MUST clean this
-     * before display!" — and profilefields::get_fields() offers every custom
-     * field whatever its datatype, so the value can hold markup. Passing it
-     * through format_string() strips that, which is also what keeps it
-     * passable through this web service's PARAM_TEXT return fields: their
-     * cleaner runs strip_tags(), and validate_param() throws when that changes
-     * the string, so one participant whose value held a bare "<" used to fail
-     * every page of the preview for everyone. escape => false because every
-     * consumer renders it escaped already. Same treatment, same reason, as
-     * auditreader::display_value().
+     * A mapped source (country, cohort or group) resolves to its display text;
+     * anything else is stored profile text and can hold markup: a textarea
+     * custom profile field is PARAM_RAW, and profilefields::get_fields() offers
+     * every datatype. format_string() strips the markup, which the PARAM_TEXT
+     * return fields require: clean_returnvalue() throws when strip_tags() would
+     * change the string, and one participant's bare "<" would then fail the
+     * whole response. escape => false because every consumer escapes on output.
+     * Same treatment as {@see \local_groupdist\local\auditreader::display_value()}.
      *
      * @param array $valuemaps Maps from {@see build_value_maps()}.
      * @param int $ruleindex Position of the rule in the ruleset.
@@ -485,11 +481,10 @@ class get_preview extends external_api {
     /**
      * Global per-rule report: value clusters, destinations and trouble flags.
      *
-     * Computed over the full allocation (not the paged window), so it is the
-     * proof that each rule worked: which values clustered where, which were
-     * split, which keep-apart values had to repeat. Values held by fewer than
-     * two allocated members are noise and are skipped; entries are capped with
-     * an explicit remainder count — never a silent truncation.
+     * Computed over the full allocation, not the paged window: which values
+     * clustered where, which were split, which keep-apart values had to repeat.
+     * Values held by fewer than two allocated members are skipped; entries
+     * beyond REPORT_VALUE_CAP are reported as a remainder count ('more').
      *
      * @param distribution $distribution The distribution.
      * @param array $valuemaps Per-rule display maps from build_value_maps().

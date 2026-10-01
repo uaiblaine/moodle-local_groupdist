@@ -17,9 +17,9 @@
 /**
  * Distribution flow controller: options form (step 1) and preview (step 2).
  *
- * Reached by POST only — the injected button on group/index.php submits the
- * core form here (carrying groups[], id and sesskey), and every later
- * transition (preview, back) is a POST as well.
+ * Entered by POST: the injected button on group/index.php submits the core
+ * form here (carrying groups[], id and sesskey), and every later transition
+ * (preview, back) is a POST as well.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -35,9 +35,10 @@ require_login($course);
 $context = \core\context\course::instance($course->id);
 require_capability('local/groupdist:distribute', $context);
 /* No page-level require_sesskey() here: the language menu re-requests this URL
-   as a plain GET without a sesskey and must not explode. Nothing on this page
-   mutates state — form submissions are sesskey-checked by formslib, and the
-   mutating endpoint (apply.php) keeps its own require_sesskey(). */
+   as a plain GET without a sesskey. Nothing on this page writes on the
+   caller's behalf beyond the idempotent field provisioning below: form
+   submissions are sesskey-checked by formslib, and the mutating endpoint
+   (apply.php) keeps its own require_sesskey(). */
 
 \local_groupdist\local\fields::ensure_fields_exist();
 

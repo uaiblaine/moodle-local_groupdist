@@ -219,41 +219,144 @@ final class allocator_test extends \basic_testcase {
     }
 
     /**
-     * Existing members are never re-assigned to their own group.
+     * The warnings of one type.
+     *
+     * @param allocation $result The allocation.
+     * @param string $type One of the allocator WARNING_* constants.
+     * @return array The matching warnings, reindexed.
      */
-    public function test_existing_member_not_reassigned_in_affinity_modes(): void {
-        $groups = [
-            $this->make_group(1, null, 1, [1]),
-            $this->make_group(2, null),
-        ];
-        $affinity = [1 => 'A', 2 => 'A'];
-        $options = $this->make_options([
-            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
-        ]);
-        $result = allocator::allocate([1, 2], [$affinity], $groups, $options);
-
-        // User 1 already sits in group 1: wherever the bucket lands, user 1 is
-        // never added to group 1 again.
-        $this->assertNotContains(1, $result->assignments[1]);
+    private function warnings_of(allocation $result, string $type): array {
+        return array_values(array_filter($result->warnings, function (array $warning) use ($type): bool {
+            return $warning['type'] === $type;
+        }));
     }
 
     /**
-     * Balanced mode must also honour existing memberships: with ignore-grouped
-     * off, nobody is handed back to a group they already belong to.
+     * Every user assigned anywhere in a result.
+     *
+     * @param allocation $result The allocation.
+     * @return array The user ids, sorted.
      */
-    public function test_balanced_respects_existing_memberships(): void {
-        $groups = [
-            $this->make_group(1, null, 2, [1, 2]),
-            $this->make_group(2, null, 2, [3, 4]),
-        ];
-        $result = allocator::allocate([1, 2, 3, 4], [], $groups, $this->make_options());
+    private function assigned_users(allocation $result): array {
+        $users = array_merge(...array_values($result->assignments));
+        sort($users);
+        return $users;
+    }
 
-        $this->assertNotContains(1, $result->assignments[1]);
-        $this->assertNotContains(2, $result->assignments[1]);
-        $this->assertNotContains(3, $result->assignments[2]);
-        $this->assertNotContains(4, $result->assignments[2]);
-        // Everyone still gets placed — in the other group.
-        $this->assertSame(4, $result->count_memberships());
+    /**
+     * A candidate already in a selected group stays there and counts as placed.
+     *
+     * With the ignore-grouped filter off such users are candidates. They are
+     * written nowhere, never left unassigned, and take no capacity (the group's
+     * current count already includes them); the others are placed as usual,
+     * with contiguous runs.
+     */
+    public function test_existing_members_stay_put_in_balanced_mode(): void {
+        $groups = [
+            $this->make_group(1, 3, 2, [1, 2]),
+            $this->make_group(2, 3, 2, [3, 4]),
+        ];
+        $result = allocator::allocate([1, 2, 3, 4, 5, 6, 7, 8], [], $groups, $this->make_options());
+
+        $this->assertSame([5, 6, 7, 8], $this->assigned_users($result));
+        $this->assertSame([], $result->unassigned);
+        $this->assertSame([5, 6], $result->assignments[1]);
+        $this->assertSame([7, 8], $result->assignments[2]);
+    }
+
+    /**
+     * A member of two selected groups is not placed a third time, rules or no rules.
+     */
+    public function test_a_member_of_several_selected_groups_stays_in_all_of_them(): void {
+        $groups = [
+            $this->make_group(1, null, 1, [1]),
+            $this->make_group(2, null, 1, [1]),
+            $this->make_group(3, null),
+        ];
+        $options = $this->make_options([
+            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_APART]],
+        ]);
+        $result = allocator::allocate([1, 2], [[1 => 'A', 2 => 'B']], $groups, $options);
+
+        $this->assertSame([2], $this->assigned_users($result));
+        $this->assertSame([], $result->unassigned);
+    }
+
+    /**
+     * A together cluster goes to the group where a kept member with its value is.
+     *
+     * The control drops that membership: the same cluster then lands in group 1,
+     * the first group, so the pull is what moved it.
+     */
+    public function test_a_together_cluster_joins_its_kept_member(): void {
+        $options = $this->make_options([
+            'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_TOGETHER]],
+        ]);
+        $city = [1 => 'A', 2 => 'A', 3 => 'A'];
+
+        $groups = [$this->make_group(1, null), $this->make_group(2, null, 1, [1])];
+        $result = allocator::allocate([1, 2, 3], [$city], $groups, $options);
+        $this->assertSame([2, 3], $result->assignments[2]);
+        $this->assertSame([], $result->assignments[1]);
+
+        $groups = [$this->make_group(1, null), $this->make_group(2, null, 1)];
+        $result = allocator::allocate([2, 3], [$city], $groups, $options);
+        $this->assertSame([2, 3], $result->assignments[1]);
+    }
+
+    /**
+     * A kept member's apart value is held by its group, so a newcomer sharing it goes elsewhere.
+     *
+     * Group 1 is the smaller one, so without the kept member user 2 would go there
+     * (the control); with it, group 1 already holds X and user 2 goes to group 2,
+     * with no violation counted.
+     */
+    public function test_a_kept_member_holds_its_apart_value(): void {
+        $options = $this->make_options([
+            'affinityrules' => [['source' => 'department', 'mode' => options::AFFINITY_APART]],
+        ]);
+        $dept = [1 => 'X', 2 => 'X'];
+
+        $groups = [$this->make_group(1, null, 1, [1]), $this->make_group(2, null, 2)];
+        $result = allocator::allocate([1, 2], [$dept], $groups, $options);
+        $this->assertSame([2], $result->assignments[2]);
+        $this->assertSame([], $result->assignments[1]);
+        $this->assertSame([], $this->warnings_of($result, allocator::WARNING_APART));
+
+        $groups = [$this->make_group(1, null, 1), $this->make_group(2, null, 2)];
+        $result = allocator::allocate([2], [$dept], $groups, $options);
+        $this->assertSame([2], $result->assignments[1]);
+    }
+
+    /**
+     * The pull of a kept member yields to a higher-priority apart rule, and wins over a lower one.
+     *
+     * User 1 sits in group 2 with city C and dept X; user 2 shares both. With the
+     * apart rule first, group 2 would break it, so user 2 goes to group 1. With
+     * the together rule first, user 2 joins group 2 and the apart violation is
+     * counted.
+     */
+    public function test_a_kept_members_pull_follows_rule_priority(): void {
+        $dept = [1 => 'X', 2 => 'X'];
+        $city = [1 => 'C', 2 => 'C'];
+        $groups = [$this->make_group(1, null), $this->make_group(2, null, 1, [1])];
+
+        $apartfirst = $this->make_options(['affinityrules' => [
+            ['source' => 'department', 'mode' => options::AFFINITY_APART],
+            ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
+        ]]);
+        $result = allocator::allocate([1, 2], [$dept, $city], $groups, $apartfirst);
+        $this->assertSame([2], $result->assignments[1]);
+
+        $togetherfirst = $this->make_options(['affinityrules' => [
+            ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
+            ['source' => 'department', 'mode' => options::AFFINITY_APART],
+        ]]);
+        $result = allocator::allocate([1, 2], [$city, $dept], $groups, $togetherfirst);
+        $this->assertSame([2], $result->assignments[2]);
+        $apart = $this->warnings_of($result, allocator::WARNING_APART);
+        $this->assertCount(1, $apart);
+        $this->assertSame('X', $apart[0]['value']);
     }
 
     /**
@@ -469,13 +572,13 @@ final class allocator_test extends \basic_testcase {
     }
 
     /**
-     * A clustered member who already sits in the group the plan chose is
-     * neither added nor reported unplaced.
+     * A clustered member who already sits in a selected group is neither added
+     * nor reported unplaced.
      *
      * So candidates == memberships + unassigned does not hold once "ignore
      * users already in the selected groups" is off, which is why
      * distribution::NOOP_ALLPLACED is a no-op reason of its own. Changes that
-     * must make it fail: deleting the already-a-member skip in place_cluster().
+     * must make it fail: placing the users keep_existing() keeps.
      *
      * @return void
      */

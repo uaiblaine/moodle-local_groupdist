@@ -441,13 +441,11 @@ final class options_form_test extends \advanced_testcase {
     }
 
     /**
-     * A destination group used as its own rule source is rejected while the
-     * ignore filter is on — and accepted the moment it is off.
+     * A destination group used as its own rule source is rejected, filter on or off.
      *
-     * The gate is the conjunction, not a ban on the source. With the filter
-     * on, candidates::fetch() has already removed every user who could carry
-     * the value, so the rule matches nobody; with it off those members take
-     * part and the rule is real.
+     * With the ignore filter on, candidates::fetch() has already removed every
+     * user who could carry the value; with it off, the allocator keeps those
+     * users in their groups. Either way no candidate being placed holds it.
      */
     public function test_a_destination_group_is_rejected_as_its_own_source(): void {
         $this->render_with_cohort();
@@ -467,8 +465,16 @@ final class options_form_test extends \advanced_testcase {
         $this->assertStringNotContainsString('Turma A & B', $errors['affinityruleserr']);
         $this->assertStringContainsString('1', $errors['affinityruleserr']);
 
-        // Control: the same rule with the filter off is accepted.
+        // The filter off changes nothing.
         $errors = $this->validate_with($rules, []);
+        $this->assertArrayHasKey('affinityruleserr', $errors);
+
+        // Control: a course group that is not a destination is accepted.
+        $other = $this->getDataGenerator()->create_group(['courseid' => $this->context->instanceid, 'name' => 'Not a destination']);
+        $errors = $this->validate_with([
+            'affinityrulesources' => ['group_' . $other->id],
+            'affinityrulemodes' => [options::AFFINITY_APART],
+        ], []);
         $this->assertArrayNotHasKey('affinityruleserr', $errors);
     }
 

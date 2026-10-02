@@ -36,11 +36,11 @@
 
 .local-groupdist-rules .local-groupdist-rule {
     border-left-width: 3px;
-    border-left-color: var(--bs-success);
+    border-left-color: var(--bs-success, var(--success, #357a32));
 }
 
 .local-groupdist-rules .local-groupdist-rule-apart {
-    border-left-color: var(--bs-warning);
+    border-left-color: var(--bs-warning, var(--warning, #f0ad4e));
 }
 
 .local-groupdist-rulegrip {

@@ -19,18 +19,21 @@ namespace local_groupdist\form;
 use local_groupdist\local\fields;
 use local_groupdist\local\options;
 use local_groupdist\local\profilefields;
-use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
  * Distribution options form: label escaping per sink (the cohort and group
  * lists escape differently on purpose), the member filter's cohort bound and
  * the rule source validation.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\form\options_form
  */
-#[CoversClass(\local_groupdist\form\options_form::class)]
 final class options_form_test extends \advanced_testcase {
     /** @var \core\context\course|null Course context of the last rendered form. */
     private ?\core\context\course $context = null;

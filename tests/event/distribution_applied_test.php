@@ -20,7 +20,6 @@ use local_groupdist\local\applier;
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
 use local_groupdist\local\runlog;
-use PHPUnit\Framework\Attributes\CoversClass;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -31,11 +30,15 @@ require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
 /**
  * The distribution_applied event through a course log restore.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\event\distribution_applied
  */
-#[CoversClass(\local_groupdist\event\distribution_applied::class)]
 final class distribution_applied_test extends \advanced_testcase {
     /**
      * A restored log row of the event points at the restored run, and the

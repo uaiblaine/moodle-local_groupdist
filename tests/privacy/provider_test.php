@@ -26,16 +26,19 @@ use core_privacy\local\request\writer;
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
 use local_groupdist\local\runlog;
-use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
  * Privacy provider tests over the audit log.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\privacy\provider
  */
-#[CoversClass(\local_groupdist\privacy\provider::class)]
 final class provider_test extends \core_privacy\tests\provider_testcase {
     /**
      * Seed a course with an applied-style run; returns the actors.

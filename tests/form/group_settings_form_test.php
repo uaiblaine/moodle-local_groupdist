@@ -16,17 +16,18 @@
 
 namespace local_groupdist\form;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-
 /**
  * Group settings modal tests: parity with core's group edit form.
+ *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\form\group_settings_form
  */
-#[CoversClass(\local_groupdist\form\group_settings_form::class)]
 final class group_settings_form_test extends \advanced_testcase {
     /** @var array Every element core's group_form.php offers for an existing group. */
     private const CORE_ELEMENTS = [
@@ -438,11 +439,11 @@ final class group_settings_form_test extends \advanced_testcase {
      * yet process_new_icon() decodes only GIF, JPEG and PNG. The text file
      * renamed to .png proves the check reads the content rather than the name.
      *
+     * @dataProvider undecodable_picture_provider
      * @param string $filename The uploaded name.
      * @param string $content The uploaded bytes.
      * @return void
      */
-    #[DataProvider('undecodable_picture_provider')]
     public function test_an_undecodable_picture_is_rejected(string $filename, string $content): void {
         global $DB, $USER;
         [$course, $group] = $this->setup_course();

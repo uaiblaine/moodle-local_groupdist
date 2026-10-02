@@ -16,17 +16,18 @@
 
 namespace local_groupdist\local;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-
 /**
  * Tests for the plain spelling of admin- and user-set strings.
+ *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\local\plaintext
  */
-#[CoversClass(\local_groupdist\local\plaintext::class)]
 final class plaintext_test extends \advanced_testcase {
     /**
      * Stored strings, each under both values of formatstringstriptags.
@@ -57,12 +58,12 @@ final class plaintext_test extends \advanced_testcase {
      * precondition proves format_string() alone still holds an entity: without
      * it this data set would pass with the helper doing nothing.
      *
+     * @dataProvider spelling_provider
      * @param int $striptags The formatstringstriptags value.
      * @param string $stored The stored string.
      * @param string $expected The plain spelling.
      * @return void
      */
-    #[DataProvider('spelling_provider')]
     public function test_the_plain_spelling_does_not_depend_on_the_setting(
         int $striptags,
         string $stored,

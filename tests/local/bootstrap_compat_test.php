@@ -16,8 +16,6 @@
 
 namespace local_groupdist\local;
 
-use PHPUnit\Framework\Attributes\CoversNothing;
-
 /**
  * Pins the class-name and stylesheet rules no linter checks.
  *
@@ -26,11 +24,15 @@ use PHPUnit\Framework\Attributes\CoversNothing;
  * spelling passes every other check. The plugin supports 5.1+ only, so it
  * needs no Bootstrap 4 polyfill; these are the rules that bind on 5.x.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @coversNothing
  */
-#[CoversNothing]
 final class bootstrap_compat_test extends \basic_testcase {
     /**
      * Background utilities that need an explicit text colour on a badge.

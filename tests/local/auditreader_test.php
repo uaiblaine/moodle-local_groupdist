@@ -16,16 +16,18 @@
 
 namespace local_groupdist\local;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-
 /**
  * Paged audit reader: windows, searches and the explanations they carry.
+ *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\local\auditreader
  */
-#[CoversClass(\local_groupdist\local\auditreader::class)]
 final class auditreader_test extends \advanced_testcase {
     /**
      * Seed a run over the given groups and users.

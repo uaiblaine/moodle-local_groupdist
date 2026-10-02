@@ -16,17 +16,19 @@
 
 namespace local_groupdist\local;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-
 /**
  * Affinity field enumeration tests — the visibility gates mirror core's
  * profile_field_base::is_visible() semantics.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\local\profilefields
  */
-#[CoversClass(\local_groupdist\local\profilefields::class)]
 final class profilefields_test extends \advanced_testcase {
     /**
      * Create one custom profile field per visibility level.

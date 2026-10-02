@@ -20,18 +20,21 @@ use local_groupdist\local\distribution;
 use local_groupdist\local\options;
 use local_groupdist\local\runlog;
 use local_groupdist\task\apply_distribution;
-use PHPUnit\Framework\Attributes\CoversNothing;
 
 /**
  * The background apply status page (status.php) rendered as a request would.
  *
  * A page script has no class to cover.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @coversNothing
  */
-#[CoversNothing]
 final class status_page_test extends \advanced_testcase {
     /**
      * With no task left, an aborted run is reported as a warning carrying the

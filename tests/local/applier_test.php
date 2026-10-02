@@ -16,16 +16,18 @@
 
 namespace local_groupdist\local;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-
 /**
  * Applier tests: memberships written through core, component stamp, event.
+ *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\local\applier
  */
-#[CoversClass(\local_groupdist\local\applier::class)]
 final class applier_test extends \advanced_testcase {
     /**
      * Applying writes every planned membership, stamps the component and

@@ -17,7 +17,6 @@
 namespace local_groupdist\external;
 
 use core_external\external_api;
-use PHPUnit\Framework\Attributes\CoversClass;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -27,11 +26,15 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
 /**
  * Cohort search web service tests.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\external\search_cohorts
  */
-#[CoversClass(\local_groupdist\external\search_cohorts::class)]
 final class search_cohorts_test extends \externallib_advanced_testcase {
     /**
      * Call the function through the full external stack.

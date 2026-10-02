@@ -19,7 +19,6 @@ namespace local_groupdist\backup;
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
 use local_groupdist\local\runlog;
-use PHPUnit\Framework\Attributes\CoversClass;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -31,12 +30,16 @@ require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
  * Audit log backup/restore round trip: the settings gate, the id remapping
  * and the pseudonymisation of rows whose user did not travel.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \backup_local_groupdist_plugin
+ * @covers     \restore_local_groupdist_plugin
  */
-#[CoversClass(\backup_local_groupdist_plugin::class)]
-#[CoversClass(\restore_local_groupdist_plugin::class)]
 final class backup_restore_test extends \advanced_testcase {
     /**
      * Seed a course with two groups, four participants and one completed run.

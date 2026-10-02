@@ -16,19 +16,21 @@
 
 namespace local_groupdist;
 
-use PHPUnit\Framework\Attributes\CoversNothing;
-
 /**
  * The bulk edit page (bulkedit.php) run as a request would run it.
  *
  * A page script has no class to cover; tests/output/bulkedit_page_test.php
  * covers the renderable it builds.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @coversNothing
  */
-#[CoversNothing]
 final class bulkedit_script_test extends \advanced_testcase {
     /**
      * A selected group the user may not see is left off the page, also on a

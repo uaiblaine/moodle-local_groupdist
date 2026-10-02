@@ -19,16 +19,19 @@ namespace local_groupdist\task;
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
 use local_groupdist\local\runlog;
-use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
  * Retention sweep tests.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\task\cleanup_audit
  */
-#[CoversClass(\local_groupdist\task\cleanup_audit::class)]
 final class cleanup_audit_test extends \advanced_testcase {
     /**
      * Seed two runs, one aged past retention.

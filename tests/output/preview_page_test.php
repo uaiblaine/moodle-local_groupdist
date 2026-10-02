@@ -17,16 +17,19 @@
 namespace local_groupdist\output;
 
 use local_groupdist\local\options;
-use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
  * Preview page recap tests.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\output\preview_page
  */
-#[CoversClass(\local_groupdist\output\preview_page::class)]
 final class preview_page_test extends \advanced_testcase {
     /**
      * The recap chips name the cohort and the affinity rule, and both land in

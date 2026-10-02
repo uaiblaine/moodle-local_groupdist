@@ -20,7 +20,6 @@ use local_groupdist\local\applier;
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
 use local_groupdist\local\runlog;
-use PHPUnit\Framework\Attributes\CoversNothing;
 
 /**
  * The options and preview controller (distribute.php) run as a request would run it.
@@ -29,11 +28,15 @@ use PHPUnit\Framework\Attributes\CoversNothing;
  * every recompute hides the memberships stamped with its own seed, so a seed
  * whose run already wrote must not carry into a new plan.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @coversNothing
  */
-#[CoversNothing]
 final class distribute_page_test extends \advanced_testcase {
     /**
      * Going back after an aborted run that wrote memberships, then applying a

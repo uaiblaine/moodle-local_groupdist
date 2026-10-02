@@ -16,16 +16,18 @@
 
 namespace local_groupdist\local;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-
 /**
  * Audit run log tests: the snapshot, the outcomes and the lifecycle.
+ *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\local\runlog
  */
-#[CoversClass(\local_groupdist\local\runlog::class)]
 final class runlog_test extends \advanced_testcase {
     /**
      * Build a small course with two groups, three users and one rule.

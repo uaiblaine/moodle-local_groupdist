@@ -21,7 +21,6 @@ use local_groupdist\local\auditreader;
 use local_groupdist\local\distribution;
 use local_groupdist\local\options;
 use local_groupdist\local\runlog;
-use PHPUnit\Framework\Attributes\CoversClass;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -31,13 +30,17 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
 /**
  * Audit report web service tests: windows, search, gates and the allowlist.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\external\audit_ws
+ * @covers     \local_groupdist\external\get_audit_members
+ * @covers     \local_groupdist\external\get_audit_sections
  */
-#[CoversClass(\local_groupdist\external\get_audit_sections::class)]
-#[CoversClass(\local_groupdist\external\get_audit_members::class)]
-#[CoversClass(\local_groupdist\external\audit_ws::class)]
 final class get_audit_test extends \externallib_advanced_testcase {
     /**
      * Seed a run.

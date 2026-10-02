@@ -16,18 +16,20 @@
 
 namespace local_groupdist\local;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-
 /**
  * Ruleset value object tests.
  *
  * Pure: the guardrail maximum is a parameter, so no DB is ever touched.
  *
+ * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
+ * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
+ * test of a class without a covers tag.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_groupdist\local\ruleset
  */
-#[CoversClass(\local_groupdist\local\ruleset::class)]
 final class ruleset_test extends \basic_testcase {
     /**
      * A valid list round-trips and preserves priority order.

@@ -128,7 +128,7 @@ One branch per Moodle version, in the Boost Union style:
 | `main` | newest supported stable (5.2) | `MOODLE_502_STABLE` | always identical in content to `MOODLE_502_STABLE`; all development lands here first |
 | `MOODLE_502_STABLE` | 5.2 | `MOODLE_502_STABLE` | |
 | `MOODLE_501_STABLE` | 5.1 | `MOODLE_501_STABLE` | |
-| `MOODLE_405_STABLE` | 4.5 LTS | `MOODLE_405_STABLE` | PHPUnit 9: class-level `@covers` and `@dataProvider` docblocks, no attributes |
+| `MOODLE_405_STABLE` | 4.5 LTS | `MOODLE_405_STABLE` | PHPUnit 9: class-level `@covers` and `@dataProvider` docblocks, no attributes (see "Testing notes") |
 | `MOODLE_503_dev` | 5.3 (in development) | `main` | `MATURITY_ALPHA`; its push filter is spelled out in its own `ci.yml` because `MOODLE_*_STABLE` does not match it |
 
 - A fix lands on `main` first and is cherry-picked to the older branches.
@@ -518,16 +518,17 @@ One branch per Moodle version, in the Boost Union style:
   gate turns into a failure. The enrolment key policy is **on by default**
   (`groupenrolmentkeypolicy`), so a test key must either be strong or the
   policy explicitly switched off.
-- **PHPUnit metadata is PHP attributes, never doc-comments.** `#[CoversClass]`
-  on the class, `#[DataProvider]` on the method, imported from
-  `PHPUnit\Framework\Attributes\`. The fleet exception that keeps a
-  class-level `@covers` docblock applies only while `$plugin->supported`
-  includes 405, because moodle-cs on the 4.05 CI leg cannot see attributes —
-  this plugin is `[501, 502]`, so it does not apply. PHPUnit 11.5.55 (vendored
-  by 5.1/5.2) raises one test-runner deprecation per doc-comment annotation and
-  PHPUnit 12 drops the form entirely; a clean run reports no deprecation line
-  at all, so any reappearance is a regression.
-- `bootstrap_compat_test` is `#[CoversNothing]` on purpose: it scans
+- **On this branch PHPUnit metadata is docblock tags, never attributes.**
+  Class-level `@covers` (or `@coversNothing`) and method-level
+  `@dataProvider`. Moodle 4.5 runs PHPUnit 9, which does not read PHP
+  attributes: a `#[DataProvider]` it cannot see runs the test with no
+  arguments and dies with an `ArgumentCountError`, and moodle-cs on the 4.05
+  leg reports `moodle.PHPUnit.TestCaseCovers.Missing` for every test of a class
+  that carries only `#[CoversClass]`. Each test class docblock says so, so it
+  is not "modernised" back. `main` and the 5.x branches use attributes
+  (PHPUnit 11.5 deprecates the tags), so a test cherry-picked from them arrives
+  with attributes: convert it in the same commit.
+- `bootstrap_compat_test` is `@coversNothing` on purpose: it scans
   `templates/`, `amd/src/`, `classes/` and `styles.css` for class names, so
   there is no class under test. It carried `@covers auditreader` until the
   attribute conversion — a copy-paste artifact, not a claim about the reader.

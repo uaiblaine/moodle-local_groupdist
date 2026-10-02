@@ -68,7 +68,7 @@ final class apply_distribution_test extends \advanced_testcase {
         $task->set_userid(get_admin()->id);
         $taskid = \core\task\manager::queue_adhoc_task($task);
         $task->set_id($taskid);
-        $task->initialise_stored_progress();
+        $task->initialise_progress();
 
         $sink = $this->redirectMessages();
         $this->expectOutputRegex('/applied distribution/');
@@ -100,7 +100,7 @@ final class apply_distribution_test extends \advanced_testcase {
         $task->set_userid(get_admin()->id);
         $taskid = \core\task\manager::queue_adhoc_task($task);
         $task->set_id($taskid);
-        $task->initialise_stored_progress();
+        $task->initialise_progress();
 
         $sink = $this->redirectMessages();
         $this->expectOutputRegex('/fingerprint mismatch/');
@@ -144,7 +144,7 @@ final class apply_distribution_test extends \advanced_testcase {
         $task->set_userid(get_admin()->id);
         $taskid = \core\task\manager::queue_adhoc_task($task);
         $task->set_id($taskid);
-        $task->initialise_stored_progress();
+        $task->initialise_progress();
 
         $sink = $this->redirectMessages();
         $this->expectOutputRegex('/fingerprint mismatch.*1 memberships from an earlier attempt were kept/');
@@ -191,7 +191,7 @@ final class apply_distribution_test extends \advanced_testcase {
         $task->set_userid(get_admin()->id);
         $taskid = \core\task\manager::queue_adhoc_task($task);
         $task->set_id($taskid);
-        $task->initialise_stored_progress();
+        $task->initialise_progress();
 
         $sink = $this->redirectMessages();
         $this->expectOutputRegex('/applied distribution/');

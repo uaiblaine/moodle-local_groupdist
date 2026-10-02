@@ -135,6 +135,64 @@ final class status_page_test extends \advanced_testcase {
     }
 
     /**
+     * A queued task is reported as running, its progress bar appears once the
+     * started task has created it, and where core has no task indicator the
+     * page reloads itself only while the task exists.
+     *
+     * The bar is matched by its element id, which the progress bar template
+     * takes from the bar's idnumber. Changes that must make it fail: dropping
+     * the bar or the periodic refresh from the indicator-less arm of
+     * status.php, or keeping the refresh once the task is gone.
+     *
+     * @return void
+     */
+    public function test_a_started_task_shows_its_progress_bar(): void {
+        global $DB, $PAGE;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+        $group = $generator->create_group(['courseid' => $course->id]);
+        $generator->create_and_enrol($course);
+        $distribution = distribution::build(options::from_array([
+            'courseid' => $course->id,
+            'groupids' => [(int) $group->id],
+            'seed' => 33,
+        ]), $context);
+        $runid = runlog::create($distribution, (int) get_admin()->id, $context);
+        $task = apply_distribution::create($distribution->options, $distribution->fingerprint, $runid);
+        $task->set_userid((int) get_admin()->id);
+        $taskid = \core\task\manager::queue_adhoc_task($task, true);
+        $idnumber = \core\output\stored_progress_bar::convert_to_idnumber(apply_distribution::class, $taskid);
+        $refresh = class_exists(\core\output\task_indicator::class)
+            ? null
+            : (int) \core\output\stored_progress_bar::get_timeout();
+
+        // Queued and not started: the message, and no bar to poll yet.
+        $html = $this->render_status((int) $course->id);
+        $this->assertStringContainsString(get_string('applyrunning', 'local_groupdist'), $html);
+        $this->assertStringNotContainsString('id="' . $idnumber . '"', $html);
+        $this->assertSame($refresh, $PAGE->periodicrefreshdelay);
+
+        // Started: the task's bar has a row, so the page shows it.
+        ob_start();
+        (new \core\output\stored_progress_bar($idnumber))->start();
+        ob_end_clean();
+        $html = $this->render_status((int) $course->id);
+        $this->assertStringContainsString(get_string('applyrunning', 'local_groupdist'), $html);
+        $this->assertStringContainsString('id="' . $idnumber . '"', $html);
+        $this->assertSame($refresh, $PAGE->periodicrefreshdelay);
+
+        // Finished: the outcome stays on screen without reloading.
+        $DB->delete_records('task_adhoc', ['id' => $taskid]);
+        $html = $this->render_status((int) $course->id);
+        $this->assertStringNotContainsString(get_string('applyrunning', 'local_groupdist'), $html);
+        $this->assertNull($PAGE->periodicrefreshdelay);
+    }
+
+    /**
      * Render status.php for a course as the current user.
      *
      * @param int $courseid The course id parameter.

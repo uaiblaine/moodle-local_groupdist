@@ -199,7 +199,7 @@ final class distribute_page_test extends \advanced_testcase {
         $task = \local_groupdist\task\apply_distribution::create($options, $distribution->fingerprint, $runid);
         $task->set_userid(get_admin()->id);
         $task->set_id(\core\task\manager::queue_adhoc_task($task));
-        $task->initialise_stored_progress();
+        $task->initialise_progress();
 
         // The first attempt wrote one membership, then died.
         groups_add_member($group, (int) $distribution->allocation->assignments[$group][0], 'local_groupdist', 11);

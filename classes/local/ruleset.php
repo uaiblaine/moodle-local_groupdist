@@ -220,8 +220,9 @@ class ruleset {
     /**
      * The group id of a course-group source.
      *
-     * The pattern is anchored on both ends, so 'grouping_7' can never be read
-     * as a group source (nor 'group_7x', 'group_-1' or 'Group_7'). Groupings
+     * The literal 'group_' prefix is what keeps 'grouping_7' from being read as
+     * group 7; the anchors and the case-sensitive digits-only tail refuse
+     * 'group_7x', 'group_-1' and 'Group_7'. Groupings
      * are deliberately not a source: their value would be which group of the
      * grouping a participant is in, which can be several groups at once, while
      * the allocator holds one scalar per (rule, participant).

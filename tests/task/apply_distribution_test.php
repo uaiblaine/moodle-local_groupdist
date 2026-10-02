@@ -166,18 +166,23 @@ final class apply_distribution_test extends \advanced_testcase {
      * An interrupted run resumes: its own partial writes (stamped with the
      * seed) are invisible to the recompute, so the fingerprint still matches
      * and the remainder is applied idempotently.
+     *
+     * Those writes also spend the seed for any new plan, which the task must
+     * not consult: the precondition shows the seed is spent, and the run still
+     * completes.
      */
     public function test_execute_resumes_after_partial_write(): void {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/group/lib.php');
         $this->resetAfterTest();
         $this->setAdminUser();
-        [, $context, $group, $options, $fingerprint, $runid] = $this->make_plan();
+        [$course, $context, $group, $options, $fingerprint, $runid] = $this->make_plan();
 
         // Simulate the first attempt dying after one membership.
         $plan = distribution::build($options, $context);
         $firstuser = $plan->allocation->assignments[(int) $group->id][0];
         groups_add_member((int) $group->id, $firstuser, 'local_groupdist', $options->seed);
+        $this->assertTrue(\local_groupdist\local\runlog::is_seed_spent((int) $course->id, $options->seed));
 
         $task = apply_distribution::create($options, $fingerprint, $runid);
         $task->set_userid(get_admin()->id);
@@ -191,6 +196,10 @@ final class apply_distribution_test extends \advanced_testcase {
         $sink->close();
 
         $this->assertSame(2, $DB->count_records('groups_members', ['groupid' => $group->id]));
+        $this->assertSame(
+            \local_groupdist\local\runlog::STATUS_COMPLETED,
+            (int) $DB->get_field('local_groupdist_run', 'status', ['id' => $runid])
+        );
     }
 
     /**

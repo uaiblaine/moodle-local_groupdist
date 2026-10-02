@@ -99,6 +99,7 @@ $string['erroralreadyapplied'] = 'Esta distribuição já foi aplicada. Para dis
 $string['errornogroups'] = 'Selecione ao menos um grupo existente para distribuir os participantes.';
 $string['errornogroupsedit'] = 'Selecione ao menos um grupo existente para editar.';
 $string['erroroverbookrange'] = 'O overbooking deve estar entre 0 e 99.';
+$string['errorpartlyapplied'] = 'Parte desta distribuição já foi aplicada, por isso ela não pode ser aplicada de novo. Para distribuir os participantes restantes, inicie uma nova distribuição a partir da página de grupos.';
 $string['errorruleselfreference'] = 'A regra {$a->index} usa "{$a->group}", que é um dos grupos em que esta distribuição escreve. Com "Ignorar usuários que já estão nos grupos selecionados" ativado, nenhum de seus membros participa, portanto a regra não teria efeito. Escolha outro grupo ou desative esse filtro.';
 $string['errorseatswhole'] = 'Você deve informar um número inteiro aqui.';
 $string['errorstale'] = 'Inscrições ou grupos mudaram desde a pré-visualização; nada foi aplicado. Execute a distribuição novamente.';

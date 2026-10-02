@@ -202,7 +202,7 @@ final class runlog_test extends \advanced_testcase {
 
     /**
      * Only a completed run marks a course and seed as applied: a pending run
-     * (an interrupted inline apply) and an aborted one stay retryable.
+     * (an interrupted inline apply) and an aborted one do not.
      *
      * @return void
      */
@@ -228,7 +228,8 @@ final class runlog_test extends \advanced_testcase {
     /**
      * A seed is spent once a run under it wrote memberships: completed,
      * partial, or aborted after an earlier attempt wrote. A pending run and an
-     * aborted run that wrote nothing leave it reusable.
+     * aborted run that wrote nothing leave it reusable; a pending run that
+     * wrote is test_is_seed_spent_counts_a_pending_run_that_wrote().
      *
      * Changes that must make it fail: dropping any status arm of
      * is_seed_spent(), or its memberswritten test on the aborted arm.
@@ -262,6 +263,49 @@ final class runlog_test extends \advanced_testcase {
         // Controls: the same run says nothing about another seed or course.
         $this->assertFalse(runlog::is_seed_spent($courseid, 12));
         $this->assertFalse(runlog::is_seed_spent($courseid + 1, 11));
+    }
+
+    /**
+     * A pending run spends its seed once a membership in the course carries
+     * that seed's stamp, as an interrupted inline apply or a task that died
+     * leaves it: memberswritten is still 0, so only the stamp tells.
+     *
+     * Each stamp added before the last one is a control that must not count:
+     * another component with the same item id, another seed, and the same
+     * stamp in another course. Changes that must make it fail: dropping the
+     * membership check from is_seed_spent(), or its component, item id or
+     * course test.
+     *
+     * @return void
+     */
+    public function test_is_seed_spent_counts_a_pending_run_that_wrote(): void {
+        global $CFG, $DB;
+        require_once($CFG->dirroot . '/group/lib.php');
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        [$course, $context, $distribution] = $this->make_distribution();
+        $courseid = (int) $course->id;
+        $runid = runlog::create($distribution, (int) get_admin()->id, $context);
+        [$othercomponent, $otherseed, $stamped] = array_values(
+            $DB->get_records('local_groupdist_run_user', ['runid' => $runid], 'id')
+        );
+        $generator = $this->getDataGenerator();
+        $othercourse = $generator->create_course();
+        $othergroup = (int) $generator->create_group(['courseid' => $othercourse->id])->id;
+        $outsider = (int) $generator->create_and_enrol($othercourse)->id;
+
+        $this->assertFalse(runlog::is_seed_spent($courseid, 11), 'A pending run that wrote nothing spent its seed.');
+        groups_add_member((int) $othercomponent->groupid, (int) $othercomponent->userid, 'enrol_self', 11);
+        $this->assertFalse(runlog::is_seed_spent($courseid, 11), "Another component's stamp spent the seed.");
+        groups_add_member((int) $otherseed->groupid, (int) $otherseed->userid, 'local_groupdist', 12);
+        $this->assertFalse(runlog::is_seed_spent($courseid, 11), "Another seed's stamp spent the seed.");
+        groups_add_member($othergroup, $outsider, 'local_groupdist', 11);
+        $this->assertFalse(runlog::is_seed_spent($courseid, 11), 'A stamp in another course spent the seed.');
+
+        // What an interrupted apply of this run leaves behind.
+        groups_add_member((int) $stamped->groupid, (int) $stamped->userid, 'local_groupdist', 11);
+        $this->assertSame(runlog::STATUS_PENDING, (int) $DB->get_field('local_groupdist_run', 'status', ['id' => $runid]));
+        $this->assertTrue(runlog::is_seed_spent($courseid, 11), 'A pending run that wrote left its seed reusable.');
     }
 
     /**

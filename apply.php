@@ -82,13 +82,19 @@ if (\local_groupdist\task\apply_distribution::get_taskid_for_course($course->id)
     );
 }
 
-/* A replayed POST (back button and resubmit, a double submit) would pass the
-   fingerprint check: every recompute hides this seed's own memberships, so a
-   completed run reproduces its own plan. Only a completed run refuses; an
-   interrupted inline apply (still pending) stays retryable, see
-   runlog::is_applied(). */
-if (\local_groupdist\local\runlog::is_applied($course->id, $options->seed)) {
-    redirect($returnurl, get_string('erroralreadyapplied', 'local_groupdist'), null, \core\output\notification::NOTIFY_WARNING);
+/* Every recompute hides the memberships stamped with this seed, so a POST
+   under a seed that already wrote passes the fingerprint check: a replay
+   reproduces a finished run's plan, and a plan previewed under the seed
+   before an earlier apply wrote can place a participant in a second group.
+   Any spent seed is refused (runlog::is_seed_spent()), including an
+   interrupted inline apply that wrote some memberships: the teacher starts a
+   new distribution, whose fresh seed sees those memberships as ordinary ones.
+   One that wrote nothing is not spent and can be retried with the same POST. */
+if (\local_groupdist\local\runlog::is_seed_spent($course->id, $options->seed)) {
+    $refusal = \local_groupdist\local\runlog::is_applied($course->id, $options->seed)
+        ? get_string('erroralreadyapplied', 'local_groupdist')
+        : get_string('errorpartlyapplied', 'local_groupdist');
+    redirect($returnurl, $refusal, null, \core\output\notification::NOTIFY_WARNING);
 }
 
 $distribution = \local_groupdist\local\distribution::build($options, $context);

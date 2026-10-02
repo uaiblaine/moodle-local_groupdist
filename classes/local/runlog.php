@@ -246,10 +246,9 @@ class runlog {
     /**
      * Whether a distribution with this seed has already been applied to the course.
      *
-     * Only a completed run counts. A pending run is an inline apply that was
-     * interrupted, which the teacher may retry with the same POST; an aborted
-     * run wrote at most what an interrupted attempt left behind and was
-     * refused as stale, so a fresh preview may apply again.
+     * Only a completed run counts. apply.php refuses every spent seed
+     * ({@see self::is_seed_spent()}) and asks this only to tell a replay of a
+     * completed apply from a seed that wrote only part of its plan.
      *
      * @param int $courseid The course id.
      * @param int $seed The distribution seed.
@@ -266,28 +265,34 @@ class runlog {
     }
 
     /**
-     * Whether a seed is spent: a run under it finished, or wrote before it was aborted.
+     * Whether a seed is spent: a run under it finished, or memberships carry its stamp.
      *
      * Every recompute hides the memberships stamped with its own seed, which is
      * what lets an interrupted run resume with its original plan
-     * ({@see distribution::build()}). Once a run has written and stopped, that
-     * same invisibility makes a new plan under the seed treat those
-     * participants as ungrouped, so a changed plan can add one of them to a
-     * second group. A spent seed must therefore never start another plan.
+     * ({@see distribution::build()}). Once a run has written, that same
+     * invisibility makes a new plan under the seed treat those participants as
+     * ungrouped, so a changed plan can add one of them to a second group. A
+     * spent seed must therefore never start another plan, nor be applied again.
      *
-     * Spent means a completed or partial run, or an aborted one whose earlier
-     * attempt wrote memberships. A pending run does not count: its
-     * memberswritten stays 0 until complete() or abort() seals it, so this
-     * check cannot tell whether an interrupted attempt wrote.
+     * Spent means a completed or partial run, an aborted one whose earlier
+     * attempt wrote memberships, or any membership in the course stamped with
+     * the seed (component local_groupdist, itemid = the seed). The stamp is
+     * the only sign that a pending run wrote: an interrupted inline apply, or
+     * a background task that died, leaves memberswritten at 0 until complete()
+     * or abort() seals the run.
+     *
+     * This decides the seed of a new plan and whether a POST may apply. A
+     * resumable background run has stamped rows under its own seed by design,
+     * so its recompute must not consult it.
      *
      * @param int $courseid The course id.
      * @param int $seed The distribution seed.
-     * @return bool True when that course and seed has such a run.
+     * @return bool True when the seed is spent in that course.
      */
     public static function is_seed_spent(int $courseid, int $seed): bool {
         global $DB;
 
-        return $DB->record_exists_select(
+        $finished = $DB->record_exists_select(
             'local_groupdist_run',
             'courseid = :courseid AND seed = :seed
              AND (status IN (:completed, :partial) OR (status = :aborted AND memberswritten > 0))',
@@ -298,6 +303,18 @@ class runlog {
                 'partial' => self::STATUS_PARTIAL,
                 'aborted' => self::STATUS_ABORTED,
             ]
+        );
+        if ($finished) {
+            return true;
+        }
+        return $DB->record_exists_sql(
+            "SELECT 1
+               FROM {groups_members} gm
+               JOIN {groups} g ON g.id = gm.groupid
+              WHERE g.courseid = :courseid
+                AND gm.component = :component
+                AND gm.itemid = :seed",
+            ['courseid' => $courseid, 'component' => 'local_groupdist', 'seed' => $seed]
         );
     }
 

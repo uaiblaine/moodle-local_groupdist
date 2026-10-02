@@ -99,6 +99,7 @@ $string['erroralreadyapplied'] = 'This distribution has already been applied. To
 $string['errornogroups'] = 'Select at least one existing group to distribute participants into.';
 $string['errornogroupsedit'] = 'Select at least one existing group to edit.';
 $string['erroroverbookrange'] = 'Overbooking must be between 0 and 99.';
+$string['errorpartlyapplied'] = 'Part of this distribution has already been applied, so it cannot be applied again. To place the remaining participants, start a new distribution from the groups page.';
 $string['errorruleselfreference'] = 'Rule {$a->index} uses "{$a->group}", which is one of the groups this run distributes into. With "Ignore users already in the selected groups" on, none of its members take part, so the rule would have no effect. Choose another group, or turn that filter off.';
 $string['errorseatswhole'] = 'You must enter a whole number here.';
 $string['errorstale'] = 'Enrolments or groups changed since the preview, so nothing was applied. Please run the distribution again.';

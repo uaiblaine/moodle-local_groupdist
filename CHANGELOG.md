@@ -146,10 +146,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     distribute into groups with the "own" visibility, because the preview would
     show them other members of a group core hides. A task queued before the
     upgrade that targets such a group aborts as stale on retry.
-  - A seed whose run completed, partly completed, or aborted after writing
-    memberships is never reused: going back from the preview, or posting a
-    preview, starts under a fresh seed, which closes a path that could place a
-    user in two groups.
+  - A seed that has been spent is never reused for a new plan: its run
+    completed, partly completed, or aborted after writing, or memberships
+    stamped with it exist in the course (a pending run that wrote, such as an
+    interrupted inline apply). Going back from the preview, or posting a
+    preview, starts under a fresh seed, and `apply.php` refuses a POST under a
+    spent seed. This closes a path that could place a user in two groups.
+    **Behaviour change:** repeating the same POST of an inline apply that had
+    already committed some memberships is refused with a message to start a new
+    distribution; before, it resumed.
   - `status.php` also warns when the latest run is still pending but its task
     has no attempts left, and an exhausted task no longer blocks a new apply.
   - Admin-set names in every plain-text sink (audit, search, preview, bulk

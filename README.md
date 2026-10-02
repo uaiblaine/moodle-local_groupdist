@@ -42,7 +42,7 @@ Before the button appears
 Requirements
 ------------
 
-- Moodle 5.1 or later (tested up to Moodle 5.2)
+- Moodle 5.1 (branch `MOODLE_501_STABLE`; releases `v5.1-rN`). Other Moodle versions have their own branches.
 
 Installation
 ------------

@@ -29,15 +29,8 @@ jobs:
   #
   # For plugins that depend on sibling plugins, add to each job:
   #   plugin-dependencies: uaiblaine/moodle-<component>,main
-  ci-502:
-    name: Moodle 5.02
-    uses: moodle-an-hochschulen/moodle-workflows/.github/workflows/moodle-plugin-ci.yml@main
-    with:
-      moodle-core-branch: MOODLE_502_STABLE
-
   ci-501:
     name: Moodle 5.01
     uses: moodle-an-hochschulen/moodle-workflows/.github/workflows/moodle-plugin-ci.yml@main
     with:
       moodle-core-branch: MOODLE_501_STABLE
-      one-db-only: true

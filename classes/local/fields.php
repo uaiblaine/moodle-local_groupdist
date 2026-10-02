@@ -386,6 +386,24 @@ class fields {
     }
 
     /**
+     * The smallest number a group custom number field cannot store.
+     *
+     * Read from {customfield_data}.decvalue, because the bound is the column's.
+     * Where core declares it NUMBER(15,5) this is 10^10, SQL_INT_MAX + 1, the
+     * value core's number element refuses with a compare rule. Moodle 4.5
+     * declares NUMBER(10,5) and has no such rule, so this is 10^5 there and its
+     * own group form fails with a database write error at that value.
+     *
+     * @return float The exclusive upper bound for a number field's value.
+     */
+    public static function number_ceiling(): float {
+        global $DB;
+
+        $column = $DB->get_columns('customfield_data')['decvalue'];
+        return (float) (10 ** ((int) $column->max_length - (int) $column->scale));
+    }
+
+    /**
      * Bulk-read seats and location values for a set of groups in one query.
      *
      * Reads {customfield_data} directly by instance id + field id (the leading

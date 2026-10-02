@@ -126,13 +126,13 @@ docs/                        Approved HTML mockups + design decisions (export-ig
 
 One branch per Moodle version, in the Boost Union style:
 
-| Branch | Moodle | Core branch in CI | Notes |
-|---|---|---|---|
-| `main` | newest supported stable (5.2) | `MOODLE_502_STABLE` | always identical in content to `MOODLE_502_STABLE`; all development lands here first |
-| `MOODLE_502_STABLE` | 5.2 | `MOODLE_502_STABLE` | |
-| `MOODLE_501_STABLE` | 5.1 | `MOODLE_501_STABLE` | |
-| `MOODLE_405_STABLE` | 4.5 LTS | `MOODLE_405_STABLE` | PHPUnit 9: class-level `@covers` and `@dataProvider` docblocks, no attributes |
-| `MOODLE_503_dev` | 5.3 (in development) | `main` | `MATURITY_ALPHA`; its push filter is spelled out in its own `ci.yml` because `MOODLE_*_STABLE` does not match it |
+| Branch | Moodle | Core branch in CI | `$plugin->version` | Notes |
+|---|---|---|---|---|
+| `main` | newest supported stable (5.2) | `MOODLE_502_STABLE` | `20260420XX` | always identical in content to `MOODLE_502_STABLE`; all development lands here first |
+| `MOODLE_502_STABLE` | 5.2 | `MOODLE_502_STABLE` | `20260420XX` | |
+| `MOODLE_501_STABLE` | 5.1 | `MOODLE_501_STABLE` | `20251006XX` | |
+| `MOODLE_405_STABLE` | 4.5 LTS | `MOODLE_405_STABLE` | `20241007XX` | PHPUnit 9: class-level `@covers` and `@dataProvider` docblocks, no attributes |
+| `MOODLE_503_dev` | 5.3 (in development) | `main` | `20260928XX` | `MATURITY_ALPHA`; its push filter is spelled out in its own `ci.yml` because `MOODLE_*_STABLE` does not match it |
 
 - A fix lands on `main` first and is cherry-picked to the older branches.
   `version.php` and `.github/workflows/ci.yml` **diverge on purpose**: when a
@@ -141,14 +141,23 @@ One branch per Moodle version, in the Boost Union style:
   `v5.2-r1`), `N` counted per branch, and `$plugin->release` carries the same
   string as the tag. A tag triggers the moodle.org release workflow, so
   none is pushed without the owner's instruction.
-- **`$plugin->version` moves in lockstep.** Every maintained branch carries the
-  same number at each release change, so a site that moves from 4.5 to 5.1 to
-  5.2 swaps the plugin between branches without Moodle seeing a downgrade, and
-  a stack never refuses a branch checkout it already has installed. Bump all
-  branches together, never one date per branch.
-- Each non-main branch is its own clone beside the main one
-  (`~/dev/moodle-local_groupdist-501`, `-405`; `MOODLE_503_dev` and
-  `MOODLE_502_STABLE` need no checkout while nothing mounts them). Run
+- **`$plugin->version` is a number per branch, in the namespace of its Moodle version**
+  (the pattern Boost Union uses). moodle.org needs a different number for each
+  Moodle-specific release and ignores `$plugin->release`. The first eight digits are the
+  branching date of the core the branch targets and the last two are a counter: 4.5 is
+  `20241007XX`, 5.1 `20251006XX`, 5.2 `20260420XX`, and 5.3 `20260928XX` until its
+  release fixes the date. A branch's first release uses its `$plugin->requires` value
+  (counter 00), and every later change that needs a bump (a table, a service, a cache,
+  a hook, a rebuilt `amd/build`, anything Moodle must notice) adds 1 to **that branch's**
+  counter only. A newer Moodle's namespace is always higher, so a site that moves from 4.5
+  to 5.1 to 5.2 swaps branches without Moodle seeing a downgrade. Upgrade steps in
+  `db/upgrade.php` live in the same namespace: a step carries a number of its own branch,
+  never of another's, and `install.xml`'s `VERSION` is the editor's save stamp, left
+  identical on every branch. A fix cherry-picked to another branch keeps that branch's own
+  `version.php`, then adds 1 to its counter in the same commit.
+- Each non-main branch that a stack mounts is its own clone beside the main one
+  (`~/dev/moodle-local_groupdist-501`, `-405`, `-503`; `MOODLE_502_STABLE` is the same
+  content as `main` and needs no checkout). Run
   `mdl ci moodle-local_groupdist-<n> --matrix --behat` from the checkout of the
   branch under test.
 

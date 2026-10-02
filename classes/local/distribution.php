@@ -43,7 +43,7 @@ class distribution {
     /** @var string No-op: participants match, but no group can take any of them. */
     public const NOOP_NOROOM = 'noroom';
 
-    /** @var string No-op: everyone already belongs to the group the plan chose for them. */
+    /** @var string No-op: every candidate already belongs to a selected group. */
     public const NOOP_ALLPLACED = 'allplaced';
 
     /** @var options The options this distribution was computed from. */
@@ -103,9 +103,10 @@ class distribution {
         // apply resumes with the identical plan (see fields::get_member_counts).
         $counts = fields::get_member_counts($groupids, $options->seed);
 
-        /* Existing membership sets are only needed to steer the allocator when
-           candidates may already belong to a selected group; with the default
-           "ignore grouped" filter those users never become candidates. */
+        /* Existing membership sets tell the allocator which candidates already
+           belong to a selected group (they stay there, and their values bind
+           the others); with the default "ignore grouped" filter those users
+           never become candidates. */
         $existing = array_fill_keys($groupids, []);
         if (!$options->ignoregrouped && $groupids) {
             [$insql, $params] = $DB->get_in_or_equal($groupids, SQL_PARAMS_NAMED, 'g');
@@ -290,8 +291,8 @@ class distribution {
             return self::NOOP_NOROOM;
         }
         /* Candidates, groups, nobody unassigned and still nothing to write:
-           every one of them already sits in the group the plan chose, and the
-           allocator skips a member it would only re-add. */
+           every one of them already sits in a selected group, where the
+           allocator keeps them. */
         return self::NOOP_ALLPLACED;
     }
 

@@ -115,8 +115,9 @@ AND-only ruleset:
   already loads every group record of the course to validate the destinations,
   so the picker is a bounded menu with a search only past 25. And a group source
   reads exactly what the run writes, so a destination group used as its own
-  source is provably vacuous under the default ignore filter and is disabled in
-  the picker rather than merely warned about. **Stage 2 (groupings) is blocked on
+  source is provably vacuous, with the ignore filter on or off (since 2026-10-02,
+  when the filter off came to keep current members where they are), and is
+  disabled in the picker rather than merely warned about. **Stage 2 (groupings) is blocked on
   a modelling decision, not on effort**: "which group of grouping X are you in"
   is a keyed value and a *set*-valued one, because `{groupings_groups}` has no
   unique constraint on (grouping, group), while the allocator holds one scalar

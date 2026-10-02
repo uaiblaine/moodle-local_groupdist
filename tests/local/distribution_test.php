@@ -290,12 +290,12 @@ final class distribution_test extends \advanced_testcase {
     }
 
     /**
-     * Everyone already sitting in the group the plan chose is its own reason,
-     * not a silent zero and not "no room".
+     * Everyone already sitting in a selected group is its own reason, not a
+     * silent zero and not "no room".
      *
      * Reachable only with the keep-grouped filter off, which is what leaves a
-     * current member in the candidate list; a keep-together rule then routes
-     * the cluster at the group they are already in. Pinned at the allocator by
+     * current member in the candidate list; the allocator keeps such a member
+     * where it is. Pinned at the allocator by
      * allocator_test::test_cluster_members_already_in_the_target_are_skipped_not_unassigned.
      *
      * @return void
@@ -308,9 +308,6 @@ final class distribution_test extends \advanced_testcase {
         $context = \core\context\course::instance($course->id);
         $group = $generator->create_group(['courseid' => $course->id]);
         foreach ([0, 1] as $ignored) {
-            // A shared, NON-EMPTY together value is what routes them through
-            // the cluster placement; empty values fall to the singleton pool
-            // instead and come back as unassigned, which is a different reason.
             $user = $generator->create_and_enrol($course, 'student', ['city' => 'Fortaleza']);
             $generator->create_group_member(['groupid' => $group->id, 'userid' => $user->id]);
         }
@@ -329,6 +326,54 @@ final class distribution_test extends \advanced_testcase {
         $this->assertSame(0, $totals['unassigned']);
         $this->assertSame(distribution::NOOP_ALLPLACED, $distribution->noop_reason());
         $this->assertNotSame('', $distribution->noop_message());
+    }
+
+    /**
+     * With the keep-grouped filter off, a current member stays put and its value steers the others.
+     *
+     * Group A holds u1 (city X), group B holds u3 and u4. u2 (city X) under a
+     * keep-apart rule on city goes to B, the larger group, because A already
+     * holds X; u1, u3 and u4 are candidates but nothing is written for them.
+     * The control is the filter on: the current members are no candidates, so
+     * nothing is held and u2 goes to A, the smaller group.
+     *
+     * @return void
+     */
+    public function test_with_the_filter_off_current_members_stay_and_steer(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+        $groupa = $generator->create_group(['courseid' => $course->id, 'name' => 'A']);
+        $groupb = $generator->create_group(['courseid' => $course->id, 'name' => 'B']);
+        $u1 = $generator->create_and_enrol($course, 'student', ['city' => 'X']);
+        $u2 = $generator->create_and_enrol($course, 'student', ['city' => 'X']);
+        $u3 = $generator->create_and_enrol($course, 'student', ['city' => 'Y']);
+        $u4 = $generator->create_and_enrol($course, 'student', ['city' => 'Z']);
+        $generator->create_group_member(['groupid' => $groupa->id, 'userid' => $u1->id]);
+        $generator->create_group_member(['groupid' => $groupb->id, 'userid' => $u3->id]);
+        $generator->create_group_member(['groupid' => $groupb->id, 'userid' => $u4->id]);
+
+        $build = function (int $ignoregrouped) use ($course, $context, $groupa, $groupb): distribution {
+            return distribution::build(options::from_array([
+                'courseid' => $course->id,
+                'groupids' => [(int) $groupa->id, (int) $groupb->id],
+                'ignoregrouped' => $ignoregrouped,
+                'affinityrules' => [['source' => 'city', 'mode' => options::AFFINITY_APART]],
+                'seed' => 7,
+            ]), $context);
+        };
+
+        $off = $build(0);
+        $this->assertSame(4, $off->totals()['candidates']);
+        $this->assertSame([(int) $u2->id], array_map('intval', $off->allocation->assignments[(int) $groupb->id]));
+        $this->assertSame([], $off->allocation->assignments[(int) $groupa->id]);
+        $this->assertSame([], $off->allocation->unassigned);
+
+        $on = $build(1);
+        $this->assertSame(1, $on->totals()['candidates']);
+        $this->assertSame([(int) $u2->id], array_map('intval', $on->allocation->assignments[(int) $groupa->id]));
     }
 
     /**

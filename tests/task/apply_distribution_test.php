@@ -87,6 +87,37 @@ final class apply_distribution_test extends \advanced_testcase {
     }
 
     /**
+     * Initialising a queued task's progress stores its bar as pending where
+     * core supports a pending bar, so the status page shows it before the task
+     * starts; where core has no pending state, no row exists until then.
+     *
+     * The precondition is that queueing alone stores nothing. Changes that
+     * must make it fail: initialise_progress() no longer calling core's
+     * initialise_stored_progress() where it exists.
+     *
+     * @return void
+     */
+    public function test_initialise_progress_records_a_pending_bar_where_core_can(): void {
+        global $DB;
+        $this->resetAfterTest();
+        [, , , $options, $fingerprint, $runid] = $this->make_plan();
+
+        $task = apply_distribution::create($options, $fingerprint, $runid);
+        $task->set_userid(get_admin()->id);
+        $taskid = \core\task\manager::queue_adhoc_task($task);
+        $task->set_id($taskid);
+        $idnumber = \core\output\stored_progress_bar::convert_to_idnumber(apply_distribution::class, $taskid);
+        $this->assertFalse($DB->record_exists('stored_progress', ['idnumber' => $idnumber]));
+
+        $task->initialise_progress();
+
+        $this->assertSame(
+            method_exists($task, 'initialise_stored_progress'),
+            $DB->record_exists('stored_progress', ['idnumber' => $idnumber])
+        );
+    }
+
+    /**
      * The staleness guard: a fingerprint mismatch writes nothing.
      * test_execute_applies_on_matching_fingerprint() is the control: the same
      * plan does write when nothing changed.

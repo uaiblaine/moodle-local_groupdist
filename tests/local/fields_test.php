@@ -70,6 +70,42 @@ final class fields_test extends \advanced_testcase {
     }
 
     /**
+     * A shortname another group field already uses is left alone: provisioning
+     * creates no second field under it, which would collide in the group form's
+     * element names, and still creates the field whose shortname is free.
+     *
+     * Changes that must make it fail: dropping the uniqueness check from
+     * create_field(), or an is_shortname_unique() query that matches nothing.
+     */
+    public function test_a_taken_shortname_is_not_provisioned_twice(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        fields::reset_field_cache();
+        fields::delete_provisioned_fields();
+        $generator = $this->getDataGenerator()->get_plugin_generator('core_customfield');
+        $category = $generator->create_category(['component' => 'core_group', 'area' => 'group', 'itemid' => 0]);
+        $generator->create_field([
+            'categoryid' => $category->get('id'),
+            'type' => 'text',
+            'shortname' => fields::SHORTNAME_SEATS,
+        ]);
+
+        fields::reset_field_cache();
+        fields::ensure_fields_exist();
+        fields::reset_field_cache();
+
+        $this->assertSame(1, $DB->count_records('customfield_field', ['shortname' => fields::SHORTNAME_SEATS]));
+        $this->assertNull(fields::get_seats_field(), 'A text field must not be adopted as the seats field.');
+        // Control: provisioning did run, so the free shortname was created.
+        $this->assertSame(1, $DB->count_records('customfield_field', ['shortname' => fields::SHORTNAME_LOCATION]));
+
+        $messages = array_map(static fn ($debugging) => $debugging->message, $this->getDebuggingMessages());
+        $this->assertNotEmpty(array_filter($messages, static fn ($message) => str_contains($message, 'already taken')));
+        $this->resetDebugging();
+    }
+
+    /**
      * Field names reach callers unescaped, because every consumer escapes for
      * itself; a pre-escaped "Vagas & Lugares" would read "Vagas &amp; Lugares"
      * on the bulk edit page.

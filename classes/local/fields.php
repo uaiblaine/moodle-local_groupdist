@@ -256,7 +256,7 @@ class fields {
     private static function create_field(string $shortname, string $type, string $name, array $typeconfig): void {
         $handler = group_handler::create();
 
-        if (!api::is_shortname_unique($handler, $shortname, 0)) {
+        if (!self::is_shortname_unique($handler, $shortname)) {
             /* A field with this shortname exists somewhere the handler can see
                (possibly a shared field of the wrong type). Creating another one
                would collide in the group edit form element names. */
@@ -289,6 +289,42 @@ class fields {
 
         $field = field_controller::create(0, (object) ['type' => $type], $category);
         $handler->save_field_configuration($field, $record);
+    }
+
+    /**
+     * Whether no field the group handler can see already uses a shortname.
+     *
+     * Delegates to {@see api::is_shortname_unique()} where core has it, which
+     * also counts shared fields. Moodle 4.5 has neither the helper nor
+     * shared fields, so there the check is the query its own
+     * core_customfield\field_config_form::validation() runs: the same shortname
+     * in any category of this component, area and item.
+     *
+     * @param group_handler $handler The group custom field handler.
+     * @param string $shortname The shortname to check.
+     * @return bool True when no field uses the shortname yet.
+     */
+    private static function is_shortname_unique(group_handler $handler, string $shortname): bool {
+        global $DB;
+
+        if (method_exists(api::class, 'is_shortname_unique')) {
+            return api::is_shortname_unique($handler, $shortname, 0);
+        }
+        return !$DB->record_exists_sql(
+            "SELECT 1
+               FROM {customfield_field} f
+               JOIN {customfield_category} c ON c.id = f.categoryid
+              WHERE f.shortname = :shortname
+                AND c.component = :component
+                AND c.area = :area
+                AND c.itemid = :itemid",
+            [
+                'shortname' => $shortname,
+                'component' => $handler->get_component(),
+                'area' => $handler->get_area(),
+                'itemid' => $handler->get_itemid(),
+            ]
+        );
     }
 
     /**
@@ -347,6 +383,24 @@ class fields {
             }
             unset_config('cfcategoryid', 'local_groupdist');
         }
+    }
+
+    /**
+     * The smallest number a group custom number field cannot store.
+     *
+     * Read from {customfield_data}.decvalue, because the bound is the column's.
+     * Where core declares it NUMBER(15,5) this is 10^10, SQL_INT_MAX + 1, the
+     * value core's number element refuses with a compare rule. Moodle 4.5
+     * declares NUMBER(10,5) and has no such rule, so this is 10^5 there and its
+     * own group form fails with a database write error at that value.
+     *
+     * @return float The exclusive upper bound for a number field's value.
+     */
+    public static function number_ceiling(): float {
+        global $DB;
+
+        $column = $DB->get_columns('customfield_data')['decvalue'];
+        return (float) (10 ** ((int) $column->max_length - (int) $column->scale));
     }
 
     /**

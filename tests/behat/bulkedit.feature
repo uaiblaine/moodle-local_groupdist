@@ -34,6 +34,16 @@ Feature: Bulk edit group custom fields
     Then "//tr[contains(., 'Group A')]//input[@data-fieldtype='number'][@value='9']" "xpath_element" should exist
     And "//tr[contains(., 'Group B')]//input[@data-fieldtype='number'][@value='9']" "xpath_element" should exist
 
+  Scenario: The column menu hides a column and stays open while boxes are ticked
+    Given I am on the "Course 1" "groups" page logged in as "teacher1"
+    When I set the field "Groups" to "Group A (0)"
+    And I click on "Bulk edit groups" "button"
+    And I click on "Columns" "button"
+    And I click on "Members" "text" in the "[data-region='columnmenu']" "css_element"
+    Then "th[data-colkey='members']" "css_element" should not be visible
+    And "th[data-colkey='id']" "css_element" should be visible
+    And "ID" "checkbox" should be visible
+
   Scenario: Leaving with unsaved cells is confirmed, and saved work is not
     Given I am on the "Course 1" "groups" page logged in as "teacher1"
     When I set the field "Groups" to "Group A (0),Group B (0)"

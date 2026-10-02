@@ -16,8 +16,6 @@
 
 namespace local_groupdist\local;
 
-use PHPUnit\Framework\Attributes\CoversNothing;
-
 /**
  * Pins the bulk edit save's handling of edits made while a save is running.
  *
@@ -27,11 +25,14 @@ use PHPUnit\Framework\Attributes\CoversNothing;
  * PHPUnit cannot run, so this reads amd/src/bulkedit.js for the three parts of
  * the rule, and the build map for proof that the served module is that source.
  *
+ * PHPUnit metadata is a docblock tag, never an attribute: Moodle 4.5 runs
+ * PHPUnit 9, which reads only the tags.
+ *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @coversNothing
  */
-#[CoversNothing]
 final class bulkedit_source_test extends \basic_testcase {
     /**
      * The module source, read once.

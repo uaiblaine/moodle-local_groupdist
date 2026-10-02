@@ -134,6 +134,6 @@ $task->set_userid($USER->id);
 $taskid = \core\task\manager::queue_adhoc_task($task, true);
 if ($taskid) {
     $task->set_id($taskid);
-    $task->initialise_stored_progress();
+    $task->initialise_progress();
 }
 redirect(new moodle_url('/local/groupdist/status.php', ['id' => $course->id]));

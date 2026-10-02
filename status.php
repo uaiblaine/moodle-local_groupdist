@@ -39,9 +39,19 @@ $PAGE->navbar->add(get_string('groups', 'group'), $returnurl);
 $PAGE->navbar->add(get_string('distributeparticipants', 'local_groupdist'));
 
 $taskid = \local_groupdist\task\apply_distribution::get_taskid_for_course($course->id);
+$task = $taskid ? \local_groupdist\task\apply_distribution::load($taskid) : null;
+
+/* core\output\task_indicator follows the task and leaves the page when it
+   finishes. Moodle 4.5 has no indicator, so there the page reloads itself
+   while the task exists, at the interval a stored progress bar polls at, and
+   shows the outcome below once the task is gone. */
+$hasindicator = class_exists(\core\output\task_indicator::class);
+if ($task && !$hasindicator) {
+    $PAGE->set_periodic_refresh_delay((int) \core\output\stored_progress_bar::get_timeout());
+}
 
 echo $OUTPUT->header();
-if ($taskid && ($task = \local_groupdist\task\apply_distribution::load($taskid))) {
+if ($task && $hasindicator) {
     $indicator = new \core\output\task_indicator(
         $task,
         get_string('distributeparticipants', 'local_groupdist'),
@@ -49,6 +59,16 @@ if ($taskid && ($task = \local_groupdist\task\apply_distribution::load($taskid))
         $returnurl
     );
     echo $OUTPUT->render($indicator);
+} else if ($task) {
+    // The indicator's heading and message, and the bar once the started task has created it.
+    echo $OUTPUT->heading(get_string('distributeparticipants', 'local_groupdist'));
+    echo $OUTPUT->notification(get_string('applyrunning', 'local_groupdist'), \core\output\notification::NOTIFY_INFO, false);
+    $bar = \core\output\stored_progress_bar::get_by_idnumber(
+        \core\output\stored_progress_bar::convert_to_idnumber(\local_groupdist\task\apply_distribution::class, $taskid)
+    );
+    if ($bar) {
+        echo $bar->get_content();
+    }
 } else {
     /* No task left to run: the run finished, was aborted as stale, stopped
        unfinished (its task ran out of attempts or was deleted), or none was

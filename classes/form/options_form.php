@@ -277,22 +277,19 @@ class options_form extends \moodleform {
         try {
             $ruleset = \local_groupdist\local\ruleset::from_array($rules, $this->maxrules);
             $destinations = array_map('intval', (array) ($this->_customdata['groupids'] ?? []));
-            $ignoregrouped = !empty($data['ignoregrouped']);
             foreach ($ruleset->get_rules() as $i => $rule) {
                 if (!profilefields::is_allowed($rule['source'], $context)) {
                     $errors['affinityruleserr'] = get_string('invaliddata', 'error');
                     break;
                 }
-                /* A destination group as a rule source is vacuous exactly when
-                   the ignore filter is on: candidates::fetch() then excludes
-                   every user already in the selected groups, so no survivor
-                   holds the value. With the filter off the rule constrains real
-                   members, so this is a conjunction, not a ban on the source.
-                   The builder disables these options while the filter is on;
-                   this catches a forged POST or the filter ticked after the
-                   rule was picked, and names the rule and the reason. */
+                /* A destination group as a rule source is always vacuous. With
+                   the ignore filter on, candidates::fetch() excludes its members;
+                   with it off, the allocator keeps them where they are. Either way
+                   no candidate being placed holds the value. The builder disables
+                   these options; this catches a forged POST, and names the rule
+                   and the reason. */
                 $groupid = \local_groupdist\local\ruleset::source_groupid($rule['source']);
-                if ($ignoregrouped && $groupid && in_array($groupid, $destinations, true)) {
+                if ($groupid && in_array($groupid, $destinations, true)) {
                     /* Escaped, unlike the picker list in definition(): core
                        renders an element's error through a triple stash
                        (lib/form/templates/element-template.mustache). */

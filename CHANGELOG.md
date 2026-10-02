@@ -8,6 +8,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- With "Ignore users already in the selected groups" turned off, a participant
+  who already belongs to one of the selected groups now stays where they are:
+  they are never moved or added to another group, and they count as placed.
+  Their values still apply to the affinity rules: a keep-apart rule steers the
+  others away from a value they hold, and a keep-together rule sends the others
+  who share their value to their group. Before, such participants could be
+  added to further groups, and a group cluster and a single participant were
+  treated differently. The help text says so.
+- A group the run distributes into can no longer be picked as a rule source
+  with the filter off either: its members stay in it and nobody else holds its
+  value, so the rule could never change anything.
+
+### Fixed
+
+- The allocator scored a cluster on a slice that could include members already
+  in the group; with current members kept out of the placement that slice is now
+  exactly the users who would be written.
+
+### Changed
+
 - Development moves to one branch per Moodle version (`main` tracks 5.2;
   `MOODLE_502_STABLE`, `MOODLE_501_STABLE`, `MOODLE_405_STABLE` and
   `MOODLE_503_dev` carry the others), each declaring a single supported

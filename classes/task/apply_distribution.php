@@ -97,7 +97,7 @@ class apply_distribution extends \core\task\adhoc_task {
             return;
         }
 
-        $summary = applier::apply($distribution, $this->get_progress(), $runid);
+        $summary = applier::apply($distribution, $this->progress_reporter(), $runid);
         runlog::complete($runid, $summary);
         mtrace("local_groupdist: applied distribution to course {$options->courseid}: "
             . "{$summary['added']} memberships written, {$summary['failed']} rejected.");
@@ -109,6 +109,38 @@ class apply_distribution extends \core\task\adhoc_task {
                 'groups' => count($options->groupids),
             ])
         );
+    }
+
+    /**
+     * Record the task's progress bar as pending, right after queueing it.
+     *
+     * Where core supports a pending bar (stored_progress_task_trait's
+     * initialise_stored_progress()), the status page shows it before the task
+     * starts. Moodle 4.5 has no pending state: the bar's row is created when
+     * the task starts, and status.php shows only the message until then.
+     *
+     * @return void
+     */
+    public function initialise_progress(): void {
+        if (method_exists($this, 'initialise_stored_progress')) {
+            $this->initialise_stored_progress();
+        }
+    }
+
+    /**
+     * The progress consumer that moves this task's stored progress bar.
+     *
+     * Core's own (stored_progress_task_trait::get_progress()) where it exists;
+     * Moodle 4.5 has neither it nor core\progress\stored, so there the plugin's
+     * equivalent wraps the bar start_stored_progress() created.
+     *
+     * @return \core\progress\base The progress consumer.
+     */
+    private function progress_reporter(): \core\progress\base {
+        if (method_exists($this, 'get_progress')) {
+            return $this->get_progress();
+        }
+        return new \local_groupdist\local\stored_progress($this->progress);
     }
 
     /**

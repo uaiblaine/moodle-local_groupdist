@@ -494,8 +494,13 @@ One branch per Moodle version, in the Boost Union style:
 - `allocator_test` is pure `basic_testcase` — keep it DB-free.
 - The page tests (`apply_page_test`, `distribute_page_test`, `status_page_test`,
   `bulkedit_script_test`) `require` the page script itself, which works because
-  5.x's `public/config.php` loads the root config with `require_once`; verified
-  on 5.1 and 5.2 only. The `formatstringstriptags = 0` tests use a bare `&` and
+  every page loads `config.php` with `require_once`: PHPUnit's bootstrap has
+  already included it, so the page's own include does nothing. With a plain
+  `require` 4.5 re-runs its `config.php`, which starts with
+  `$CFG = new stdClass()` and then skips the already-included `lib/setup.php`,
+  so the page dies on the first `$CFG->dirroot` or `$CFG->debugdeveloper` read
+  (5.x hid this: its `public/config.php` loads the root config with
+  `require_once`). The `formatstringstriptags = 0` tests use a bare `&` and
   a `<3` as fixtures, never tag-shaped input, which strips the same either way;
   a custom field name cannot hold a bare `<` (`core\persistent::get()` cleans it
   as `PARAM_TEXT`), so `fields_test` uses ampersands only.

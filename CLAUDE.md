@@ -167,8 +167,8 @@ the same code; the divergences that cannot go to `main` are marked.
   `core\progress\stored` and no `core\output\task_indicator`.
   `apply_distribution::initialise_progress()` and `progress_reporter()`
   dispatch to core where it exists; `status.php` shows the indicator's heading
-  and message, the bar once its row exists (never before: `core/stored_progress`
-  polls an undefined id and paints the bar red), and reloads itself at the poll
+  and message, the bar once its row exists (before that the bar has no record
+  id for `core/stored_progress` to poll), and reloads itself at the poll
   interval while the task exists.
 - **Number ceiling**: `{customfield_data}.decvalue` is NUMBER(10,5) on 4.5, so
   100000 fails the write and core's number element has no ceiling rule there.

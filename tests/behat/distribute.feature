@@ -188,11 +188,12 @@ Feature: Distribute participants into selected groups
     # in both directions on options scoped to the rule's source select.
     And the "//select[@data-action='source']/option[contains(., 'a destination of this run (unavailable)')]" "xpath_element" should be disabled
     And the "//select[@data-action='source']/option[contains(., 'Lab team')]" "xpath_element" should be enabled
-    # Unticking the filter makes those members take part, so the same group
-    # becomes a usable source and the picker has to follow it live.
+    # With the filter off its members stay in it too, so the group is still no
+    # usable source.
     When I set the field "Ignore users already in the selected groups" to "0"
-    Then I should see "Group A — also a destination of this run"
-    And the "//select[@data-action='source']/option[contains(., 'also a destination of this run')]" "xpath_element" should be enabled
+    And I click on "Add rule" "button"
+    And I set the field "Rule 2 type" to "Group"
+    Then the "(//select[@data-action='source'])[2]/option[contains(., 'a destination of this run (unavailable)')]" "xpath_element" should be disabled
 
   @javascript
   Scenario: Pick, clear and re-pick a group when the picker is a search

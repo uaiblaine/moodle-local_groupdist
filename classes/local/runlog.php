@@ -53,10 +53,10 @@ class runlog {
     /** @var int Member outcome: rejected by core (deleted/unenrolled meanwhile). */
     public const WRITE_FAILED = 2;
 
-    /** @var int Member outcome: no room left in a group they did not already belong to. */
+    /** @var int Member outcome: no selected group had room left. */
     public const WRITE_UNASSIGNED = 3;
 
-    /** @var int Member outcome: no write needed (already sat with their peers). */
+    /** @var int Member outcome: no write needed (already in a selected group, so counted as placed). */
     public const WRITE_SKIPPED = 4;
 
     /**
@@ -127,8 +127,8 @@ class runlog {
                 $groupid = 0;
                 $writestatus = self::WRITE_UNASSIGNED;
             } else {
-                // Candidates the engine dropped silently: they already sat in
-                // the group their cluster landed on — nothing to write.
+                // Candidates already in a selected group: the engine keeps them
+                // there and counts them as placed, so there is nothing to write.
                 $groupid = 0;
                 $writestatus = self::WRITE_SKIPPED;
             }

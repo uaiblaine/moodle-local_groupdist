@@ -35,16 +35,19 @@ namespace local_groupdist\local;
  * rule, violations are taken lexicographically — the lowest-priority rule
  * yields first. Capacity stays the only hard constraint.
  *
- * Affinity limitation, by design: the together/apart constraints are evaluated
- * among the users being distributed in this run; profile values of members a
- * group already has are not considered.
+ * A candidate who already belongs to a selected group (possible only with the
+ * ignore-grouped filter off) is kept there: it is never written anywhere, never
+ * left unassigned, and counts as placed. Its rule values still bind the others:
+ * an apart value it holds counts as held by each of its groups, and a together
+ * cluster with its composite value prefers its group. Members who are not
+ * candidates (left out by the role or cohort filter) are not considered.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class allocator {
-    /** @var string Warning: users left without a group (no room left in a group they are not already in). */
+    /** @var string Warning: users left without a group (no selected group had room left). */
     public const WARNING_UNASSIGNED = 'unassigned';
 
     /** @var string Warning: an affinity cluster did not fit one group and was split. */
@@ -101,10 +104,11 @@ class allocator {
             return $result;
         }
 
+        [$kept, $userids] = self::keep_existing($state, $userids);
         if ($options->affinityrules->is_empty()) {
             self::fill_balanced($state, $userids, $result);
         } else {
-            self::fill_rules($state, $userids, $affinity, $options->affinityrules->get_rules(), $result);
+            self::fill_rules($state, $userids, $kept, $affinity, $options->affinityrules->get_rules(), $result);
         }
 
         foreach ($state as $groupstate) {
@@ -117,10 +121,48 @@ class allocator {
     }
 
     /**
+     * Take the candidates who already belong to a selected group out of the placement.
+     *
+     * They stay where they are and count as placed; the group's current count
+     * already includes them, so they take no capacity. Placement never sees
+     * them, which is what lets every placement path ignore existing members.
+     *
+     * @param array $state Group state.
+     * @param array $userids Ordered candidate ids.
+     * @return array [kept, free]: kept maps userid => list of the state indexes
+     *   of the user's selected groups; free lists the others in candidate order.
+     */
+    private static function keep_existing(array $state, array $userids): array {
+        $kept = [];
+        $free = [];
+        foreach ($userids as $userid) {
+            $indexes = [];
+            foreach ($state as $index => $groupstate) {
+                if (isset($groupstate['existing'][$userid])) {
+                    $indexes[] = $index;
+                }
+            }
+            if ($indexes) {
+                $kept[$userid] = $indexes;
+            } else {
+                $free[] = $userid;
+            }
+        }
+        return [$kept, $free];
+    }
+
+    /**
      * Multi-rule fill: cluster by composite together-keys, spread apart-values.
      *
+     * The users kept in their groups ({@see keep_existing()}) are not placed,
+     * but their values are: each apart value they hold is held by each of
+     * their groups, and a cluster sharing their composite together value
+     * prefers their groups. The no-value warnings count the users being
+     * placed only.
+     *
      * @param array $state Group state, modified in place.
-     * @param array $userids Ordered candidate ids.
+     * @param array $userids Ordered ids of the candidates to place.
+     * @param array $kept Users kept in their groups: userid => list of state indexes.
      * @param array $affinity Per-rule value maps ([ruleindex => [userid => value]]).
      * @param array $rules The ruleset entries ('source' and 'mode'), position = priority.
      * @param allocation $result Receives unassigned users and warnings.
@@ -129,6 +171,7 @@ class allocator {
     private static function fill_rules(
         array &$state,
         array $userids,
+        array $kept,
         array $affinity,
         array $rules,
         allocation $result
@@ -160,6 +203,24 @@ class allocator {
             }
         }
 
+        // The kept users' apart values are held by their groups from the start,
+        // and their composite together values say which groups a cluster prefers.
+        $anchors = [];
+        foreach ($kept as $userid => $indexes) {
+            $key = $togetheridx ? self::together_key($togetheridx, $userid, $val) : null;
+            foreach ($indexes as $index) {
+                foreach ($apartidx as $i) {
+                    $value = $val($i, $userid);
+                    if ($value !== '') {
+                        $state[$index]['values'][$i . self::KEY_SEPARATOR . $value] = true;
+                    }
+                }
+                if ($key !== null) {
+                    $anchors[$key][$index] = ($anchors[$key][$index] ?? 0) + 1;
+                }
+            }
+        }
+
         // Cluster construction: composite tuple of every together rule's value.
         // Users empty on ALL together components fall to the singleton pool.
         $clusters = [];
@@ -167,19 +228,11 @@ class allocator {
         if ($togetheridx) {
             $map = [];
             foreach ($userids as $userid) {
-                $parts = [];
-                $allempty = true;
-                foreach ($togetheridx as $i) {
-                    $value = $val($i, $userid);
-                    $parts[] = $value;
-                    if ($value !== '') {
-                        $allempty = false;
-                    }
-                }
-                if ($allempty) {
+                $key = self::together_key($togetheridx, $userid, $val);
+                if ($key === null) {
                     $singles[] = $userid;
                 } else {
-                    $map[implode(self::KEY_SEPARATOR, $parts)][] = $userid;
+                    $map[$key][] = $userid;
                 }
             }
             foreach ($map as $key => $members) {
@@ -241,8 +294,10 @@ class allocator {
 
         // Placement. Violations aggregate per (rule, value) for the warnings.
         $violations = [];
+        $mintogether = $togetheridx ? $togetheridx[0] : null;
         foreach ($clusters as $cluster) {
-            self::place_cluster($state, $cluster, $apartidx, $val, $violations, $result);
+            $prefer = $anchors[$cluster['key']] ?? [];
+            self::place_cluster($state, $cluster, $apartidx, $mintogether, $prefer, $val, $violations, $result);
         }
         foreach (array_merge($ejected, $singles) as $userid) {
             self::place_single($state, $userid, $apartidx, $val, $violations, $result);
@@ -263,15 +318,41 @@ class allocator {
     }
 
     /**
+     * The composite together key of one user, or null when every component is empty.
+     *
+     * @param array $togetheridx Together rule indexes in priority order.
+     * @param int $userid The user.
+     * @param callable $val Value lookup: fn (ruleindex, userid) => trimmed string.
+     * @return string|null The components joined by KEY_SEPARATOR.
+     */
+    private static function together_key(array $togetheridx, int $userid, callable $val): ?string {
+        $parts = [];
+        $allempty = true;
+        foreach ($togetheridx as $i) {
+            $value = $val($i, $userid);
+            $parts[] = $value;
+            if ($value !== '') {
+                $allempty = false;
+            }
+        }
+        return $allempty ? null : implode(self::KEY_SEPARATOR, $parts);
+    }
+
+    /**
      * Place one cluster, splitting across groups when it does not fit.
      *
-     * Groups are chosen by the lexicographic key (apart violations by rule
-     * priority, most remaining capacity, smallest final size, group order);
-     * with no apart rules that is plain keep-together packing.
+     * Groups are chosen by a lexicographic key in rule priority order: the
+     * violations of each apart rule above the highest together rule, then the
+     * pull of the cluster's kept members (more of them in a group is better),
+     * then the violations of the apart rules below it; after those, most
+     * remaining capacity, smallest final size and group order. With no kept
+     * members and no apart rules that is plain keep-together packing.
      *
      * @param array $state Group state, modified in place.
      * @param array $cluster Cluster entry ('key' and 'members').
      * @param array $apartidx Apart rule indexes in priority order.
+     * @param int|null $mintogether Index of the highest-priority together rule.
+     * @param array $prefer Kept members sharing the cluster's key: state index => count.
      * @param callable $val Value lookup: fn (ruleindex, userid) => trimmed string.
      * @param array $violations Aggregated (rule => value => count), modified in place.
      * @param allocation $result Receives unassigned users and warnings.
@@ -281,6 +362,8 @@ class allocator {
         array &$state,
         array $cluster,
         array $apartidx,
+        ?int $mintogether,
+        array $prefer,
         callable $val,
         array &$violations,
         allocation $result
@@ -296,9 +379,21 @@ class allocator {
                 }
                 $take = min(count($remainder), $groupstate['remaining']);
                 $chunkvector = self::chunk_violations($groupstate, array_slice($remainder, 0, $take), $apartidx, $val);
+                $key = [];
+                $pulled = false;
+                foreach ($apartidx as $position => $i) {
+                    if (!$pulled && $mintogether !== null && $i > $mintogether) {
+                        $key[] = -($prefer[$index] ?? 0);
+                        $pulled = true;
+                    }
+                    $key[] = $chunkvector[$position];
+                }
+                if (!$pulled) {
+                    $key[] = -($prefer[$index] ?? 0);
+                }
                 // Most remaining capacity first (fits big clusters), then the
                 // smaller final size, then group order.
-                $key = array_merge($chunkvector, [-$groupstate['remaining'], $groupstate['final'], $index]);
+                $key = array_merge($key, [-$groupstate['remaining'], $groupstate['final'], $index]);
                 if ($best === null || $key < $bestkey) {
                     $best = $index;
                     $bestkey = $key;
@@ -310,21 +405,8 @@ class allocator {
             }
 
             $take = min(count($remainder), $state[$best]['remaining']);
-            $chunk = [];
-            $rest = [];
-            foreach ($remainder as $userid) {
-                if (isset($state[$best]['existing'][$userid])) {
-                    // Already a member of this group: nothing to do for them.
-                    continue;
-                }
-                if (count($chunk) < $take) {
-                    $chunk[] = $userid;
-                } else {
-                    $rest[] = $userid;
-                }
-            }
-            self::assign_many($state[$best], $chunk, $apartidx, $val, $violations);
-            $remainder = $rest;
+            self::assign_many($state[$best], array_slice($remainder, 0, $take), $apartidx, $val, $violations);
+            $remainder = array_slice($remainder, $take);
             $parts++;
         }
         if ($parts > 1) {
@@ -361,7 +443,7 @@ class allocator {
         $best = null;
         $bestkey = null;
         foreach ($state as $index => $groupstate) {
-            if ($groupstate['remaining'] <= 0 || isset($groupstate['existing'][$userid])) {
+            if ($groupstate['remaining'] <= 0) {
                 continue;
             }
             $vector = [];
@@ -460,13 +542,8 @@ class allocator {
      * Quotas are simulated first (greedy: next user to the group with the
      * smallest final size that still has capacity), then the ordered user list
      * is sliced sequentially — so alphabetical orders produce contiguous runs
-     * per group, like core autogroup.
-     *
-     * When candidates may already belong to a target group (ignore-grouped
-     * off), contiguous slicing would hand members back to their own group —
-     * inflating the preview and wasting capacity on writes that are no-ops.
-     * That case falls back to per-user placement, which honours the existing
-     * membership sets at the cost of contiguity.
+     * per group, like core autogroup. No user here belongs to a selected group
+     * ({@see keep_existing()}), so no slice can hand a member back to its own.
      *
      * @param array $state Group state, modified in place.
      * @param array $userids Ordered candidate ids.
@@ -474,13 +551,6 @@ class allocator {
      * @return void
      */
     private static function fill_balanced(array &$state, array $userids, allocation $result): void {
-        foreach ($state as $groupstate) {
-            if ($groupstate['existing']) {
-                self::fill_individuals($state, $userids, $result);
-                return;
-            }
-        }
-
         $quotas = array_fill(0, count($state), 0);
         $placed = 0;
         $total = count($userids);
@@ -503,30 +573,6 @@ class allocator {
             }
         }
         $result->unassigned = array_slice($userids, $offset);
-    }
-
-    /**
-     * Place unconstrained users one by one onto the emptiest group with capacity.
-     *
-     * @param array $state Group state, modified in place.
-     * @param array $userids User ids to place.
-     * @param allocation $result Receives unassigned users.
-     * @return void
-     */
-    private static function fill_individuals(array &$state, array $userids, allocation $result): void {
-        foreach ($userids as $userid) {
-            $notmember = function (array $groupstate) use ($userid): bool {
-                return !isset($groupstate['existing'][$userid]);
-            };
-            $index = self::pick_min_final($state, $notmember);
-            if ($index === null) {
-                $result->unassigned[] = $userid;
-                continue;
-            }
-            $state[$index]['assigned'][] = $userid;
-            $state[$index]['final']++;
-            $state[$index]['remaining']--;
-        }
     }
 
     /**
@@ -569,16 +615,12 @@ class allocator {
      * Pick the group with the smallest final size among those with capacity left.
      *
      * @param array $state Group state.
-     * @param callable|null $suitable Optional extra predicate on a group state entry.
      * @return int|null The state index, or null when no group qualifies.
      */
-    private static function pick_min_final(array $state, ?callable $suitable = null): ?int {
+    private static function pick_min_final(array $state): ?int {
         $best = null;
         foreach ($state as $index => $groupstate) {
             if ($groupstate['remaining'] <= 0) {
-                continue;
-            }
-            if ($suitable !== null && !$suitable($groupstate)) {
                 continue;
             }
             if ($best === null || $groupstate['final'] < $state[$best]['final']) {

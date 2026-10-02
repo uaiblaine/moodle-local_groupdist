@@ -356,11 +356,22 @@ the same code; the divergences that cannot go to `main` are marked.
   obligations.** The group value column applies the seed-stamped invisibility
   clause like the other three sites, or a resumed adhoc apply reads different
   values and aborts as stale. And a DESTINATION group used as its own source is
-  vacuous *exactly* while `ignoregrouped` is on — the candidate filter has
-  already removed everyone who could carry the value — so the builder disables
-  those options (watching the checkbox live) and `options_form::validation()`
-  backstops with `errorruleselfreference`. With the filter off the same rule is
-  real and is accepted: the gate is the conjunction, never the source alone.
+  vacuous whatever `ignoregrouped` says: with the filter on the candidate query
+  removes everyone who could carry the value, and with it off the allocator keeps
+  those members where they are (next entry). So the builder always disables those
+  options and `options_form::validation()` backstops with `errorruleselfreference`.
+- **With `ignoregrouped` off, a candidate already in a selected group stays put
+  and still binds the others** (owner's decision, 2026-10-02).
+  `allocator::keep_existing()` takes such users out of the placement before any
+  path runs: nothing is written for them (runlog `WRITE_SKIPPED`), they are never
+  unassigned and take no capacity, since the group's current count already holds
+  them. Their rule values still count: an apart value they hold is held by each
+  of their groups, and a together cluster with their composite value prefers
+  their group, at the priority of the highest together rule (an apart rule above
+  it outranks the pull, one below it yields). Members who are not candidates (the
+  role or cohort filter left them out) are not considered. Until then the option
+  meant "may be added to further groups", and the cluster and single paths
+  disagreed about a member already in the chosen group.
 - **`ruleset::is_membership_source()` is the test every display path owes.**
   Cohort and group values are both a bare `'1'`, so `get_preview`'s
   `build_value_maps()` and `auditreader`'s per-rule `membership` flag must

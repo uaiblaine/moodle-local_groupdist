@@ -67,7 +67,8 @@ mdl purge m501                           # after PHP changes that affect output
 distribute.php               Step 1+2 controller: options form POST target and
                              preview renderer (sticky_footer with apply/back)
 apply.php                    Step 3: fingerprint re-check, inline vs adhoc
-status.php                   Background apply progress (core task_indicator)
+status.php                   Background apply progress (core task_indicator, or
+                             local/stored_progress.php where core lacks it)
 audit.php                    Distribution log course report: run list + run
                              detail from the snapshot, both paged, with the
                              two searches and a pinned-group view (gate:
@@ -92,6 +93,8 @@ classes/
                              fields, cohorts and course groups (visibility-filtered)
   local/plaintext.php        The one helper behind every plain-text sink for
                              admin-set names (see the escaping gotcha)
+  local/stored_progress.php  Stored-progress bar for a core without the 5.x task
+                             indicator (the 4.5 arm; core's API is used elsewhere)
   external/get_preview.php   Paged preview WS (recomputes per call)
   external/get_audit_sections.php One page of a run's group sections (search)
   external/get_audit_members.php One window of one section's participants
@@ -493,9 +496,10 @@ One branch per Moodle version, in the Boost Union style:
 
 - `allocator_test` is pure `basic_testcase` — keep it DB-free.
 - The page tests (`apply_page_test`, `distribute_page_test`, `status_page_test`,
-  `bulkedit_script_test`) `require` the page script itself, which works because
-  5.x's `public/config.php` loads the root config with `require_once`; verified
-  on 5.1 and 5.2 only. The `formatstringstriptags = 0` tests use a bare `&` and
+  `bulkedit_script_test`) include the page script itself, which works because
+  every page script loads `config.php` with `require_once` (a plain `require`
+  re-runs a 4.5 root `config.php`; 5.x's `public/config.php` already uses
+  `require_once`); verified on 5.1 and 5.2. The `formatstringstriptags = 0` tests use a bare `&` and
   a `<3` as fixtures, never tag-shaped input, which strips the same either way;
   a custom field name cannot hold a bare `<` (`core\persistent::get()` cleans it
   as `PARAM_TEXT`), so `fields_test` uses ampersands only.

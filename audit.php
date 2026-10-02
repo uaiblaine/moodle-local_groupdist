@@ -59,6 +59,7 @@ if ($runid) {
 }
 $PAGE->set_url(new moodle_url('/local/groupdist/audit.php', $urlparams));
 $PAGE->set_pagelayout('report');
+\local_groupdist\local\bootstrap::mark_page();
 $PAGE->set_title(get_string('auditlog', 'local_groupdist'));
 $PAGE->set_heading($course->fullname);
 $PAGE->navbar->add(

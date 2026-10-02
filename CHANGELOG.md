@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Fixed
+
+- **Moodle 4.5 (`MOODLE_405_STABLE`).** The plugin installs and runs on 4.5:
+  - Field provisioning checks a shortname without core's 5.x-only
+    `api::is_shortname_unique()`, which stopped the install.
+  - The background apply reports progress without the 5.x-only
+    `initialise_stored_progress()`, `get_progress()` and task indicator; on
+    4.5 the status page shows the stored progress bar and reloads until the
+    run ends.
+  - Number fields are refused at what `{customfield_data}` can store
+    (100000 on 4.5) in the bulk edit save and the settings modal, instead of
+    failing on the database write.
+  - The Bootstrap 5 classes 4.5 lacks (`visually-hidden`, `form-select`,
+    `gap-*`, `fw-*`, `text-bg-*`, the loading skeleton and others) are
+    polyfilled behind a body class added only below 5.0; the bulk edit
+    column menu opens and stays open under Bootstrap 4, and its tooltips no
+    longer rely on Bootstrap 5's `Tooltip.getInstance()`.
+  - Page scripts load `config.php` with `require_once`.
+
 ### Changed
 
 - Development moves to one branch per Moodle version (`main` tracks 5.2;

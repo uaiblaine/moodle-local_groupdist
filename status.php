@@ -33,6 +33,7 @@ require_capability('local/groupdist:distribute', $context);
 $returnurl = new moodle_url('/group/index.php', ['id' => $course->id]);
 $PAGE->set_url(new moodle_url('/local/groupdist/status.php', ['id' => $course->id]));
 $PAGE->set_pagelayout('standard');
+\local_groupdist\local\bootstrap::mark_page();
 $PAGE->set_title(get_string('distributeparticipants', 'local_groupdist'));
 $PAGE->set_heading($course->fullname);
 $PAGE->navbar->add(get_string('groups', 'group'), $returnurl);

@@ -66,6 +66,7 @@ if (!$groupids) {
 
 $PAGE->set_url(new moodle_url('/local/groupdist/distribute.php', ['id' => $course->id]));
 $PAGE->set_pagelayout('standard');
+\local_groupdist\local\bootstrap::mark_page();
 $PAGE->set_title(get_string('distributeparticipants', 'local_groupdist'));
 $PAGE->set_heading($course->fullname);
 $PAGE->navbar->add(get_string('groups', 'group'), $returnurl);

@@ -119,11 +119,11 @@
         </div>
         <div class="dropdown local-groupdist-colmenu">
             <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
-                    data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                    data-toggle="dropdown" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                 {{#str}} columnsbutton, local_groupdist {{/str}}
                 <span class="badge bg-light text-dark border fw-normal" data-region="hiddencount" hidden></span>
             </button>
-            <div class="dropdown-menu dropdown-menu-end p-2">
+            <div class="dropdown-menu dropdown-menu-right dropdown-menu-end p-2" data-region="columnmenu">
                 <div class="small text-muted px-2 pb-1">{{#str}} columnsmenuhead, local_groupdist, {{seatslabel}} {{/str}}</div>
                 {{#menucolumns}}
                 <label class="dropdown-item d-flex align-items-center gap-2 mb-0">

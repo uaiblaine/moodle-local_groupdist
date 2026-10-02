@@ -21,8 +21,10 @@ namespace local_groupdist\local;
  *
  * phpcs, the mustache lint and stylelint never read a class name out of a
  * Mustache or JS file, so an illegible badge or a deprecated Bootstrap 4
- * spelling passes every other check. The plugin supports 5.1+ only, so it
- * needs no Bootstrap 4 polyfill; these are the rules that bind on 5.x.
+ * spelling passes every other check. On this branch the plugin runs on
+ * Moodle 4.5, which ships Bootstrap 4, so the class also pins the polyfill at
+ * the tail of styles.css, the pages that switch it on, the data-API spellings
+ * both Bootstrap versions read and the fallbacks the theme tokens need there.
  *
  * PHPUnit metadata is written as docblock tags, never attributes: Moodle 4.5
  * runs PHPUnit 9, which reads only the tags, and its moodle-cs reports every
@@ -282,5 +284,268 @@ final class bootstrap_compat_test extends \basic_testcase {
             'The search box must sit in an inverted chosenlabel section, once per searchable kind.'
         );
         $this->assertSame(2, preg_match_all('/\{\{#chosenlabel\}\}/', $row));
+    }
+
+    /**
+     * Bootstrap 5 classes that Moodle 4.5 does not define, as regular expressions.
+     *
+     * Derived by comparing the class names the compiled Boost CSS of 4.5 and
+     * 5.2 define, limited to the families the plugin uses. form-label is not
+     * here: 4.5 has no rule for it, but Bootstrap 4's reboot already gives a
+     * label its margin.
+     *
+     * @return array List of regular expressions, each matching whole class tokens.
+     */
+    private function bs5_only_utilities(): array {
+        return [
+            '/(?<![\w-])visually-hidden(?![\w-])/',
+            '/(?<![\w-])form-select(-sm|-lg)?(?![\w-])/',
+            '/(?<![\w-])gap-[0-5](?![\w-])/',
+            '/(?<![\w-])fw-(bold|bolder|semibold|medium|normal|light|lighter)(?![\w-])/',
+            '/(?<![\w-])fst-(italic|normal)(?![\w-])/',
+            '/(?<![\w-])opacity-(0|25|50|75|100)(?![\w-])/',
+            // The lookahead spares the input attribute of the same name.
+            '/(?<![\w-])placeholder(-(glow|wave|xs|sm|lg))?(?![\w=-])/',
+            '/(?<![\w-])text-bg-[a-z]+(?![\w-])/',
+            '/(?<![\w-])text-[a-z]+-emphasis(?![\w-])/',
+        ];
+    }
+
+    /**
+     * The exact class tokens the polyfill defines behind the Bootstrap 4 gate.
+     *
+     * Token level on purpose: a family check would pass with gap-1 defined and
+     * gap-3 missing.
+     *
+     * @return array List of class tokens, without the leading dot.
+     */
+    private function polyfilled_tokens(): array {
+        $css = file_get_contents(dirname(__DIR__, 2) . '/styles.css');
+        // The block's own prose names classes it does not define.
+        $css = preg_replace('~/\*.*?\*/~s', '', $css);
+        $gate = preg_quote(bootstrap::BODY_CLASS_BS4, '/');
+        $tokens = [];
+        foreach (explode('}', $css) as $block) {
+            $selector = explode('{', $block)[0];
+            if (!preg_match('/body\.' . $gate . '(?![\w-])/', $selector)) {
+                continue;
+            }
+            preg_match_all('/\.([a-z][a-z0-9-]*)/', $selector, $matches);
+            $tokens = array_merge($tokens, $matches[1]);
+        }
+        return array_values(array_unique($tokens));
+    }
+
+    /**
+     * The badge colour suffixes the PHP side hands to a text-bg-{{...}} class.
+     *
+     * The audit templates build the class from a context value, so the token
+     * never appears whole in a template; the values do, as the 'class' entries
+     * of the status and outcome arrays in classes/.
+     *
+     * @return array List of suffixes, e.g. success.
+     */
+    private function badge_suffixes(): array {
+        $suffixes = [];
+        foreach ($this->markup_files() as $path) {
+            if (!str_ends_with($path, '.php')) {
+                continue;
+            }
+            preg_match_all("/'class' => '([a-z]+)'/", file_get_contents($path), $matches);
+            $suffixes = array_merge($suffixes, $matches[1]);
+        }
+        return array_values(array_unique($suffixes));
+    }
+
+    /**
+     * The Bootstrap 5 class tokens the markup uses that 4.5 does not define.
+     *
+     * @return array Token => list of file basenames using it.
+     */
+    private function used_bs5_tokens(): array {
+        $used = [];
+        foreach ($this->markup_files() as $path) {
+            foreach (file($path) as $line) {
+                if ($this->is_comment_line($line)) {
+                    continue;
+                }
+                $tokens = [];
+                foreach ($this->bs5_only_utilities() as $pattern) {
+                    preg_match_all($pattern, $line, $matches);
+                    $tokens = array_merge($tokens, $matches[0]);
+                }
+                if (str_contains($line, 'text-bg-{{')) {
+                    foreach ($this->badge_suffixes() as $suffix) {
+                        $tokens[] = 'text-bg-' . $suffix;
+                    }
+                }
+                foreach ($tokens as $token) {
+                    $used[$token][basename($path)] = true;
+                }
+            }
+        }
+        return array_map('array_keys', $used);
+    }
+
+    /**
+     * Every Bootstrap 5 class the markup uses that 4.5 lacks is polyfilled.
+     *
+     * Changes that must make it fail: deleting the .gap-3 rule from the
+     * polyfill, or the .text-bg-danger rule, which only an audit status or
+     * outcome value reaches.
+     *
+     * @return void
+     */
+    public function test_every_bs5_utility_used_is_polyfilled(): void {
+        $polyfilled = $this->polyfilled_tokens();
+        $this->assertNotEmpty($this->badge_suffixes(), 'No badge suffix found in classes/, so text-bg-{{...}} goes unchecked.');
+        $missing = [];
+        foreach ($this->used_bs5_tokens() as $token => $files) {
+            if (!in_array($token, $polyfilled, true)) {
+                $missing[] = $token . ' (' . implode(', ', array_slice($files, 0, 3)) . ')';
+            }
+        }
+        sort($missing);
+        $this->assertSame(
+            [],
+            $missing,
+            'These Bootstrap 5 classes resolve to nothing on Moodle 4.5; define them in the polyfill at the '
+                . 'tail of styles.css: ' . implode('; ', $missing)
+        );
+    }
+
+    /**
+     * The polyfill defines nothing the markup no longer uses.
+     *
+     * Change that must make it fail: adding a .fw-light rule to the polyfill.
+     *
+     * @return void
+     */
+    public function test_polyfill_carries_nothing_unused(): void {
+        // The gate itself, and the form-check pair whose Bootstrap 4 layout the polyfill corrects.
+        $structural = [bootstrap::BODY_CLASS_BS4, 'form-check', 'form-check-input'];
+        $unused = array_values(array_diff(
+            $this->polyfilled_tokens(),
+            array_keys($this->used_bs5_tokens()),
+            $structural
+        ));
+        sort($unused);
+        $this->assertSame(
+            [],
+            $unused,
+            'The Bootstrap 4 polyfill defines classes nothing uses any more; delete them: ' . implode(', ', $unused)
+        );
+    }
+
+    /**
+     * Every plugin page that prints a header adds the polyfill's gate first.
+     *
+     * add_body_class() throws once the header is out, so the call must come
+     * before it. Code only: comments are stripped before matching. Change
+     * that must make it fail: removing the mark_page() call from bulkedit.php.
+     *
+     * @return void
+     */
+    public function test_entry_points_mark_the_bootstrap_version(): void {
+        $checked = 0;
+        $offenders = [];
+        foreach (glob(dirname(__DIR__, 2) . '/*.php') ?: [] as $path) {
+            $code = '';
+            foreach (token_get_all(file_get_contents($path)) as $token) {
+                if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+                    continue;
+                }
+                $code .= is_array($token) ? $token[1] : $token;
+            }
+            $header = strpos($code, '$OUTPUT->header()');
+            if ($header === false) {
+                continue;
+            }
+            $checked++;
+            $mark = strpos($code, 'bootstrap::mark_page();');
+            if ($mark === false || $mark > $header) {
+                $offenders[] = basename($path);
+            }
+        }
+        $this->assertGreaterThan(0, $checked, 'No page prints a header, so this test checked nothing.');
+        $this->assertSame(
+            [],
+            $offenders,
+            'These pages print a header without calling bootstrap::mark_page() before it, so the Bootstrap 4 '
+                . 'polyfill never reaches them: ' . implode(', ', $offenders)
+        );
+    }
+
+    /**
+     * Markup wired to Bootstrap's data API carries both versions' spellings.
+     *
+     * Bootstrap 4 listens on data-toggle and places a right-aligned menu by
+     * dropdown-menu-right; Bootstrap 5 reads data-bs-toggle and
+     * dropdown-menu-end. Two exemptions: tooltips, which bulkedit.js
+     * constructs itself, where a data-toggle="tooltip" would also match
+     * Boost 4.5's delegated tooltip handler and give each element two; and
+     * data-bs-auto-close, which Bootstrap 4 has no option for (bulkedit.js
+     * stops the column menu's clicks instead). Changes that must make it
+     * fail: removing data-toggle or dropdown-menu-right from the column menu
+     * in bulkedit.mustache.
+     *
+     * @return void
+     */
+    public function test_data_api_attributes_are_paired(): void {
+        $pairs = [
+            'data-bs-toggle' => 'data-toggle',
+            'data-bs-target' => 'data-target',
+            'data-bs-dismiss' => 'data-dismiss',
+            'data-bs-parent' => 'data-parent',
+            'dropdown-menu-end' => 'dropdown-menu-right',
+        ];
+        $checked = 0;
+        $offenders = [];
+        foreach ($this->markup_files() as $path) {
+            foreach (file($path) as $number => $line) {
+                if ($this->is_comment_line($line) || preg_match('/data-bs-toggle\W+tooltip/', $line)) {
+                    continue;
+                }
+                foreach ($pairs as $bs5 => $bs4) {
+                    if (!preg_match('/(?<![\w-])' . preg_quote($bs5, '/') . '(?![\w-])/', $line)) {
+                        continue;
+                    }
+                    $checked++;
+                    if (!preg_match('/(?<![\w-])' . preg_quote($bs4, '/') . '(?![\w-])/', $line)) {
+                        $offenders[] = basename($path) . ':' . ($number + 1) . ' has ' . $bs5 . ' without ' . $bs4;
+                    }
+                }
+            }
+        }
+        $this->assertGreaterThan(0, $checked, 'No data-API markup found, so this test checked nothing.');
+        $this->assertSame(
+            [],
+            $offenders,
+            'Bootstrap 4 (Moodle 4.5) reads only its own spelling, so the component never opens there: '
+                . implode('; ', $offenders)
+        );
+    }
+
+    /**
+     * Every Bootstrap 5 theme token in styles.css carries a fallback.
+     *
+     * Moodle 4.5 defines the Bootstrap 4 names (--success, --warning) and no
+     * --bs-* token, and an unresolved var() without a fallback makes the whole
+     * declaration invalid rather than falling back to the property's default.
+     * Change that must make it fail: dropping the fallback from the rule
+     * builder's border colour.
+     *
+     * @return void
+     */
+    public function test_theme_tokens_carry_a_fallback(): void {
+        $css = preg_replace('~/\*.*?\*/~s', '', file_get_contents(dirname(__DIR__, 2) . '/styles.css'));
+        $this->assertGreaterThan(0, preg_match_all('/var\(\s*--bs-/', $css), 'styles.css reads no theme token.');
+        preg_match_all('/var\(\s*--bs-[a-z0-9-]+\s*\)/', $css, $matches);
+        $this->assertSame(
+            [],
+            $matches[0],
+            'Moodle 4.5 defines no --bs-* token; chain these as var(--bs-x, var(--x, literal)): '
+                . implode(', ', $matches[0])
+        );
     }
 }

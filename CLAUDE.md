@@ -67,7 +67,8 @@ mdl purge m501                           # after PHP changes that affect output
 distribute.php               Step 1+2 controller: options form POST target and
                              preview renderer (sticky_footer with apply/back)
 apply.php                    Step 3: fingerprint re-check, inline vs adhoc
-status.php                   Background apply progress (core task_indicator)
+status.php                   Background apply progress (core task_indicator where
+                             it exists; on 4.5 the stored bar and a periodic reload)
 audit.php                    Distribution log course report: run list + run
                              detail from the snapshot, both paged, with the
                              two searches and a pinned-group view (gate:
@@ -90,6 +91,9 @@ classes/
   local/fields.php           Group custom field provisioning + bulk readers
   local/profilefields.php    Affinity source enumeration and authorization —
                              fields, cohorts and course groups (visibility-filtered)
+  local/bootstrap.php        Bootstrap 4 body class (4.5 only) gating the polyfill
+                             at the tail of styles.css
+  local/stored_progress.php  4.5 stand-in for core\progress\stored
   local/plaintext.php        The one helper behind every plain-text sink for
                              admin-set names (see the escaping gotcha)
   external/get_preview.php   Paged preview WS (recomputes per call)
@@ -148,6 +152,49 @@ One branch per Moodle version, in the Boost Union style:
   `MOODLE_502_STABLE` need no checkout while nothing mounts them). Run
   `mdl ci moodle-local_groupdist-<n> --matrix --behat` from the checkout of the
   branch under test.
+
+## Moodle 4.5 on this branch
+
+Everything below is what this branch needs on top of `main`. Where 4.5 lacks a
+core API the code checks for the API, never for the branch, so `main` can take
+the same code; the divergences that cannot go to `main` are marked.
+
+- **Shortname uniqueness**: `fields::is_shortname_unique()` delegates to
+  `core_customfield\api::is_shortname_unique()`, which 4.5 lacks, and
+  otherwise runs the query of 4.5's `field_config_form::validation()`.
+- **Background apply progress**: 4.5's `stored_progress_task_trait` has only
+  `start_stored_progress()`; there is no pending bar, no `get_progress()`, no
+  `core\progress\stored` and no `core\output\task_indicator`.
+  `apply_distribution::initialise_progress()` and `progress_reporter()`
+  dispatch to core where it exists; `status.php` shows the indicator's heading
+  and message, the bar once its row exists (never before: `core/stored_progress`
+  polls an undefined id and paints the bar red), and reloads itself at the poll
+  interval while the task exists.
+- **Number ceiling**: `{customfield_data}.decvalue` is NUMBER(10,5) on 4.5, so
+  100000 fails the write and core's number element has no ceiling rule there.
+  `fields::number_ceiling()` reads the bound from the column (10^10, core's
+  `SQL_INT_MAX + 1`, on 5.x), and both the inline save and the modal refuse at
+  it with core's `maximumvalueerror`.
+- **Page scripts** load `config.php` with `require_once` (see "Testing notes").
+- **Bootstrap 4**: 4.5 ships Bootstrap 4 with a bridge that covers only a few
+  Bootstrap 5 names. The Bootstrap 5 classes the markup uses beyond it are
+  polyfilled at the tail of `styles.css` behind `body.local-groupdist-bs4`,
+  which `local\bootstrap::mark_page()` adds below 5.0 from every page that
+  prints a header (the gate keeps the polyfill from outranking Bootstrap 5's
+  own utilities). A Bootstrap 5 class new to the markup needs a polyfill rule,
+  and `bootstrap_compat_test` says which. Data-API markup carries both
+  spellings, `data-toggle` beside `data-bs-toggle` and `dropdown-menu-right`
+  beside `dropdown-menu-end` (branch-only: `main` does not need the Bootstrap 4
+  names), except tooltips: `bulkedit.js` builds them itself and tracks them in
+  a `WeakMap`, because Bootstrap 4 has no `Tooltip.getInstance()` and a
+  `data-toggle="tooltip"` would also match Boost 4.5's delegated handler. The
+  column menu stops its own clicks, Bootstrap 4 having no `auto-close`; the
+  Behat scenario "The column menu hides a column and stays open while boxes
+  are ticked" is what reddens when either half goes.
+- **`amd/build` is rebuilt per branch, never cherry-picked**: build it with 4.5's
+  own toolchain (`grunt amd` from `~/dev/moodle-405`, Node 22). On this
+  branch it reproduced main's build of every module it did not change.
+- **PHPUnit metadata** is docblock tags (see "Testing notes").
 
 ## Architecture gotchas
 
@@ -384,7 +431,8 @@ One branch per Moodle version, in the Boost Union style:
   control is "Back to groups", and `bulkedit.js` confirms before leaving
   while cells are still dirty. The sticky footer carries action buttons
   only; the unsaved-changes counter is page status and lives in the toolbar.
-- **`bootstrap_compat_test` is the only gate that reads a class name.**
+- **`bootstrap_compat_test` is the only gate that reads a class name.** On
+  this branch it also pins the 4.5 polyfill (see "Moodle 4.5 on this branch").
   Badge backgrounds must state the exact text utility the test's map names
   (BS5 defaults `.badge` to white, so `bg-light` alone renders ~1.05:1, and
   `bg-light` with the theme-relative `text-muted` is unreadable in dark mode;
@@ -399,7 +447,7 @@ One branch per Moodle version, in the Boost Union style:
   properties (`data_controller::instance_form_save`, property_exists check) —
   never "helpfully" fill in the other fields' properties, that would wipe them.
   Each cell is validated like core's group form (parse, required, number
-  ceiling, then the field's own `instance_form_validation()`), one group at a
+  ceiling (`fields::number_ceiling()`), then the field's own `instance_form_validation()`), one group at a
   time; a refused cell goes into `errors` and is not written while the valid
   cells of the same call are saved, and only malformed requests (foreign or
   hidden group, non-editable field, too many changes) throw. Seats are whole

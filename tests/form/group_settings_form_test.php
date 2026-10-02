@@ -634,4 +634,44 @@ final class group_settings_form_test extends \advanced_testcase {
         $values = \local_groupdist\local\fields::get_group_values([(int) $group->id]);
         $this->assertSame((int) ($ceiling - 1), $values[(int) $group->id]->seats);
     }
+
+    /**
+     * Where core's number element carries a ceiling of its own, the plugin's
+     * ceiling is that same bound, and a request posting a larger hidden
+     * maximum does not lift it.
+     *
+     * Core's rule compares the value with the hidden maximum the request posts
+     * back, so an inflated one passes it and only the plugin's check refuses
+     * the value; Moodle 4.5's element has no hidden maximum, and the posted one
+     * is ignored. Changes that must make it fail: a ceiling above or below
+     * core's on a site whose element has one, or the modal no longer running
+     * its own ceiling check.
+     *
+     * @return void
+     */
+    public function test_a_posted_maximum_does_not_lift_the_ceiling(): void {
+        [, $group] = $this->setup_course();
+        \local_groupdist\local\fields::reset_field_cache();
+        \local_groupdist\local\fields::ensure_fields_exist();
+        \local_groupdist\local\fields::reset_field_cache();
+        $ceiling = \local_groupdist\local\fields::number_ceiling();
+        $seats = 'customfield_' . \local_groupdist\local\fields::SHORTNAME_SEATS;
+
+        $rendered = $this->mform($this->make_form((int) $group->id));
+        if ($rendered->elementExists($seats . '_maximum')) {
+            $this->assertEquals((float) $rendered->getElement($seats . '_maximum')->getValue(), $ceiling);
+        }
+
+        $form = $this->make_form((int) $group->id, [
+            'name' => $group->name,
+            'description_editor' => ['text' => '', 'format' => FORMAT_HTML, 'itemid' => 0],
+            $seats => $ceiling,
+            $seats . '_maximum' => PHP_INT_MAX,
+            'customfield_' . \local_groupdist\local\fields::SHORTNAME_LOCATION => '',
+        ]);
+        $this->assertFalse($form->is_validated());
+        $errors = $this->mform($form)->_errors;
+        $this->assertSame(get_string('maximumvalueerror', 'customfield_number', $ceiling - 1), $errors[$seats] ?? null);
+        $this->assertSame([$seats], array_keys($errors));
+    }
 }

@@ -163,16 +163,20 @@ docs/                        Approved HTML mockups + design decisions (export-ig
   `distribution::build()` must apply the same exclusion or retries abort as
   "stale" with the remainder unwritten. The converse rule is that a seed
   whose run is spent is never reused for a NEW plan: `runlog::is_seed_spent()`
-  (COMPLETED, PARTIAL, or ABORTED with writes) makes `distribute.php` mint a
+  (COMPLETED, PARTIAL, ABORTED with writes, or any stamped membership) makes `distribute.php` mint a
   fresh seed on Back and on preview, because under the old one the run's own
   stamped rows are invisible and a changed plan could place a user in a second
-  group. `apply.php` also refuses a replayed POST once the run is COMPLETED
-  (`runlog::is_applied()`). `runlog::abort()` marks the memberships an earlier
+  group. `apply.php` refuses a POST under any spent seed (`is_seed_spent()`;
+  `runlog::is_applied()` only picks the message), so an inline apply that
+  committed some memberships cannot be retried with the same POST and the
+  teacher starts a new distribution. `runlog::abort()` marks the memberships an earlier
   attempt wrote as written, and `apply_distribution::get_taskid_for_course()`
   ignores a task with no attempts left, so an exhausted task neither shows a
-  frozen progress bar nor blocks a new apply. A PENDING run that wrote
-  memberships does not yet count as a spent seed (its `memberswritten` is 0
-  until sealed).
+  frozen progress bar nor blocks a new apply. A seed also counts as spent when
+  memberships stamped `local_groupdist` + the seed exist in the course, which
+  covers a PENDING run that wrote (its `memberswritten` is 0 until sealed). The
+  apply task never consults that check: its recompute must keep running under
+  its own spent seed.
 - **Candidate query**: `groups_get_potential_members()` is unusable here — it
   dies with `dml_exception('mixedtypesqlparam')` when asked for custom profile
   fields (MDL-70456). The own query uses

@@ -12,6 +12,7 @@
 /.gitattributes       export-ignore
 /.github              export-ignore
 /.gitignore           export-ignore
+/.mdlshield          export-ignore
 /.moodle-plugin-ci.yml export-ignore
 /.phpcsignore         export-ignore
 /.stylelintrc.json    export-ignore

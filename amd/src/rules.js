@@ -59,7 +59,6 @@ const SELECTORS = {
     SOURCERESULTS: '[data-region="sourceresults"]',
     SOURCEPICK: '[data-region="sourcepick"]',
     CLEARSOURCE: '[data-action="clearsource"]',
-    IGNOREGROUPED: '[name="ignoregrouped"]',
 };
 
 /** @var {Object} Search web service per source kind. */
@@ -83,7 +82,7 @@ const state = {
     groups: [],
     groupsearch: false,
     destinations: [],
-    destinationstrings: {blocked: '', also: ''},
+    destinationblocked: '',
     courseid: 0,
     maxrules: 10,
     rules: [],
@@ -141,27 +140,6 @@ const move = (from, to) => {
 const isDestination = (source) => state.destinations.indexOf(source) !== -1;
 
 /**
- * Whether the ignore-grouped filter is currently ticked.
- *
- * Read from the live checkbox rather than cached, because unticking it makes
- * a destination group a usable source again without any page reload.
- *
- * @returns {Boolean} True when the filter is on.
- */
-const ignoreGrouped = () => {
-    const checkbox = document.querySelector(SELECTORS.IGNOREGROUPED);
-    return checkbox ? checkbox.checked : true;
-};
-
-/**
- * Whether a source key is a destination that cannot constrain anything.
- *
- * @param {String} source The source key.
- * @returns {Boolean} True when the option must be disabled.
- */
-const isBlockedDestination = (source) => isDestination(source) && ignoreGrouped();
-
-/**
  * The option label for one source, marked when it is a destination of this run.
  *
  * @param {String} source The source key.
@@ -172,8 +150,7 @@ const optionLabel = (source, name) => {
     if (!isDestination(source)) {
         return name;
     }
-    const template = ignoreGrouped() ? state.destinationstrings.blocked : state.destinationstrings.also;
-    return template.replace(NAMETOKEN, name);
+    return state.destinationblocked.replace(NAMETOKEN, name);
 };
 
 /**
@@ -209,9 +186,10 @@ const optionsFor = (rule) => {
         value: option.value,
         label: optionLabel(option.value, option.label),
         selected: option.value === rule.source,
-        // A blocked destination stays listed but disabled, so the reader finds
-        // it and its label says why it cannot be used.
-        disabled: isBlockedDestination(option.value) && option.value !== rule.source,
+        // A destination stays listed but disabled, so the reader finds it and
+        // its label says why it cannot be used: whether the ignore-grouped
+        // filter is on or off, no candidate being placed holds its value.
+        disabled: isDestination(option.value) && option.value !== rule.source,
     }));
 };
 
@@ -260,7 +238,7 @@ const searchSources = async(row, index, kind, query) => {
         option.type = 'button';
         option.className = 'list-group-item list-group-item-action small';
         option.setAttribute('role', 'option');
-        const blocked = isBlockedDestination(match.value);
+        const blocked = isDestination(match.value);
         option.disabled = blocked;
         option.textContent = optionLabel(match.value, match.label);
         option.addEventListener('click', () => {
@@ -452,22 +430,12 @@ export const init = async() => {
         label: rule.label || '',
     }));
 
-    const [blocked, also] = await Promise.all([
-        getString('rulegroupdestinationblocked', 'local_groupdist', NAMETOKEN),
-        getString('rulegroupdestinationalso', 'local_groupdist', NAMETOKEN),
-    ]);
-    state.destinationstrings = {blocked, also};
+    state.destinationblocked = await getString('rulegroupdestinationblocked', 'local_groupdist', NAMETOKEN);
 
     state.root.querySelector(SELECTORS.ADD).addEventListener('click', () => {
         state.rules.push({kind: 'field', source: '', mode: 'together', label: ''});
         render();
     });
-    /* The ignore-grouped filter decides whether a destination group is a
-       usable source, so the picker has to follow it rather than read it once. */
-    const ignore = document.querySelector(SELECTORS.IGNOREGROUPED);
-    if (ignore) {
-        ignore.addEventListener('change', () => render());
-    }
     /* Clicking anywhere outside a picker closes its suggestion list. Bound
        once on the document rather than per row, because render() rebuilds
        every row and per-row handlers would accumulate. */

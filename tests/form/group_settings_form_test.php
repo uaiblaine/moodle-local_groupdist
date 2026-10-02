@@ -589,4 +589,48 @@ final class group_settings_form_test extends \advanced_testcase {
         $form = $submit('3');
         $this->assertTrue($form->is_validated(), 'Did not validate: ' . json_encode($this->mform($form)->_errors));
     }
+
+    /**
+     * The modal refuses a number the field cannot store, with the message of
+     * core's own ceiling rule, instead of failing on the database write.
+     *
+     * Where core has the rule it refuses the value first; Moodle 4.5 has none,
+     * so there only the plugin's check stands between the value and the
+     * write. The control saves the largest value below the ceiling, which
+     * fails if the ceiling were above what the column holds.
+     *
+     * @return void
+     */
+    public function test_a_number_the_field_cannot_store_is_refused(): void {
+        [, $group] = $this->setup_course();
+        \local_groupdist\local\fields::reset_field_cache();
+        \local_groupdist\local\fields::ensure_fields_exist();
+        \local_groupdist\local\fields::reset_field_cache();
+        $ceiling = \local_groupdist\local\fields::number_ceiling();
+
+        $seats = 'customfield_' . \local_groupdist\local\fields::SHORTNAME_SEATS;
+        $submit = function (float $seatsvalue) use ($group, $seats): group_settings_form {
+            return $this->make_form((int) $group->id, [
+                'name' => $group->name,
+                'description_editor' => ['text' => '', 'format' => FORMAT_HTML, 'itemid' => 0],
+                $seats => $seatsvalue,
+                // The customfield_number element pairs the input with a hidden ceiling element.
+                $seats . '_maximum' => SQL_INT_MAX + 1,
+                'customfield_' . \local_groupdist\local\fields::SHORTNAME_LOCATION => '',
+            ]);
+        };
+
+        $form = $submit($ceiling);
+        $this->assertFalse($form->is_validated());
+        $errors = $this->mform($form)->_errors;
+        $this->assertSame(get_string('maximumvalueerror', 'customfield_number', $ceiling - 1), $errors[$seats] ?? null);
+        $this->assertSame([$seats], array_keys($errors));
+
+        // Control: the largest whole number below the ceiling is saved.
+        $form = $submit($ceiling - 1);
+        $this->assertTrue($form->is_validated(), 'Did not validate: ' . json_encode($this->mform($form)->_errors));
+        $form->process_dynamic_submission();
+        $values = \local_groupdist\local\fields::get_group_values([(int) $group->id]);
+        $this->assertSame((int) ($ceiling - 1), $values[(int) $group->id]->seats);
+    }
 }

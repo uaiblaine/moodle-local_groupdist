@@ -262,8 +262,8 @@ class group_settings_form extends dynamic_form {
 
     /**
      * Core's group form validation: unique name, unique ID number, the
-     * enrolment key rules and the custom fields. The picture check and the
-     * seats rule are this plugin's own.
+     * enrolment key rules and the custom fields. The picture check, the seats
+     * rule and the number ceiling are this plugin's own.
      *
      * @param array $data Submitted data.
      * @param array $files Submitted files.
@@ -294,7 +294,30 @@ class group_settings_form extends dynamic_form {
 
         $errors = array_merge($errors, group_handler::create()->instance_form_validation($data, $files));
         // After core's checks, so a value outside the field's own range keeps core's message.
-        return $errors + $this->validate_seats($data);
+        return $errors + $this->validate_seats($data) + $this->validate_number_ceiling($data);
+    }
+
+    /**
+     * Reject a number no group custom field can store
+     * ({@see \local_groupdist\local\fields::number_ceiling()}), with the
+     * message core's own ceiling rule shows. Where core has that rule it has
+     * already refused the value; Moodle 4.5 has none, and the save would fail
+     * with a database write error instead.
+     *
+     * @param array $data Submitted data.
+     * @return array Errors keyed by element name, empty when every value fits.
+     */
+    protected function validate_number_ceiling(array $data): array {
+        $ceiling = fields::number_ceiling();
+        $errors = [];
+        foreach (group_handler::create()->get_fields() as $field) {
+            $element = 'customfield_' . $field->get('shortname');
+            $value = $data[$element] ?? '';
+            if ($field->get('type') === 'number' && is_numeric($value) && (float) $value >= $ceiling) {
+                $errors[$element] = get_string('maximumvalueerror', 'customfield_number', $ceiling - 1);
+            }
+        }
+        return $errors;
     }
 
     /**

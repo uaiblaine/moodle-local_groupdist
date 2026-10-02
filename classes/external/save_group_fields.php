@@ -24,6 +24,7 @@ use core_external\external_value;
 use core_customfield\data_controller;
 use core_group\customfield\group_handler;
 use local_groupdist\local\distribution;
+use local_groupdist\local\fields;
 use local_groupdist\output\bulkedit_page;
 
 /**
@@ -221,8 +222,9 @@ class save_group_fields extends external_api {
      * The form checks a field in three layers, and this repeats them for the
      * one element a cell carries: the element's own format check (a number
      * must parse), the QuickForm rules the data controller adds in
-     * instance_form_definition() (required, and a number's ceiling below
-     * SQL_INT_MAX + 1), then the controller's instance_form_validation()
+     * instance_form_definition() (required, and a number's ceiling, which
+     * {@see fields::number_ceiling()} reads from the column so it also holds
+     * where core has no ceiling rule), then the controller's instance_form_validation()
      * (a number's minimum and maximum, a text's maximum length, a select's
      * required check, unique values). The handler-level
      * instance_form_validation() cannot be called instead: it validates every
@@ -254,8 +256,9 @@ class save_group_fields extends external_api {
             if ($column['isseats'] && floor($value) != $value) {
                 return get_string('errorseatswhole', 'local_groupdist');
             }
-            if ($value >= SQL_INT_MAX + 1) {
-                return get_string('maximumvalueerror', 'customfield_number', SQL_INT_MAX);
+            $ceiling = fields::number_ceiling();
+            if ($value >= $ceiling) {
+                return get_string('maximumvalueerror', 'customfield_number', $ceiling - 1);
             }
         }
         if (!$data) {

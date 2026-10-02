@@ -18,12 +18,14 @@ write outcome. Everything else lives in core: "Seats"/"Location" are core
 *group custom fields* it provisions, memberships live in `{groups_members}`,
 and previews are recomputed deterministically (seed + fingerprint), never
 stored. Privacy is a full provider (export + pseudonymising deletes) plus
-the bulk-edit column preference. Supports Moodle **5.1 through 5.2**
-(`$plugin->requires = 2025100600`, `$plugin->supported = [501, 502]`).
-CI is the moodle-an-hochschulen reusable workflow, one job per supported
-branch in `.github/workflows/ci.yml` — **update those jobs when `supported`
-changes**. Development happens on the m501/m502 stacks; this repo is mounted
-via `stacks = auto` at `local/groupdist` (see `~/dev/moodle-dev/plugins.conf`).
+the bulk-edit column preference. Each branch supports exactly one Moodle
+version (see "Branches and releases"; `$plugin->supported = [N, N]` in its own
+`version.php`). CI is the moodle-an-hochschulen reusable workflow: one job for
+that branch's core in `.github/workflows/ci.yml` — **update it when
+`supported` changes**. Development happens on the stack of that version; each
+branch is its own checkout (`moodle-local_groupdist` for `main`,
+`moodle-local_groupdist-<n>` for the others), mounted at `local/groupdist` by an
+explicit line in `~/dev/moodle-dev/plugins.conf`.
 
 ## Agent orchestration budget (fleet rule, repeated here on purpose)
 
@@ -116,6 +118,36 @@ templates/                   preview shell, stats tiles, group cards, skeleton,
                              sticky footer actions, selected-groups chips
 docs/                        Approved HTML mockups + design decisions (export-ignored)
 ```
+
+## Branches and releases
+
+One branch per Moodle version, in the Boost Union style:
+
+| Branch | Moodle | Core branch in CI | Notes |
+|---|---|---|---|
+| `main` | newest supported stable (5.2) | `MOODLE_502_STABLE` | always identical in content to `MOODLE_502_STABLE`; all development lands here first |
+| `MOODLE_502_STABLE` | 5.2 | `MOODLE_502_STABLE` | |
+| `MOODLE_501_STABLE` | 5.1 | `MOODLE_501_STABLE` | |
+| `MOODLE_405_STABLE` | 4.5 LTS | `MOODLE_405_STABLE` | PHPUnit 9: class-level `@covers` and `@dataProvider` docblocks, no attributes |
+| `MOODLE_503_dev` | 5.3 (in development) | `main` | `MATURITY_ALPHA`; its push filter is spelled out in its own `ci.yml` because `MOODLE_*_STABLE` does not match it |
+
+- A fix lands on `main` first and is cherry-picked to the older branches.
+  `version.php` and `.github/workflows/ci.yml` **diverge on purpose**: when a
+  cherry-pick conflicts there, keep each branch's own values.
+- Release strings are `v<major>.<minor>-r<N>` (`v4.5-r1`, `v5.1-r1`,
+  `v5.2-r1`), `N` counted per branch, and `$plugin->release` carries the same
+  string as the tag. A tag triggers the moodle.org release workflow, so
+  none is pushed without the owner's instruction.
+- **`$plugin->version` moves in lockstep.** Every maintained branch carries the
+  same number at each release change, so a site that moves from 4.5 to 5.1 to
+  5.2 swaps the plugin between branches without Moodle seeing a downgrade, and
+  a stack never refuses a branch checkout it already has installed. Bump all
+  branches together, never one date per branch.
+- Each non-main branch is its own clone beside the main one
+  (`~/dev/moodle-local_groupdist-501`, `-405`; `MOODLE_503_dev` and
+  `MOODLE_502_STABLE` need no checkout while nothing mounts them). Run
+  `mdl ci moodle-local_groupdist-<n> --matrix --behat` from the checkout of the
+  branch under test.
 
 ## Architecture gotchas
 

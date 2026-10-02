@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Development moves to one branch per Moodle version (`main` tracks 5.2;
+  `MOODLE_502_STABLE`, `MOODLE_501_STABLE`, `MOODLE_405_STABLE` and
+  `MOODLE_503_dev` carry the others), each declaring a single supported
+  version. Releases are named `v4.5-r1`, `v5.1-r1`, `v5.2-r1`.
+
+### Changed
+
 - The code comments were rewritten to say what the code does and why, and every
   comment that contradicted its code was corrected. Comments only; the rebuilt
   `amd/build` source maps and the version bump are the sole non-comment changes.

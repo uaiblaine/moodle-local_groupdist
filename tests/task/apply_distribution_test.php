@@ -56,7 +56,8 @@ final class apply_distribution_test extends \advanced_testcase {
     }
 
     /**
-     * A matching fingerprint writes the memberships.
+     * A matching fingerprint writes the memberships and fills the task's
+     * progress bar.
      */
     public function test_execute_applies_on_matching_fingerprint(): void {
         global $DB;
@@ -80,6 +81,9 @@ final class apply_distribution_test extends \advanced_testcase {
         $sink->close();
         $this->assertCount(1, $messages);
         $this->assertSame('applyresult', $messages[0]->eventtype);
+        // The stored progress bar the status page polls was moved to the end.
+        $idnumber = \core\output\stored_progress_bar::convert_to_idnumber(apply_distribution::class, $taskid);
+        $this->assertEquals(100, $DB->get_field('stored_progress', 'percentcompleted', ['idnumber' => $idnumber]));
     }
 
     /**

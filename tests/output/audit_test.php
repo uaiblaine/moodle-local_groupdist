@@ -77,7 +77,7 @@ final class audit_test extends \advanced_testcase {
         foreach ($fixtures as $key => [$city, $guardian, $firstname]) {
             $user = $generator->create_and_enrol($course, 'student', ['firstname' => $firstname, 'lastname' => 'Souza']);
             $user->city = $city;
-            user_update_user($user, false);
+            \core\user::update_user($user, false);
             profile_save_data((object) ['id' => $user->id, 'profile_field_guardian' => $guardian]);
             $participants[$key] = $user;
         }

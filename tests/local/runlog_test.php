@@ -41,7 +41,7 @@ final class runlog_test extends \advanced_testcase {
         foreach (['A', 'A', 'B'] as $city) {
             $user = $generator->create_and_enrol($course);
             $user->city = $city;
-            user_update_user($user, false);
+            \core\user::update_user($user, false);
         }
 
         $options = options::from_array([

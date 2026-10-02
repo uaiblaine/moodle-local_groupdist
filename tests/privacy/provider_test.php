@@ -49,7 +49,7 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         $group = $generator->create_group(['courseid' => $course->id]);
         $participant = $generator->create_and_enrol($course);
         $participant->city = 'Fortaleza';
-        user_update_user($participant, false);
+        \core\user::update_user($participant, false);
         $teacher = $generator->create_and_enrol($course, 'editingteacher');
 
         $options = options::from_array([

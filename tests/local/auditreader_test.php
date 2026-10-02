@@ -51,7 +51,7 @@ final class auditreader_test extends \advanced_testcase {
             $user = $generator->create_and_enrol($course);
             $user->lastname = $lastname;
             $user->city = $city;
-            user_update_user($user, false);
+            \core\user::update_user($user, false);
         }
 
         $this->setAdminUser();
@@ -419,7 +419,7 @@ final class auditreader_test extends \advanced_testcase {
             $user = $generator->create_and_enrol($course);
             $user->lastname = $lastname;
             $user->city = 'Recife';
-            user_update_user($user, false);
+            \core\user::update_user($user, false);
             $generator->create_group_member(['groupid' => $source->id, 'userid' => $user->id]);
         }
 

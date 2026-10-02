@@ -356,7 +356,7 @@ final class candidates_test extends \advanced_testcase {
 
         $user = $generator->create_and_enrol($course);
         $user->city = 'Fortaleza';
-        user_update_user($user, false);
+        \core\user::update_user($user, false);
 
         $field = $generator->create_custom_profile_field([
             'shortname' => 'campus',

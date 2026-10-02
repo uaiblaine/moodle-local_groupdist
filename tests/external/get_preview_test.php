@@ -266,7 +266,7 @@ final class get_preview_test extends \externallib_advanced_testcase {
             $user->lastname = $last;
             $user->city = $city;
             $user->department = 'D1';
-            user_update_user($user, false);
+            \core\user::update_user($user, false);
         }
         $teacher = $generator->create_and_enrol($course, 'editingteacher');
         $this->setUser($teacher);

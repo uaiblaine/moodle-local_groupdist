@@ -57,7 +57,7 @@ final class get_audit_test extends \externallib_advanced_testcase {
         for ($i = 0; $i < $usercount; $i++) {
             $user = $generator->create_and_enrol($course);
             $user->city = $city;
-            user_update_user($user, false);
+            \core\user::update_user($user, false);
         }
         $teacher = $generator->create_and_enrol($course, 'editingteacher');
 

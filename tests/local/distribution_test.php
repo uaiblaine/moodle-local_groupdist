@@ -139,7 +139,7 @@ final class distribution_test extends \advanced_testcase {
         // A rename shifts it: sort keys feed every allocation order, including
         // the shuffle's input permutation.
         $extra->lastname = 'Zzzzz';
-        user_update_user($extra, false);
+        \core\user::update_user($extra, false);
         $fifth = distribution::build($options, $context);
         $this->assertNotSame($fourth->fingerprint, $fifth->fingerprint);
     }
@@ -163,7 +163,7 @@ final class distribution_test extends \advanced_testcase {
 
         $victim = current($before->users);
         $update = (object) ['id' => $victim->id, 'city' => 'Elsewhere'];
-        user_update_user($update, false);
+        \core\user::update_user($update, false);
 
         $after = distribution::build($options, $context);
         $this->assertNotSame($before->fingerprint, $after->fingerprint);
@@ -191,7 +191,7 @@ final class distribution_test extends \advanced_testcase {
 
         $victim = current($before->users);
         $update = (object) ['id' => $victim->id, 'department' => 'Elsewhere'];
-        user_update_user($update, false);
+        \core\user::update_user($update, false);
 
         $after = distribution::build($options, $context);
         $this->assertNotSame($before->fingerprint, $after->fingerprint);

@@ -395,30 +395,35 @@ final class save_group_fields_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * A number at or above the group form's ceiling is refused even when the
-     * field declares no maximum: core's number element carries a compare rule
-     * against SQL_INT_MAX + 1 of its own.
+     * A number at or above what the field can store is refused even when the
+     * field declares no maximum, with the message of core's own ceiling rule
+     * (SQL_INT_MAX + 1 where core has one).
+     *
+     * The control writes the largest whole number below the ceiling and reads
+     * it back, which fails with a database error if the ceiling were above
+     * what {customfield_data}.decvalue holds.
      */
     public function test_number_above_the_form_ceiling_is_refused(): void {
         $this->resetAfterTest();
         [$course, $group1, $group2, $teacher] = $this->make_course();
         $this->create_group_field('number', 'budget', ['decimalplaces' => 0, 'minimumvalue' => '', 'maximumvalue' => '']);
         $this->setUser($teacher);
+        $ceiling = fields::number_ceiling();
 
         $response = $this->call((int) $course->id, [
-            ['groupid' => (int) $group1->id, 'shortname' => 'budget', 'value' => (string) (SQL_INT_MAX + 1)],
-            ['groupid' => (int) $group2->id, 'shortname' => 'budget', 'value' => (string) SQL_INT_MAX],
+            ['groupid' => (int) $group1->id, 'shortname' => 'budget', 'value' => (string) $ceiling],
+            ['groupid' => (int) $group2->id, 'shortname' => 'budget', 'value' => (string) ($ceiling - 1)],
         ]);
 
         $refused = $this->refused($response);
         $this->assertSame(
-            get_string('maximumvalueerror', 'customfield_number', SQL_INT_MAX),
+            get_string('maximumvalueerror', 'customfield_number', $ceiling - 1),
             $refused[$group1->id . ':budget'] ?? null
         );
         $this->assertCount(1, $refused);
         $this->assertNull($this->stored('budget', (int) $group1->id));
         // Control: the largest value the form accepts was written.
-        $this->assertSame((float) SQL_INT_MAX, (float) $this->stored('budget', (int) $group2->id)->decvalue);
+        $this->assertSame($ceiling - 1, (float) $this->stored('budget', (int) $group2->id)->decvalue);
     }
 
     /**

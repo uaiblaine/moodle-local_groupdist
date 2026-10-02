@@ -170,10 +170,9 @@ final class applier_test extends \advanced_testcase {
         accesslib_clear_all_caches_for_unit_testing();
         $this->setUser($teacher);
 
-        /* Preconditions. Without them this test passes by doing nothing: if the
-           distributor could see the group, core's own guard would report the
-           member, no duplicate key would be raised and the replay path — the
-           only place the probe lives — would never be entered. */
+        /* Preconditions: if the distributor could see the group, core's own
+           guard would report the member, no duplicate key would be raised and
+           the replay path would never run. */
         $this->assertFalse(has_capability('moodle/course:viewhiddengroups', $context));
         $this->assertTrue(
             $DB->record_exists('groups_members', ['groupid' => $group->id, 'userid' => $preexisting])

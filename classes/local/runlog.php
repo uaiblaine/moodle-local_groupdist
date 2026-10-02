@@ -41,7 +41,7 @@ class runlog {
     /** @var int Run status: finished with rejected writes. */
     public const STATUS_PARTIAL = 2;
 
-    /** @var int Run status: aborted before writing (stale fingerprint). */
+    /** @var int Run status: aborted on a stale fingerprint; an earlier interrupted attempt may have written some members. */
     public const STATUS_ABORTED = 3;
 
     /** @var int Member outcome: write planned, not performed yet. */
@@ -53,7 +53,7 @@ class runlog {
     /** @var int Member outcome: rejected by core (deleted/unenrolled meanwhile). */
     public const WRITE_FAILED = 2;
 
-    /** @var int Member outcome: no group had capacity left. */
+    /** @var int Member outcome: no room left in a group they did not already belong to. */
     public const WRITE_UNASSIGNED = 3;
 
     /** @var int Member outcome: no write needed (already sat with their peers). */
@@ -188,26 +188,142 @@ class runlog {
     }
 
     /**
-     * Mark a run as aborted before anything was written (stale fingerprint).
+     * Mark a run as aborted on a stale fingerprint, recording what it wrote.
      *
-     * Member rows keep their planned status — accurately: no write happened.
+     * The aborting attempt writes nothing, but a retried adhoc task may follow
+     * an attempt that committed some chunks and then died. Those
+     * memberships carry this run's stamp (component local_groupdist, itemid =
+     * the seed), so each planned member whose planned membership exists with
+     * that stamp is marked written, and memberswritten counts them. A
+     * membership added any other way stays planned: this run did not write it.
+     *
+     * A missing run (its course deleted, or the retention task purged it) is
+     * not an error: the caller is the adhoc task's stale branch, which must
+     * not throw.
      *
      * @param int $runid The run id.
-     * @return void
+     * @return int Memberships an earlier attempt of this run had written (0 on a
+     *   first attempt, and when the run no longer exists).
      */
-    public static function abort(int $runid): void {
+    public static function abort(int $runid): int {
         global $DB;
 
+        $run = $DB->get_record('local_groupdist_run', ['id' => $runid], 'id, seed', IGNORE_MISSING);
+        if (!$run) {
+            return 0;
+        }
+        $ids = $DB->get_fieldset_sql(
+            "SELECT ru.id
+               FROM {local_groupdist_run_user} ru
+               JOIN {groups_members} gm ON gm.groupid = ru.groupid AND gm.userid = ru.userid
+              WHERE ru.runid = :runid
+                AND ru.writestatus = :planned
+                AND ru.groupid <> 0
+                AND gm.component = :component
+                AND gm.itemid = :seed",
+            [
+                'runid' => $runid,
+                'planned' => self::WRITE_PLANNED,
+                'component' => 'local_groupdist',
+                'seed' => (int) $run->seed,
+            ]
+        );
+        foreach (array_chunk($ids, 500) as $chunk) {
+            [$insql, $params] = $DB->get_in_or_equal($chunk, SQL_PARAMS_NAMED, 'ru');
+            $DB->set_field_select('local_groupdist_run_user', 'writestatus', self::WRITE_WRITTEN, "id {$insql}", $params);
+        }
+
+        $written = $DB->count_records('local_groupdist_run_user', ['runid' => $runid, 'writestatus' => self::WRITE_WRITTEN]);
         $DB->update_record('local_groupdist_run', (object) [
             'id' => $runid,
             'status' => self::STATUS_ABORTED,
+            'memberswritten' => $written,
             'timecompleted' => time(),
+        ]);
+        return $written;
+    }
+
+    /**
+     * Whether a distribution with this seed has already been applied to the course.
+     *
+     * Only a completed run counts. apply.php refuses every spent seed
+     * ({@see self::is_seed_spent()}) and asks this only to tell a replay of a
+     * completed apply from a seed that wrote only part of its plan.
+     *
+     * @param int $courseid The course id.
+     * @param int $seed The distribution seed.
+     * @return bool True when a completed run exists for that course and seed.
+     */
+    public static function is_applied(int $courseid, int $seed): bool {
+        global $DB;
+
+        return $DB->record_exists('local_groupdist_run', [
+            'courseid' => $courseid,
+            'seed' => $seed,
+            'status' => self::STATUS_COMPLETED,
         ]);
     }
 
     /**
-     * Delete every run of a course (course deletion; the recycle bin keeps a
-     * backup file, not the course, so the rows would be unreachable orphans).
+     * Whether a seed is spent: a run under it finished, or memberships carry its stamp.
+     *
+     * Every recompute hides the memberships stamped with its own seed, which is
+     * what lets an interrupted run resume with its original plan
+     * ({@see distribution::build()}). Once a run has written, that same
+     * invisibility makes a new plan under the seed treat those participants as
+     * ungrouped, so a changed plan can add one of them to a second group. A
+     * spent seed must therefore never start another plan, nor be applied again.
+     *
+     * Spent means a completed or partial run, an aborted one whose earlier
+     * attempt wrote memberships, or any membership in the course stamped with
+     * the seed (component local_groupdist, itemid = the seed). The stamp is
+     * the only sign that a pending run wrote: an interrupted inline apply, or
+     * a background task that died, leaves memberswritten at 0 until complete()
+     * or abort() seals the run.
+     *
+     * This decides the seed of a new plan and whether a POST may apply. A
+     * resumable background run has stamped rows under its own seed by design,
+     * so its recompute must not consult it.
+     *
+     * @param int $courseid The course id.
+     * @param int $seed The distribution seed.
+     * @return bool True when the seed is spent in that course.
+     */
+    public static function is_seed_spent(int $courseid, int $seed): bool {
+        global $DB;
+
+        $finished = $DB->record_exists_select(
+            'local_groupdist_run',
+            'courseid = :courseid AND seed = :seed
+             AND (status IN (:completed, :partial) OR (status = :aborted AND memberswritten > 0))',
+            [
+                'courseid' => $courseid,
+                'seed' => $seed,
+                'completed' => self::STATUS_COMPLETED,
+                'partial' => self::STATUS_PARTIAL,
+                'aborted' => self::STATUS_ABORTED,
+            ]
+        );
+        if ($finished) {
+            return true;
+        }
+        return $DB->record_exists_sql(
+            "SELECT 1
+               FROM {groups_members} gm
+               JOIN {groups} g ON g.id = gm.groupid
+              WHERE g.courseid = :courseid
+                AND gm.component = :component
+                AND gm.itemid = :seed",
+            ['courseid' => $courseid, 'component' => 'local_groupdist', 'seed' => $seed]
+        );
+    }
+
+    /**
+     * Delete every run of a course, on course deletion.
+     *
+     * The recycle bin keeps a backup file, not the course, so the rows would be
+     * unreachable orphans: a restore creates a new course, and the audit travels
+     * in the backup only when course logs are included.
      *
      * @param int $courseid The course id.
      * @return void

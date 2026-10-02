@@ -73,7 +73,7 @@
             <span class="ms-auto small text-muted">
                 {{#hasseats}}
                 <strong class="text-body">{{total}}</strong> / {{seats}}
-                {{#overflow}}<span class="text-warning fw-bold">(+{{.}})</span>{{/overflow}}
+                {{#overflow}}<span class="text-warning-emphasis fw-bold">(+{{.}})</span>{{/overflow}}
                 {{/hasseats}}
                 {{^hasseats}}
                 {{#str}} groupnewmembers, local_groupdist, {{allocated}} {{/str}}

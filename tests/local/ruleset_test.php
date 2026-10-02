@@ -98,7 +98,7 @@ final class ruleset_test extends \basic_testcase {
     }
 
     /**
-     * A source outside the grammar (native whitelist, profile_<id>, cohort_<id>) is rejected.
+     * A source outside the grammar (native whitelist, profile_<id>, cohort_<id>, group_<id>) is rejected.
      */
     public function test_rejects_bad_source(): void {
         $this->expectException(\moodle_exception::class);
@@ -166,9 +166,9 @@ final class ruleset_test extends \basic_testcase {
      * encodings never bleed into each other.
      *
      * The grouping cases are the point: 'grouping_7' is a plausible future
-     * key, and an unanchored group pattern would classify it as a group with
-     * id 7 — which would then be authorized against, and read from, an
-     * entirely unrelated group.
+     * key, and a looser pattern (a 'group' prefix plus a trailing id) would
+     * classify it as a group with id 7, which would then be authorized
+     * against, and read from, an unrelated group.
      */
     public function test_group_source_helpers(): void {
         $this->assertSame(ruleset::KIND_GROUP, ruleset::source_kind('group_9'));

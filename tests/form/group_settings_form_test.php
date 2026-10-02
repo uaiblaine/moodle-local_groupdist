@@ -194,6 +194,31 @@ final class group_settings_form_test extends \advanced_testcase {
     }
 
     /**
+     * With formatstringstriptags off the picture's alt and title still carry
+     * the group name escaped exactly once: the template's double stash does
+     * the escaping, so the name reaches it plain
+     * ({@see \local_groupdist\local\plaintext::format()}).
+     *
+     * @return void
+     */
+    public function test_current_picture_names_the_group_once_with_formatstringstriptags_off(): void {
+        [$course] = $this->setup_course();
+        set_config('formatstringstriptags', 0);
+
+        foreach (['Ana & Bruno' => 'Ana &amp; Bruno', 'Turma <3 anos' => 'Turma '] as $name => $attribute) {
+            $group = $this->getDataGenerator()->create_group(['courseid' => $course->id, 'name' => $name]);
+            $this->make_group_picture($course, $group);
+
+            $form = $this->make_form((int) $group->id);
+            $form->definition_after_data();
+            $picture = $this->mform($form)->getElement('currentpicture')->toHtml();
+
+            $this->assertStringContainsString('alt="' . $attribute . '"', $picture);
+            $this->assertStringContainsString('title="' . $attribute . '"', $picture);
+        }
+    }
+
+    /**
      * Give a group a picture, the way groups_update_group_icon() does.
      *
      * @param \stdClass $course The course.
@@ -335,10 +360,9 @@ final class group_settings_form_test extends \advanced_testcase {
     }
 
     /**
-     * Opening the modal and saving it untouched must change nothing. Every
-     * element added for parity is a way to silently destroy a stored value:
-     * a field that renders empty where the record holds a value wipes it on
-     * the next save, and the modal is the fast path teachers will use.
+     * Opening the modal and saving it untouched must change nothing: an element
+     * that renders empty where the record holds a value would wipe that value
+     * on the next save.
      *
      * @return void
      */
@@ -371,10 +395,9 @@ final class group_settings_form_test extends \advanced_testcase {
     }
 
     /**
-     * The picture really saves through the modal. This is the path with no
-     * core precedent on a group: the filepicker posts a draft item id rather
-     * than a file, and groups_update_group_icon() reads it back out of the
-     * draft area through moodleform::save_temp_file().
+     * The picture really saves through the modal. The filepicker posts a draft
+     * item id rather than a file, and groups_update_group_icon() reads it back
+     * out of the draft area through moodleform::save_temp_file().
      *
      * @return void
      */
@@ -410,11 +433,10 @@ final class group_settings_form_test extends \advanced_testcase {
      * silent deletion of the existing picture that reaching
      * groups_update_group_icon() would cause.
      *
-     * Every case here is one the obvious allowlist would have let through:
-     * svg/svgz/webp are all in core's 'web_image' group (webp is in
-     * 'optimised_image' too) and GD writes none of them, and the renamed text
-     * file is what proves the check reads the file rather than its name. A
-     * plain .txt would pass this test against any allowlist at all.
+     * svg, svgz and webp are in core's 'web_image' file type group (webp is in
+     * 'optimised_image' too), so an allowlist naming a group would accept them,
+     * yet process_new_icon() decodes only GIF, JPEG and PNG. The text file
+     * renamed to .png proves the check reads the content rather than the name.
      *
      * @param string $filename The uploaded name.
      * @param string $content The uploaded bytes.
@@ -489,11 +511,11 @@ final class group_settings_form_test extends \advanced_testcase {
     }
 
     /**
-     * Group custom fields still save now that the modal's own
-     * instance_form_save() call is gone and groups_update_group() makes the
-     * only one. Once-ness itself is NOT asserted here and cannot be by a value
-     * assertion: instance_form_save() reloads its data controllers from
-     * {customfield_data} on every call, so a second call is idempotent.
+     * Group custom fields save through the instance_form_save() call inside
+     * groups_update_group(); the modal makes no call of its own. That it runs
+     * only once cannot be asserted from stored values: instance_form_save()
+     * reloads its data controllers from {customfield_data} on every call, so a
+     * second call is idempotent.
      *
      * @return void
      */
@@ -520,5 +542,51 @@ final class group_settings_form_test extends \advanced_testcase {
         $values = \local_groupdist\local\fields::get_group_values([(int) $group->id]);
         $this->assertSame(17, (int) $values[(int) $group->id]->seats);
         $this->assertSame('Lab 1', $values[(int) $group->id]->location);
+    }
+
+    /**
+     * The modal refuses a fractional seat count, as the inline save does,
+     * while another number field keeps the decimal places it is configured
+     * with. The control submission shows the refusal is the seats value's.
+     *
+     * @return void
+     */
+    public function test_seats_must_be_a_whole_number(): void {
+        [, $group] = $this->setup_course();
+        \local_groupdist\local\fields::reset_field_cache();
+        \local_groupdist\local\fields::ensure_fields_exist();
+        \local_groupdist\local\fields::reset_field_cache();
+        $cfgenerator = $this->getDataGenerator()->get_plugin_generator('core_customfield');
+        $category = $cfgenerator->create_category(['component' => 'core_group', 'area' => 'group', 'itemid' => 0]);
+        $cfgenerator->create_field([
+            'categoryid' => $category->get('id'),
+            'type' => 'number',
+            'shortname' => 'weight',
+            'configdata' => ['decimalplaces' => 2],
+        ]);
+
+        $seats = 'customfield_' . \local_groupdist\local\fields::SHORTNAME_SEATS;
+        $submit = function (string $seatsvalue) use ($group, $seats): group_settings_form {
+            return $this->make_form((int) $group->id, [
+                'name' => $group->name,
+                'description_editor' => ['text' => '', 'format' => FORMAT_HTML, 'itemid' => 0],
+                $seats => $seatsvalue,
+                // Each customfield_number element pairs its input with a hidden ceiling element.
+                $seats . '_maximum' => SQL_INT_MAX + 1,
+                'customfield_weight' => '2.5',
+                'customfield_weight_maximum' => SQL_INT_MAX + 1,
+                'customfield_' . \local_groupdist\local\fields::SHORTNAME_LOCATION => '',
+            ]);
+        };
+
+        $form = $submit('2.5');
+        $this->assertFalse($form->is_validated());
+        $errors = $this->mform($form)->_errors;
+        $this->assertSame(get_string('errorseatswhole', 'local_groupdist'), $errors[$seats] ?? null);
+        $this->assertSame([$seats], array_keys($errors));
+
+        // Control: a whole seat count validates beside the same fractional weight.
+        $form = $submit('3');
+        $this->assertTrue($form->is_validated(), 'Did not validate: ' . json_encode($this->mform($form)->_errors));
     }
 }

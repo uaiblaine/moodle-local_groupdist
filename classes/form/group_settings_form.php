@@ -19,6 +19,7 @@ namespace local_groupdist\form;
 use core_form\dynamic_form;
 use core_group\customfield\group_handler;
 use local_groupdist\local\fields;
+use local_groupdist\local\plaintext;
 use local_groupdist\output\bulkedit_page;
 
 /**
@@ -145,15 +146,14 @@ class group_settings_form extends dynamic_form {
         $mform->addElement('checkbox', 'deletepicture', get_string('delete'));
         $mform->setDefault('deletepicture', 0);
 
-        /* Core passes no options here, which accepts any file and then lets
-           process_new_icon() fail inside groups_update_group_icon() — and that
-           failure path DELETES the group's existing picture. This list mirrors
-           process_new_icon()'s own switch (gdlib.php: GIF, JPEG, PNG) so the
-           loss becomes a form error instead. Do NOT simplify it to a file-type
-           group: 'web_image' carries svg, svgz and webp and 'optimised_image'
-           carries webp, none of which GD writes here, so the picker would
-           advertise formats that destroy the picture on save. The extension is
-           only half the check — validation() reads the file itself. */
+        /* Core passes no options here, so any file is accepted and
+           process_new_icon() then fails inside groups_update_group_icon(),
+           whose failure branch deletes the group's existing picture. This list
+           mirrors the types process_new_icon() decodes (GIF, JPEG, PNG). Do not
+           replace it with a file-type group: 'web_image' includes svg, svgz and
+           webp, and 'optimised_image' includes webp, none of which it decodes.
+           The extension is only half the check: validate_picture() reads the
+           file itself. */
         $mform->addElement('filepicker', 'imagefile', get_string('newpicture', 'group'), null, [
             'accepted_types' => self::PICTURE_TYPES,
         ]);
@@ -213,7 +213,7 @@ class group_settings_form extends dynamic_form {
             return '';
         }
         $context = $this->get_context_for_dynamic_submission();
-        $name = format_string($group->name, true, ['context' => $context, 'escape' => false]);
+        $name = plaintext::format($group->name, $context);
         return $OUTPUT->render_from_template('local_groupdist/group_picture', [
             'url' => $url->out(false),
             'name' => $name,
@@ -261,8 +261,9 @@ class group_settings_form extends dynamic_form {
     }
 
     /**
-     * Core's group form validation: unique name, unique ID number, and the
-     * enrolment key rules.
+     * Core's group form validation: unique name, unique ID number, the
+     * enrolment key rules and the custom fields. The picture check and the
+     * seats rule are this plugin's own.
      *
      * @param array $data Submitted data.
      * @param array $files Submitted files.
@@ -291,8 +292,27 @@ class group_settings_form extends dynamic_form {
 
         $errors += $this->validate_picture((int) ($data['imagefile'] ?? 0));
 
-        $handlererrors = group_handler::create()->instance_form_validation($data, $files);
-        return array_merge($errors, $handlererrors);
+        $errors = array_merge($errors, group_handler::create()->instance_form_validation($data, $files));
+        // After core's checks, so a value outside the field's own range keeps core's message.
+        return $errors + $this->validate_seats($data);
+    }
+
+    /**
+     * Reject a seat count that is not a whole number, the rule the inline save
+     * applies ({@see \local_groupdist\external\save_group_fields::validate_cell()}
+     * says why). The float element parses the value first and reports one that
+     * does not parse itself, so a non-number here is not this rule's to report.
+     *
+     * @param array $data Submitted data.
+     * @return array Errors keyed by element name, empty when the value is fine.
+     */
+    protected function validate_seats(array $data): array {
+        $element = 'customfield_' . fields::SHORTNAME_SEATS;
+        $seats = $data[$element] ?? '';
+        if (!is_numeric($seats) || floor((float) $seats) == (float) $seats) {
+            return [];
+        }
+        return [$element => get_string('errorseatswhole', 'local_groupdist')];
     }
 
     /**
@@ -387,11 +407,10 @@ class group_settings_form extends dynamic_form {
             unset($data->idnumber);
         }
 
-        /* Two arguments on purpose. Passing $editform is what makes
-           groups_update_group() write the picture through
-           groups_update_group_icon(); passing $editoroptions as a third would
-           re-run the editor post-update already done above. The call also
-           saves the group custom fields, so this method must not. */
+        /* Two arguments on purpose: $editform makes groups_update_group() write
+           the picture through groups_update_group_icon(), while $editoroptions
+           as a third would re-run the editor post-update already done above.
+           The call also saves the group custom fields, so this method must not. */
         groups_update_group($data, $this);
 
         // Refreshed row for the client-side table update.

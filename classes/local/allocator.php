@@ -44,7 +44,7 @@ namespace local_groupdist\local;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class allocator {
-    /** @var string Warning: users left without a group (all capacity exhausted). */
+    /** @var string Warning: users left without a group (no room left in a group they are not already in). */
     public const WARNING_UNASSIGNED = 'unassigned';
 
     /** @var string Warning: an affinity cluster did not fit one group and was split. */
@@ -59,7 +59,7 @@ class allocator {
     /** @var string Warning: together and apart rules bound the same pair; priority decided. */
     public const WARNING_CONTRADICTION = 'affinitycontradiction';
 
-    /** @var string Separator joining composite key components (never appears in trimmed values). */
+    /** @var string Separator joining composite key components (a control character, not expected in field values). */
     private const KEY_SEPARATOR = "\x1F";
 
     /**
@@ -192,8 +192,7 @@ class allocator {
         } else {
             /* Apart-only: everyone is placed one by one, ordered by the
                highest-priority apart rule's value groups (largest first, then
-               value, members in candidate order, empty values last) — the
-               same processing order the single-rule engine used. */
+               value, members in candidate order, empty values last). */
             $singles = self::order_by_first_apart($userids, $apartidx, $val);
         }
 
@@ -267,8 +266,8 @@ class allocator {
      * Place one cluster, splitting across groups when it does not fit.
      *
      * Groups are chosen by the lexicographic key (apart violations by rule
-     * priority, most remaining capacity, smallest final size, group order) —
-     * with no apart rules this is exactly the old keep-together packing.
+     * priority, most remaining capacity, smallest final size, group order);
+     * with no apart rules that is plain keep-together packing.
      *
      * @param array $state Group state, modified in place.
      * @param array $cluster Cluster entry ('key' and 'members').
@@ -298,7 +297,7 @@ class allocator {
                 $take = min(count($remainder), $groupstate['remaining']);
                 $chunkvector = self::chunk_violations($groupstate, array_slice($remainder, 0, $take), $apartidx, $val);
                 // Most remaining capacity first (fits big clusters), then the
-                // smaller final size, then group order — the old tie chain.
+                // smaller final size, then group order.
                 $key = array_merge($chunkvector, [-$groupstate['remaining'], $groupstate['final'], $index]);
                 if ($best === null || $key < $bestkey) {
                     $best = $index;
@@ -341,8 +340,7 @@ class allocator {
      * Place one unclustered user (apart-only mode, ejected users, no-value pool).
      *
      * Groups are chosen by (apart violations by rule priority, smallest final
-     * size, group order) — with one apart rule this is exactly the old
-     * keep-apart behaviour, and with empty values the old balanced fill.
+     * size, group order); for a user with no apart value this is a balanced fill.
      *
      * @param array $state Group state, modified in place.
      * @param int $userid The user to place.
@@ -418,7 +416,7 @@ class allocator {
     }
 
     /**
-     * Order apart-only users the way the single-rule engine processed them.
+     * Processing order for apart-only rulesets.
      *
      * By the first apart rule: value groups largest first, then value order,
      * members in candidate order; users without a value come last, in
@@ -593,9 +591,10 @@ class allocator {
     /**
      * Deterministic Fisher-Yates shuffle.
      *
-     * Seeds the global Mersenne Twister; acceptable here because the whole
-     * request path (preview web service call or apply run) computes exactly one
-     * allocation.
+     * Reseeds the global Mersenne Twister immediately before drawing, so the
+     * result is reproducible from the seed and the input order; core's
+     * group/autogroup.php reseeds the global generator the same way
+     * (srand() + shuffle()).
      *
      * @param array $items The items to shuffle.
      * @param int $seed The seed.

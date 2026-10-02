@@ -54,7 +54,8 @@ class distribution {
 
     /**
      * @var array Ordered group entries: arrays with 'id', 'name', 'seats' (?int),
-     *   'location' (?string), 'current' (int), 'capacity' (?int, null = unlimited).
+     *   'location' (?string), 'current' (int), 'capacity' (?int, null = unlimited),
+     *   'existing' (map of userid => true; filled only when ignoregrouped is off).
      */
     public array $groups = [];
 
@@ -64,7 +65,7 @@ class distribution {
     /** @var array Typed warnings (allocator warnings plus builder warnings). */
     public array $warnings = [];
 
-    /** @var string Fingerprint of candidates + group capacities, checked again at apply time. */
+    /** @var string Fingerprint of the allocator's inputs (see compute_fingerprint()), checked again at apply time. */
     public string $fingerprint = '';
 
     /**
@@ -82,7 +83,7 @@ class distribution {
         $distribution->options = $options;
 
         // Resolve and order the target groups (name, then id — stable between runs).
-        $coursegroups = groups_get_all_groups($options->courseid);
+        $coursegroups = self::get_destination_groups($context);
         $selected = [];
         foreach ($options->groupids as $groupid) {
             if (isset($coursegroups[$groupid])) {
@@ -150,8 +151,8 @@ class distribution {
 
         global $CFG;
         if (!empty($CFG->enablecommunicationsubsystem)) {
-            // Each membership write then triggers a communication-room sync with
-            // a full course-roster query — large applies get slow.
+            // In a course whose communication runs in group mode, each membership
+            // write syncs the group room with a full course-roster query.
             $distribution->warnings[] = ['type' => self::WARNING_COMMSLOW, 'count' => 0];
         }
 
@@ -177,11 +178,63 @@ class distribution {
     }
 
     /**
+     * The course groups the acting user may distribute into, keyed by id.
+     *
+     * Every entry point resolves submitted destination ids against this set
+     * (distribute.php, get_preview, apply.php and build() itself), so it must
+     * be the same set on every call or the fingerprint turns the difference
+     * into a spurious "stale" refusal. The bulk edit page and save_group_fields
+     * use it too, to limit which groups a user can see and edit.
+     *
+     * A viewhiddengroups holder gets every group; anyone else gets ALL groups
+     * plus the MEMBERS groups they belong to. That is the rule
+     * groups_get_all_groups() applies in its SQL path minus OWN groups, which
+     * that helper admits for a member: core shows a member of an OWN group
+     * only their own row, while the preview lists a destination's existing
+     * members and counts them. NONE and OWN groups are therefore distributed
+     * into only by a holder.
+     *
+     * The rule is stated here rather than delegated: groups_get_all_groups()
+     * reads core/coursehiddengroups to decide whether to filter at all, and on
+     * a cold cache that check reports "nothing hidden", so one call returns
+     * every group, NONE included ({@see profilefields::get_source_groups()}
+     * explains the mechanism).
+     *
+     * @param \core\context\course $context The course context.
+     * @return array Group records (every {groups} column) keyed by id, ordered by name, then id.
+     */
+    public static function get_destination_groups(\core\context\course $context): array {
+        global $DB, $USER;
+
+        $params = ['courseid' => (int) $context->instanceid];
+        $visibility = '';
+        if (!has_capability('moodle/course:viewhiddengroups', $context)) {
+            $visibility = "AND (g.visibility = :all
+                                OR (g.visibility = :members
+                                    AND EXISTS (SELECT 1
+                                                  FROM {groups_members} gm
+                                                 WHERE gm.groupid = g.id AND gm.userid = :userid)))";
+            $params += [
+                'all' => GROUPS_VISIBILITY_ALL,
+                'members' => GROUPS_VISIBILITY_MEMBERS,
+                'userid' => (int) $USER->id,
+            ];
+        }
+        return $DB->get_records_sql(
+            "SELECT g.*
+               FROM {groups} g
+              WHERE g.courseid = :courseid {$visibility}
+           ORDER BY g.name, g.id",
+            $params
+        );
+    }
+
+    /**
      * Aggregate numbers for the preview header.
      *
      * @return array Keys: candidates, groups, memberships, unassigned, seatstotal
      *   (sum of declared seats, -1 when none declared), overbooked (memberships
-     *   beyond declared seats).
+     *   beyond declared seats; 0 when seats are not used as capacity).
      */
     public function totals(): array {
         $seatstotal = -1;
@@ -214,9 +267,7 @@ class distribution {
      * Keyed on memberships === 0 rather than on an empty candidate list,
      * because that is the condition the preview's Apply button is disabled by
      * and there is more than one way to reach it. The arms are exhaustive and
-     * ordered outermost first, so every no-op falls into exactly one of them
-     * and a state added later cannot land back in the silence this method
-     * exists to remove.
+     * ordered outermost first, so every no-op gets exactly one reason.
      *
      * Display only: nothing here feeds compute_fingerprint(), which must stay
      * a function of the allocator's inputs alone.
@@ -239,19 +290,18 @@ class distribution {
             return self::NOOP_NOROOM;
         }
         /* Candidates, groups, nobody unassigned and still nothing to write:
-           every one of them already sits in the group the plan chose. That is
-           a third outcome beside "placed" and "unplaced", not a miscount —
-           the allocator skips a member it would only re-add. */
+           every one of them already sits in the group the plan chose, and the
+           allocator skips a member it would only re-add. */
         return self::NOOP_ALLPLACED;
     }
 
     /**
      * The teacher-facing explanation of a no-op run.
      *
-     * A literal match, never a composed string id: the fleet rule bans
-     * get_string() on a built key. The keep-grouped hint is appended rather
-     * than folded in because it states that a filter is switched on, which is
-     * a fact, and not that the filter is the cause, which would need a probe.
+     * Each reason maps to a literal string id, never a composed one. The
+     * ignore-grouped hint is appended rather than folded in because it states
+     * that the filter is switched on, not that the filter is the cause, which
+     * would need a probe.
      *
      * @return string The localised message, or '' when the run would write.
      */
@@ -281,12 +331,11 @@ class distribution {
      * change to one of these shifts the fingerprint and the apply step refuses
      * to write a plan the teacher never saw.
      *
-     * Static, and called as self::compute_fingerprint(), only so that phpmd can
-     * see the call: its UnusedPrivateMethod rule resolves $this-> and self::
-     * invocations and nothing else, so the natural $distribution->... call from
-     * this static factory was reported as dead code. It is not — every build()
-     * runs it, and deleting it would silently disable staleness detection and
-     * resumable applies. Keep the call in a form the rule can resolve.
+     * Static and called as self::compute_fingerprint() because phpmd's
+     * UnusedPrivateMethod rule does not resolve a call made on a local variable
+     * of the class, which is what this static factory would otherwise write.
+     * It is not dead code: every build() runs it, and removing it would
+     * silently disable both the staleness check and resumable applies.
      *
      * @param self $distribution The fully built distribution to fingerprint.
      * @return string The sha256 fingerprint.

@@ -21,7 +21,7 @@ namespace local_groupdist\local;
  *
  * Every membership goes through groups_add_member() — bypassing it would skip
  * the group_member_added event, the membership hooks and the cache
- * invalidations other plugins rely on (core restore refuses the same shortcut).
+ * invalidations other plugins rely on (core restore makes the same choice).
  * Writes run in chunked transactions with a per-member exception guard: the
  * unique (userid, groupid) key can race a teacher adding the same user by hand,
  * and that duplicate must not kill the whole chunk.
@@ -114,21 +114,14 @@ class applier {
                             $failedpairs[] = [(int) $group->id, (int) $user->id];
                         }
                     } catch (\dml_write_exception $memberexception) {
-                        /* dml_write_exception covers duplicate keys AND genuine
-                           failures (deadlock victim, lock timeout) — they are
-                           indistinguishable by type, so ask the table.
-
-                           Ask it DIRECTLY. groups_is_member() is
-                           visibility-filtered: it short-circuits to a plain
-                           record_exists() only when can_view_all_groups() is
-                           true, and otherwise admits a row for another user
-                           only when the group's visibility is ALL, or MEMBERS
-                           with the viewer a member too. For a group that is
-                           OWN or NONE it answers false for a row that exists,
-                           and the membership would be counted as failed and
-                           logged as such. This is a write-side integrity
-                           check, not a display decision — visibility
-                           filtering is simply the wrong question here. */
+                        /* dml_write_exception covers duplicate keys and genuine
+                           failures (deadlock victim, lock timeout) alike, so
+                           ask the table whether the row landed. Not through
+                           groups_is_member(): unless can_view_all_groups() is
+                           true it admits another user's row only in an ALL
+                           group or a MEMBERS group the viewer belongs to, so
+                           in an OWN or NONE group it denies a row that exists
+                           and the write would be logged as failed. */
                         $landed = $DB->record_exists(
                             'groups_members',
                             ['groupid' => (int) $group->id, 'userid' => (int) $user->id]

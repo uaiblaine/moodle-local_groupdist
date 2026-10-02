@@ -18,7 +18,8 @@
  * Bulk edit of group custom fields for the selected groups.
  *
  * Reached by POST from the injected button on group/index.php (groups[], id,
- * sesskey). Rendering mutates nothing: saves go through the chunked
+ * sesskey). Apart from provisioning the plugin's group custom fields when
+ * they are missing, rendering writes nothing: saves go through the chunked
  * local_groupdist_save_group_fields web service and the settings modal.
  *
  * @package    local_groupdist
@@ -44,7 +45,10 @@ if (!$groupids) {
     $csv = optional_param('groupids', '', PARAM_SEQUENCE);
     $groupids = array_filter(array_map('intval', explode(',', $csv)));
 }
-$coursegroups = groups_get_all_groups($course->id);
+/* Core's group listing rule, stated in one place and never delegated to
+   groups_get_all_groups(), which returns hidden groups on a cold cache
+   ({@see \local_groupdist\local\distribution::get_destination_groups()}). */
+$coursegroups = \local_groupdist\local\distribution::get_destination_groups($context);
 $selected = [];
 foreach (array_unique(array_map('intval', $groupids)) as $groupid) {
     if (isset($coursegroups[$groupid])) {

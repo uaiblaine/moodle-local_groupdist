@@ -77,9 +77,8 @@ final class search_groups_test extends \externallib_advanced_testcase {
     /**
      * Every match this offers is one the submit-side validator accepts.
      *
-     * That is the whole reason both sides call profilefields, rather than the
-     * search running a second query with its own predicates: a picker and its
-     * validator that are separately written are a picker and a validator that
+     * Both sides read profilefields::get_source_groups() rather than the search
+     * running a query of its own, so the offer set and the validator cannot
      * drift apart.
      */
     public function test_every_offered_group_is_accepted_by_the_validator(): void {
@@ -164,20 +163,49 @@ final class search_groups_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * The capability gate is real: a student is rejected.
+     * The capability gate is real: a student is rejected, and a teacher making
+     * the same call is answered (control).
+     *
+     * The error code pins the refusal to the require_capability() call, not to
+     * any error the call could raise.
      */
     public function test_search_requires_capability(): void {
         $this->resetAfterTest();
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
+        $generator->create_group(['courseid' => $course->id, 'name' => 'Alpha Lab']);
         $student = $generator->create_and_enrol($course, 'student');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $args = ['courseid' => (int) $course->id, 'query' => ''];
+
+        $this->setUser($teacher);
+        $this->assertSame(['Alpha Lab'], array_column($this->call($args)['groups'], 'label'));
 
         $this->setUser($student);
         $_POST['sesskey'] = sesskey();
-        $response = external_api::call_external_function(
-            'local_groupdist_search_groups',
-            ['courseid' => (int) $course->id, 'query' => '']
-        );
+        $response = external_api::call_external_function('local_groupdist_search_groups', $args);
         $this->assertTrue($response['error']);
+        $this->assertSame('nopermissions', $response['exception']->errorcode);
+    }
+
+    /**
+     * With formatstringstriptags off a group name still arrives plain, as the
+     * PARAM_TEXT label rules.js writes with textContent
+     * ({@see \local_groupdist\local\plaintext}).
+     */
+    public function test_the_label_is_plain_with_formatstringstriptags_off(): void {
+        $this->resetAfterTest();
+        set_config('formatstringstriptags', 0);
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $generator->create_group(['courseid' => $course->id, 'name' => 'Turma A & B']);
+        $generator->create_group(['courseid' => $course->id, 'name' => 'Turma <3 anos']);
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+
+        $this->setUser($teacher);
+        $labels = array_column($this->call(['courseid' => (int) $course->id, 'query' => 'Turma'])['groups'], 'label');
+
+        sort($labels);
+        $this->assertSame(['Turma ', 'Turma A & B'], $labels);
     }
 }

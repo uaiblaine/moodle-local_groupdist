@@ -116,7 +116,29 @@ final class candidates_test extends \advanced_testcase {
     }
 
     /**
+     * An editing teacher in the course who may not view suspended users.
+     *
+     * @param \stdClass $course The course.
+     * @param \core\context\course $context Its context.
+     * @return \stdClass The teacher, already checked to lack the capability.
+     */
+    private function teacher_without_viewsuspendedusers(\stdClass $course, \core\context\course $context): \stdClass {
+        global $DB;
+
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $roleid = (int) $DB->get_field('role', 'id', ['shortname' => 'editingteacher'], MUST_EXIST);
+        role_change_permission($roleid, $context, 'moodle/course:viewsuspendedusers', CAP_PROHIBIT);
+        // Precondition: the override took, so fetch() really runs without the capability.
+        $this->assertFalse(has_capability('moodle/course:viewsuspendedusers', $context, $teacher));
+        return $teacher;
+    }
+
+    /**
      * Without the viewsuspendedusers capability, onlyactive is forced on.
+     *
+     * The admin fetch is the control that the suspended user is otherwise a
+     * candidate, and the active user is the control that the forced fetch
+     * returns candidates at all.
      */
     public function test_only_active_forced_without_capability(): void {
         $this->resetAfterTest();
@@ -124,14 +146,18 @@ final class candidates_test extends \advanced_testcase {
         $course = $generator->create_course();
         $context = \core\context\course::instance($course->id);
 
+        $active = $generator->create_and_enrol($course);
         $suspended = $generator->create_and_enrol($course, 'student', null, 'manual', 0, 0, ENROL_USER_SUSPENDED);
-        $teacher = $generator->create_and_enrol($course, 'editingteacher');
-        unassign_capability('moodle/course:viewsuspendedusers', 3, $context->id);
-        assign_capability('moodle/course:viewsuspendedusers', CAP_PROHIBIT, 3, $context->id, true);
+        $teacher = $this->teacher_without_viewsuspendedusers($course, $context);
+        $options = $this->make_options($course->id, ['onlyactive' => 0]);
+
+        $this->setAdminUser();
+        $this->assertContains((int) $suspended->id, array_map('intval', array_keys(candidates::fetch($options, $context))));
 
         $this->setUser($teacher);
-        $result = candidates::fetch($this->make_options($course->id, ['onlyactive' => 0]), $context);
-        $this->assertNotContains((int) $suspended->id, array_map('intval', array_keys($result)));
+        $ids = array_map('intval', array_keys(candidates::fetch($options, $context)));
+        $this->assertContains((int) $active->id, $ids);
+        $this->assertNotContains((int) $suspended->id, $ids);
     }
 
     /**
@@ -170,6 +196,10 @@ final class candidates_test extends \advanced_testcase {
     /**
      * Without viewsuspendedusers the future-start option is forced off, like
      * the only-active filter itself.
+     *
+     * Controls as in test_only_active_forced_without_capability(): the admin
+     * fetch includes the future-start user, and the forced fetch still returns
+     * the active one.
      */
     public function test_includefuture_forced_off_without_capability(): void {
         $this->resetAfterTest();
@@ -177,17 +207,18 @@ final class candidates_test extends \advanced_testcase {
         $course = $generator->create_course();
         $context = \core\context\course::instance($course->id);
 
+        $active = $generator->create_and_enrol($course);
         $future = $generator->create_and_enrol($course, 'student', null, 'manual', time() + WEEKSECS);
-        $teacher = $generator->create_and_enrol($course, 'editingteacher');
-        unassign_capability('moodle/course:viewsuspendedusers', 3, $context->id);
-        assign_capability('moodle/course:viewsuspendedusers', CAP_PROHIBIT, 3, $context->id, true);
+        $teacher = $this->teacher_without_viewsuspendedusers($course, $context);
+        $options = $this->make_options($course->id, ['onlyactive' => 1, 'includefuture' => 1]);
+
+        $this->setAdminUser();
+        $this->assertContains((int) $future->id, array_map('intval', array_keys(candidates::fetch($options, $context))));
 
         $this->setUser($teacher);
-        $result = candidates::fetch(
-            $this->make_options($course->id, ['onlyactive' => 1, 'includefuture' => 1]),
-            $context
-        );
-        $this->assertNotContains((int) $future->id, array_map('intval', array_keys($result)));
+        $ids = array_map('intval', array_keys(candidates::fetch($options, $context)));
+        $this->assertContains((int) $active->id, $ids);
+        $this->assertNotContains((int) $future->id, $ids);
     }
 
     /**
@@ -238,13 +269,11 @@ final class candidates_test extends \advanced_testcase {
     }
 
     /**
-     * A membership this same run wrote is invisible to the value column.
+     * A membership this same run wrote is invisible to the group value column.
      *
-     * This is what lets an interrupted adhoc apply resume: every recompute
-     * must skip rows stamped (component = local_groupdist, itemid = seed), or
-     * the retry reads different values, the fingerprint shifts and the task
-     * aborts as stale with the remainder unwritten. It can only bite when the
-     * source group is also one of the destinations, which is what this seeds.
+     * {@see candidates::fetch()} explains why every recompute skips the rows
+     * stamped with this run's seed. The clause can only match when the source
+     * group is also a destination, so that is what this fixture seeds.
      */
     public function test_group_rule_column_ignores_this_runs_own_writes(): void {
         $this->resetAfterTest();

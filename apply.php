@@ -55,7 +55,7 @@ $options = \local_groupdist\local\options::from_array([
 ]);
 
 // Server-side re-validation: never trust the round-tripped fields.
-$coursegroups = groups_get_all_groups($course->id);
+$coursegroups = \local_groupdist\local\distribution::get_destination_groups($context);
 $options->groupids = array_values(array_intersect($options->groupids, array_map('intval', array_keys($coursegroups))));
 if (!$options->groupids) {
     redirect($returnurl, get_string('errornogroups', 'local_groupdist'), null, \core\output\notification::NOTIFY_ERROR);
@@ -82,6 +82,21 @@ if (\local_groupdist\task\apply_distribution::get_taskid_for_course($course->id)
     );
 }
 
+/* Every recompute hides the memberships stamped with this seed, so a POST
+   under a seed that already wrote passes the fingerprint check: a replay
+   reproduces a finished run's plan, and a plan previewed under the seed
+   before an earlier apply wrote can place a participant in a second group.
+   Any spent seed is refused (runlog::is_seed_spent()), including an
+   interrupted inline apply that wrote some memberships: the teacher starts a
+   new distribution, whose fresh seed sees those memberships as ordinary ones.
+   One that wrote nothing is not spent and can be retried with the same POST. */
+if (\local_groupdist\local\runlog::is_seed_spent($course->id, $options->seed)) {
+    $refusal = \local_groupdist\local\runlog::is_applied($course->id, $options->seed)
+        ? get_string('erroralreadyapplied', 'local_groupdist')
+        : get_string('errorpartlyapplied', 'local_groupdist');
+    redirect($returnurl, $refusal, null, \core\output\notification::NOTIFY_WARNING);
+}
+
 $distribution = \local_groupdist\local\distribution::build($options, $context);
 if ($distribution->fingerprint !== $fingerprint) {
     redirect($returnurl, get_string('errorstale', 'local_groupdist'), null, \core\output\notification::NOTIFY_ERROR);
@@ -89,9 +104,8 @@ if ($distribution->fingerprint !== $fingerprint) {
 
 $memberships = $distribution->allocation->count_memberships();
 if ($memberships === 0) {
-    // The same reason the preview gave, carried one screen further: landing
-    // back on the groups page with "nothing was applied" and no why is what
-    // this message existed as before.
+    // Repeat the reason the preview gave, so the groups page does not report
+    // that nothing was applied without saying why.
     $nothing = trim(get_string('nothingtoapply', 'local_groupdist') . ' ' . $distribution->noop_message());
     redirect($returnurl, $nothing, null, \core\output\notification::NOTIFY_INFO);
 }

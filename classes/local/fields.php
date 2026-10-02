@@ -24,7 +24,7 @@ use core_group\customfield\group_handler;
 /**
  * Provisioning and bulk reading of the plugin's group custom fields.
  *
- * The plugin owns no tables: "Seats" and "Location" are provisioned against
+ * "Seats" and "Location" are not plugin tables: they are provisioned against
  * core's group custom field handler (component core_group, area group) and
  * their values live in {customfield_data}. Provisioning is idempotent and
  * serialised under a core Lock API lock, because neither customfield_field
@@ -78,10 +78,10 @@ class fields {
      * Custom field names are stored once at provisioning time (in the
      * provisioning admin's language) and are not translatable afterwards, so
      * every UI text referring to the field must echo the stored name instead
-     * of hardcoding a translated "Seats"/"Vagas".
+     * of a lang string.
      *
      * Almost every consumer escapes for itself, so the default is the plain
-     * spelling; pass true for the handful that render it raw. See escaped().
+     * spelling; pass true for the few sinks that render it raw. See escaped().
      *
      * @param bool $escape Whether to HTML-escape the name.
      * @return string The formatted field name (lang-pack fallback when missing).
@@ -97,9 +97,9 @@ class fields {
     /**
      * Display name of the location field as the admin actually named it.
      *
-     * No $escape twin: unlike the seats label, this one has no consumer that
-     * renders it unescaped. Give it the same treatment as get_seats_label() if
-     * one ever appears — the rule is in plain()'s docblock.
+     * No $escape switch: unlike the seats label, this one has no consumer that
+     * renders it raw. Add one as in get_seats_label() if one appears; which
+     * sinks need which spelling is in escaped()'s docblock.
      *
      * @return string The formatted field name (lang-pack fallback when missing).
      */
@@ -111,14 +111,13 @@ class fields {
     /**
      * The same name, escaped, for the few sinks that render it raw.
      *
-     * Two of them, both in options_form: the "use seats" advcheckbox label and
-     * the no-seats static note. Core prints a form element's label through
-     * element-advcheckbox.mustache's {{{label}}} and a static element through
-     * element-static.mustache's {{{element.html}}} — triple stashes, so the
-     * value has to arrive escaped. Everything else the label reaches is a
-     * double stash or textContent and wants plain(). Core draws the same
-     * distinction with core_customfield\field_controller::get_formatted_name(),
-     * which takes the same switch for the same reason.
+     * Those are in options_form: the "use seats" advcheckbox label (rendered
+     * through element-advcheckbox.mustache's {{{label}}}) and the no-seats
+     * static note (element-static.mustache's {{{element.html}}}); options_form
+     * also hands the same value to the checkbox's help button. Everything
+     * else the label reaches is a Mustache double stash, a {{#str}} parameter
+     * or textContent, which escape for themselves and want plain(). Core takes
+     * the same switch in core_customfield\field_controller::get_formatted_name().
      *
      * @param string $name The stored field name.
      * @return string The formatted name, HTML-escaped.
@@ -128,29 +127,23 @@ class fields {
     }
 
     /**
-     * Format a stored field name for output, unescaped.
+     * Format a stored field name for output, in the plain spelling
+     * ({@see plaintext::format()}).
      *
-     * Every consumer escapes for itself and would otherwise escape a second
-     * time, so a field an admin named "Vagas & Lugares" reads "Vagas &amp;
-     * Lugares" on screen. Measured on 5.2: the label reaches a
-     * {{#str}} parameter, which the string helper renders through a double
-     * stash before substituting it, and the lambda's own return is inserted
-     * unescaped — so the page carried "Vagas &amp;amp; Lugares" while the
-     * column header beside it, already fixed, carried "Vagas &amp; Lugares".
+     * Every consumer escapes for itself, so the default escaping would show a
+     * field named "A & B" as "A &amp; B". That includes a {{#str}} parameter:
+     * the string helper renders it through a double stash before substituting
+     * it and inserts the result unescaped, so the value is escaped once.
      *
      * The system context is deliberate: group custom fields are defined
      * site-wide (group_handler::get_configuration_context()), not per course.
-     * The lang-pack fallback above needs no equivalent — a lang string is
-     * never escaped on the way out either.
+     * The lang string fallback in the label getters is not escaped either.
      *
      * @param string $name The stored field name.
      * @return string The formatted name, not HTML-escaped.
      */
     private static function plain(string $name): string {
-        return format_string($name, true, [
-            'context' => \core\context\system::instance(),
-            'escape' => false,
-        ]);
+        return plaintext::format($name, \core\context\system::instance());
     }
 
     /**
@@ -201,7 +194,7 @@ class fields {
      * Ensure the plugin's group custom fields exist, creating them when missing.
      *
      * Invoked from db/install.php, the tail of db/upgrade.php and lazily from
-     * the distribution entry page, so an admin deleting the category simply
+     * distribute.php and bulkedit.php, so an admin deleting the category simply
      * re-provisions on next use.
      *
      * @return void
@@ -359,10 +352,11 @@ class fields {
     /**
      * Bulk-read seats and location values for a set of groups in one query.
      *
-     * Reads {customfield_data} directly by field id + instance id (both covered
-     * by the unique instanceid/fieldid index) instead of the handler API: with
-     * hundreds of groups the handler's per-instance context resolution is an
-     * N+1 trap, and the whole flow is already gated on the distribute capability.
+     * Reads {customfield_data} directly by instance id + field id (the leading
+     * columns of its unique instanceid-fieldid-component-area-itemid index)
+     * instead of the handler API: with hundreds of groups the handler's
+     * per-instance context resolution is an N+1 trap, and the whole flow is
+     * already gated on the distribute capability.
      *
      * @param array $groupids Group ids.
      * @return array Map of groupid => object with ?int 'seats' and ?string 'location';

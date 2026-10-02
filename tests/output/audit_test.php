@@ -45,9 +45,14 @@ final class audit_test extends \advanced_testcase {
     /**
      * Seed a run: city keep-together plus a PRIVATE custom field keep-apart.
      *
-     * @return array [course, context, runid, teacherid].
+     * Two participants share city X and guardian Maria; a third holds Y and
+     * Rita. Their names are set rather than generated, because the explanation
+     * lines name peers and generated names can collide.
+     *
+     * @param bool $apartfirst Whether the keep-apart rule outranks the city rule.
+     * @return array [course, context, runid, teacherid, participants keyed maria1, maria2 and rita].
      */
-    private function seed(): array {
+    private function seed(bool $apartfirst = false): array {
         global $CFG;
         require_once($CFG->dirroot . '/user/profile/lib.php');
 
@@ -63,38 +68,67 @@ final class audit_test extends \advanced_testcase {
             'visible' => PROFILE_VISIBLE_PRIVATE,
         ]);
 
-        foreach ([['X', 'Maria'], ['X', 'Maria'], ['Y', 'Rita']] as [$city, $guardian]) {
-            $user = $generator->create_and_enrol($course);
+        $participants = [];
+        $fixtures = [
+            'maria1' => ['X', 'Maria', 'Ana'],
+            'maria2' => ['X', 'Maria', 'Bia'],
+            'rita' => ['Y', 'Rita', 'Caio'],
+        ];
+        foreach ($fixtures as $key => [$city, $guardian, $firstname]) {
+            $user = $generator->create_and_enrol($course, 'student', ['firstname' => $firstname, 'lastname' => 'Souza']);
             $user->city = $city;
             user_update_user($user, false);
             profile_save_data((object) ['id' => $user->id, 'profile_field_guardian' => $guardian]);
+            $participants[$key] = $user;
         }
         $teacher = $generator->create_and_enrol($course, 'editingteacher');
 
+        $rules = [
+            ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
+            ['source' => 'profile_' . $field->id, 'mode' => options::AFFINITY_APART],
+        ];
         $this->setAdminUser();
         $options = options::from_array([
             'courseid' => $course->id,
             'groupids' => [(int) $group1->id, (int) $group2->id],
-            'affinityrules' => [
-                ['source' => 'city', 'mode' => options::AFFINITY_TOGETHER],
-                ['source' => 'profile_' . $field->id, 'mode' => options::AFFINITY_APART],
-            ],
+            'affinityrules' => $apartfirst ? array_reverse($rules) : $rules,
             'roleid' => (int) current(get_archetype_roles('student'))->id,
             'seed' => 21,
         ]);
         $distribution = distribution::build($options, $context);
         $runid = runlog::create($distribution, (int) get_admin()->id, $context);
-        return [$course, $context, $runid, (int) $teacher->id];
+        return [$course, $context, $runid, (int) $teacher->id, $participants];
     }
 
     /**
-     * Explanations come from the stored facts: kept-with counts and the
-     * separated-from peer list with their snapshot group names.
+     * The explanation lines of the one exported member with a given name.
+     *
+     * @param array $export The audit_detail export.
+     * @param string $name The member's full name.
+     * @return array The line texts.
+     */
+    private function why_lines(array $export, string $name): array {
+        $found = [];
+        foreach ($export['sections'] as $group) {
+            foreach ($group['members'] as $member) {
+                if ($member['name'] === $name) {
+                    $found[] = array_column($member['why'], 'text');
+                }
+            }
+        }
+        $this->assertCount(1, $found, 'Expected exactly one member named ' . $name);
+        return $found[0];
+    }
+
+    /**
+     * Explanations come from the stored facts: the keep-together line names
+     * the shared value, and a keep-apart rule the run broke names the peer
+     * sharing the group.
      */
     public function test_detail_explanations(): void {
         global $DB;
         $this->resetAfterTest();
-        [, $context, $runid] = $this->seed();
+        [, $context, $runid, , $users] = $this->seed();
 
         $run = $DB->get_record('local_groupdist_run', ['id' => $runid], '*', MUST_EXIST);
         $export = (new audit_detail($run, $context))->export_for_template($this->renderer());
@@ -103,8 +137,8 @@ final class audit_test extends \advanced_testcase {
         $this->assertFalse($export['rules'][0]['masked']);
         $this->assertNotEmpty($export['sections'], 'The first page of sections is server-rendered');
 
-        // The two Maria guardians were split across groups by the apart rule:
-        // one member's explanations must include a keep-apart separation line.
+        // City outranks the guardian rule, so both Marias stay in the X cluster:
+        // the explanations must include a keep-together line naming the shared value.
         $alltexts = [];
         foreach ($export['sections'] as $group) {
             foreach ($group['members'] as $member) {
@@ -117,6 +151,56 @@ final class audit_test extends \advanced_testcase {
             return str_contains($text, '"X"');
         });
         $this->assertNotEmpty($together, 'Keep-together lines must name the shared value');
+
+        // Precondition for the keep-apart lines below: the Marias share a group.
+        $placed = $DB->get_records_menu('local_groupdist_run_user', ['runid' => $runid], '', 'userid, groupid');
+        $this->assertSame($placed[$users['maria1']->id], $placed[$users['maria2']->id]);
+
+        // Each Maria's guardian line names the other, with no group: they share it.
+        foreach ([['maria1', 'maria2'], ['maria2', 'maria1']] as [$self, $peer]) {
+            $this->assertContains(
+                get_string('auditwhyapartsame', 'local_groupdist', (object) [
+                    'index' => 2,
+                    'label' => 'Guardian name',
+                    'others' => fullname($users[$peer]),
+                ]),
+                $this->why_lines($export, fullname($users[$self]))
+            );
+        }
+    }
+
+    /**
+     * A keep-apart rule the run kept names each peer it separated a member
+     * from, with the group the peer landed in as the snapshot recorded it.
+     */
+    public function test_detail_names_the_separated_peer_and_its_snapshot_group(): void {
+        global $DB;
+        $this->resetAfterTest();
+        [$course, $context, $runid, , $users] = $this->seed(true);
+
+        // Precondition: with the guardian rule first, the Marias land apart.
+        $placed = $DB->get_records_menu('local_groupdist_run_user', ['runid' => $runid], '', 'userid, groupid');
+        $this->assertNotSame($placed[$users['maria1']->id], $placed[$users['maria2']->id]);
+
+        // Rename the live groups: the line must keep the names the run recorded.
+        $recorded = $DB->get_records_menu('groups', ['courseid' => $course->id], '', 'id, name');
+        foreach (array_keys($recorded) as $groupid) {
+            $DB->set_field('groups', 'name', 'Renamed ' . $groupid, ['id' => $groupid]);
+        }
+
+        $run = $DB->get_record('local_groupdist_run', ['id' => $runid], '*', MUST_EXIST);
+        $export = (new audit_detail($run, $context))->export_for_template($this->renderer());
+
+        foreach ([['maria1', 'maria2'], ['maria2', 'maria1']] as [$self, $peer]) {
+            $this->assertContains(
+                get_string('auditwhyapart', 'local_groupdist', (object) [
+                    'index' => 1,
+                    'label' => 'Guardian name',
+                    'others' => fullname($users[$peer]) . ' (' . $recorded[$placed[$users[$peer]->id]] . ')',
+                ]),
+                $this->why_lines($export, fullname($users[$self]))
+            );
+        }
     }
 
     /**

@@ -20,11 +20,11 @@
     One window of participants of an audit run section, as a list of its own:
     a group longer than one window ends up carrying several such lists, which
     is what lets a window be appended without re-rendering the ones already on
-    screen. Each row shows the name (linked to
-    the profile in a new tab when there is an account to reach), the write
-    outcome and the collapsed "why here?" explanation. Rendered server-side
-    for the first window and by the audit AMD module for every window loaded
-    after it, so both paths produce identical markup.
+    screen. Each row shows the name (linked to the profile in a new tab when
+    there is an account to reach), the write outcome when it is notable and
+    the collapsed "why here?" explanation. Rendered server-side for the first
+    window and by the audit AMD module for every window loaded after it, so
+    both paths produce identical markup.
 
     Context variables required for this template:
     * members - array of entries: name, removed, profileurl (empty when the

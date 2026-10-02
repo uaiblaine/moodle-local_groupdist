@@ -14,34 +14,36 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace local_groupdist\local;
+namespace local_groupdist\fixtures;
 
 /**
- * Result of one allocation run.
+ * A number field provider offered for group custom fields, as a third-party
+ * plugin could register through \customfield_number\hook\add_custom_providers.
+ *
+ * Core's only provider, nofactivities, is available for course fields alone,
+ * so this is what makes a provider-backed group number field reachable.
  *
  * @package    local_groupdist
+ * @category   test
  * @copyright  2026 Anderson Blaine
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class allocation {
-    /** @var array Map of groupid => list of allocated user ids, in allocation order. */
-    public array $assignments = [];
-
-    /** @var array User ids that could not be placed (every group with room left already holds them, or none has room). */
-    public array $unassigned = [];
-
+class group_number_provider extends \customfield_number\provider_base {
     /**
-     * @var array Typed warnings: each an array with 'type' (an allocator::WARNING_*
-     *   constant) plus type-specific keys ('rule', 'value', 'count').
-     */
-    public array $warnings = [];
-
-    /**
-     * Total number of memberships this allocation would create.
+     * Provider name.
      *
-     * @return int The count.
+     * @return string The name.
      */
-    public function count_memberships(): int {
-        return array_sum(array_map('count', $this->assignments));
+    public function get_name(): string {
+        return 'Group fixture provider';
+    }
+
+    /**
+     * Offered for group custom fields only.
+     *
+     * @return bool Whether the field belongs to the group handler.
+     */
+    public function is_available(): bool {
+        return $this->field->get_handler()->get_component() === 'core_group';
     }
 }

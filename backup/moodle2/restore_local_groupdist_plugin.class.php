@@ -115,9 +115,9 @@ class restore_local_groupdist_plugin extends restore_local_plugin {
     /**
      * Whether the restore should recreate the audit log.
      *
-     * The restore-side "logs" root setting always exists (it defaults to off
-     * and is locked when the backup carried no logs); the existence probe is
-     * cheap insurance against exotic plans.
+     * Follows the restore-side "logs" root setting, which is on by default when
+     * the backup carried logs and off and unchangeable when it did not. The
+     * existence probe guards plans that define no such setting.
      *
      * @return bool True to restore the audit rows.
      */

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Changed
+
+- The code comments were rewritten to say what the code does and why, and every
+  comment that contradicted its code was corrected. Comments only; the rebuilt
+  `amd/build` source maps and the version bump are the sole non-comment changes.
+
 ### Added
 
 - **An existing course group can be an affinity rule source (v2 backlog item 2,
@@ -106,6 +112,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   version bump.
 
 ### Fixed
+
+- **Review of the code comments surfaced these defects; each is fixed with a test.**
+  - The options form now honours the `maxaffinityrules` setting: both the rule
+    builder and the form validation use the configured limit instead of 10.
+  - Re-posting `apply.php` after a completed run no longer records a second run;
+    the teacher is sent back to the groups page with a warning.
+  - An aborted run now marks the memberships an earlier attempt already wrote
+    as written, and the owner's message says so.
+  - Destination groups are read directly from the course with an explicit
+    visibility rule, so a cold hidden-groups cache can no longer expose hidden
+    groups to a user without `viewhiddengroups`.
+  - The `distribution_applied` event carries restore mappings, so a restored
+    log row points at the restored run.
+  - `status.php` shows a warning, not a success, when the latest run aborted.
+  - Bulk edit validates each cell like core's group form. **`save_group_fields`
+    now returns refused cells in a new `errors` list instead of throwing**;
+    valid cells of the same call are still saved. Malformed requests still throw.
+  - Bulk edit no longer drops edits made while a multi-chunk save is running.
+  - Section links in the audit keep the participant search.
+  - The preview payload is plain text whatever `formatstringstriptags` says,
+    and the existing-member sample reads at most a few rows per group.
+  - Badge and warning text colours state a contrast-safe pairing in dark mode.
+  - The privacy metadata for `valuesjson` names the group membership flags.
+  - Seats are whole numbers, in the inline save and in the group settings modal.
+    The non-negative rule applies to seats only; other number fields use their
+    own configured minimum. Provider-backed number fields are read-only in bulk
+    edit, which also stops the web service from overwriting a computed value.
+  - Bulk edit and `save_group_fields` list groups through the same visibility
+    rule as the distribution, so a cold hidden-groups cache cannot expose
+    hidden groups there either.
+  - **Behaviour change:** users without `viewhiddengroups` can no longer
+    distribute into groups with the "own" visibility, because the preview would
+    show them other members of a group core hides. A task queued before the
+    upgrade that targets such a group aborts as stale on retry.
+  - A seed that has been spent is never reused for a new plan: its run
+    completed, partly completed, or aborted after writing, or memberships
+    stamped with it exist in the course (a pending run that wrote, such as an
+    interrupted inline apply). Going back from the preview, or posting a
+    preview, starts under a fresh seed, and `apply.php` refuses a POST under a
+    spent seed. This closes a path that could place a user in two groups.
+    **Behaviour change:** repeating the same POST of an inline apply that had
+    already committed some memberships is refused with a message to start a new
+    distribution; before, it resumed.
+  - `status.php` also warns when the latest run is still pending but its task
+    has no attempts left, and an exhausted task no longer blocks a new apply.
+  - Admin-set names in every plain-text sink (audit, search, preview, bulk
+    edit, the settings form picture) go through one helper, so the screens
+    keep working with `formatstringstriptags` off.
 
 - **The rule builder's search picker was unusable, and had been since it
   shipped.** Its suggestion list is rendered `position-absolute` and had **no
@@ -572,8 +626,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - The audit log now travels in course backups, behind the standard "Include
-  course logs" root setting (excluded from anonymised backups and from
-  backups without user data, matching core's log handling). On restore the
+  course logs" root setting (left out of backups without user data, as
+  core does for course logs, and of anonymised backups, which is this plugin's
+  own rule because the snapshot values would deanonymise participants). On restore the
   runs are recreated in the target course marked "Restored from backup" (a
   badge in the audit UI): the applier and every participant are remapped to
   the restored users, participants missing from the backup become

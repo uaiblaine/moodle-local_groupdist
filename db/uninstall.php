@@ -26,9 +26,8 @@
  * Clean up the provisioned group custom fields when the admin opted in.
  *
  * Removing the fields cascades their values, so this is gated behind the
- * cleanupfieldsonuninstall setting (default off) — mirroring the pattern of
- * availability_competency's cleanuponcompetencydeletion. Plugin config still
- * exists at this point: core deletes it after this hook runs.
+ * cleanupfieldsonuninstall setting (default off). Plugin config still exists
+ * at this point: core deletes it after this hook runs.
  *
  * @return bool Always true.
  */

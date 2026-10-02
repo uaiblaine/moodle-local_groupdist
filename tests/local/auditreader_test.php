@@ -110,14 +110,12 @@ final class auditreader_test extends \advanced_testcase {
     }
 
     /**
-     * A group longer than one card opens with a PREVIEW, reports the full
-     * count, and serves the remainder a full WINDOW at a time.
+     * A group longer than one card opens with a preview, reports the full
+     * count, and serves the remainder a full window at a time.
      *
-     * The two constants are deliberately different sizes and this pins both:
-     * a section card is a third of the page wide, so it opens with a handful,
-     * but the first "show more" pulls a whole window rather than another
-     * handful. Asserting the numbers rather than the constants would pass with
-     * the two collapsed back together.
+     * MEMBERS_PREVIEW and MEMBERS_PER_PAGE differ on purpose
+     * ({@see auditreader::MEMBERS_PREVIEW}); the first assertion fails if they
+     * are made equal.
      */
     public function test_member_window_reports_the_full_total(): void {
         $this->resetAfterTest();
@@ -340,8 +338,8 @@ final class auditreader_test extends \advanced_testcase {
      *
      * groups_get_all_groups() is visibility-filtered, so a live NONE-visibility
      * group is absent from it for any reader without
-     * moodle/course:viewhiddengroups — and the marker would then assert, in a
-     * permanent record, that the run wrote into a group that had been deleted.
+     * moodle/course:viewhiddengroups, and a marker built on it would claim the
+     * run wrote into a deleted group.
      */
     public function test_hidden_group_is_not_reported_deleted(): void {
         global $DB;
@@ -376,9 +374,9 @@ final class auditreader_test extends \advanced_testcase {
         accesslib_clear_all_caches_for_unit_testing();
         $this->setUser($auditor);
 
-        /* Preconditions. The reader may open the report, the group is live, and
-           the filtered helper the marker used to ask denies it — without that
-           last one this test would pass against the bug it exists for. */
+        /* Preconditions: the reader may open the report, the group is live, and
+           groups_get_all_groups() hides it from this reader, so a marker built
+           on that helper would fire. */
         $this->assertTrue(has_capability('local/groupdist:viewauditlog', $context));
         $this->assertFalse(has_capability('moodle/course:viewhiddengroups', $context));
         $this->assertTrue($DB->record_exists('groups', ['id' => $group->id]));
@@ -400,12 +398,11 @@ final class auditreader_test extends \advanced_testcase {
     /**
      * A stored group rule renders its snapshot label, never the raw '1'.
      *
-     * The reader keys this on the rule's SOURCE KIND rather than on the value,
-     * so any stored value on a membership rule resolves to the label frozen at
-     * apply time — which is what makes the log a snapshot and not a live
-     * lookup. The control below proves the same run does render a real value
-     * for a non-membership rule, so a failure above is the membership arm and
-     * not an empty why-list.
+     * The reader keys this on the rule's source kind
+     * ({@see ruleset::is_membership_source()}), not on the value, so any stored
+     * value of a membership rule shows the label stored at apply time. The
+     * control proves the same run renders a real value for a field rule, so a
+     * failure is the membership branch and not an empty why-list.
      */
     public function test_group_rule_renders_its_snapshot_label(): void {
         global $DB;

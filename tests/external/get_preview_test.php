@@ -17,7 +17,10 @@
 namespace local_groupdist\external;
 
 use core_external\external_api;
+use core_group\customfield\group_handler;
+use local_groupdist\local\distribution;
 use local_groupdist\local\fields;
+use local_groupdist\local\options;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 defined('MOODLE_INTERNAL') || die();
@@ -103,7 +106,7 @@ final class get_preview_test extends \externallib_advanced_testcase {
         $ids2 = array_column($page2['groups'], 'id');
         $this->assertSame([], array_intersect($ids1, $ids2));
 
-        // Member samples are capped and marked new.
+        // Member samples are capped.
         foreach ($page1['groups'] as $group) {
             $this->assertLessThanOrEqual(get_preview::MEMBER_SAMPLE, count($group['members']));
         }
@@ -112,13 +115,10 @@ final class get_preview_test extends \externallib_advanced_testcase {
     /**
      * The location label survives the web service unescaped.
      *
-     * This is the one path where the escape => false rule could have gone the
-     * other way: the value is declared PARAM_TEXT, so it passes through
-     * clean_returnvalue() before the client sees it. PARAM_TEXT only handles
-     * tags and multilang markup (core\param::clean_param_value_text) and never
-     * touches entities, so an ampersand arrives intact — and it has to, because
-     * preview.js hands the value to a Mustache double stash and writes warning
-     * messages with textContent, both of which escape for themselves.
+     * The value is a PARAM_TEXT return field, and PARAM_TEXT strips tags but
+     * never touches entities ({@see \core\param::clean_param_value_text()}), so
+     * the plain spelling arrives intact. It must: preview.js renders it in
+     * preview_groups.mustache through a double stash, which escapes for itself.
      *
      * @return void
      */
@@ -160,22 +160,62 @@ final class get_preview_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * The capability gate is real: a student is rejected.
+     * Call the function expecting a refusal, and return the exception info.
+     *
+     * @param array $args The request arguments.
+     * @return \stdClass The exception info call_external_function() reports.
+     */
+    private function refused(array $args): \stdClass {
+        $_POST['sesskey'] = sesskey();
+        $response = external_api::call_external_function('local_groupdist_get_preview', $args);
+        $this->assertTrue($response['error'], 'The call was accepted.');
+        return $response['exception'];
+    }
+
+    /**
+     * Assert a refusal is the invalid_parameter_exception get_preview raises
+     * for one parameter.
+     *
+     * The debug info's first line is the parameter name. Parameter validation
+     * and the ruleset's own shape checks raise the same error code, with a
+     * longer first line ("affinityrules: bad source"), so matching the whole
+     * line tells this check apart from those.
+     *
+     * @param string $param The parameter get_preview names.
+     * @param \stdClass $exception The exception info.
+     * @return void
+     */
+    private function assert_rejected_parameter(string $param, \stdClass $exception): void {
+        $this->assertSame('invalidparameter', $exception->errorcode);
+        $this->assertSame($param, explode(PHP_EOL, $exception->debuginfo)[0]);
+    }
+
+    /**
+     * The capability gate is real: a student is rejected, and a teacher making
+     * the same call is answered (control).
+     *
+     * The error code pins the refusal to the require_capability() call, not to
+     * any error the call could raise.
      */
     public function test_preview_requires_capability(): void {
         $this->resetAfterTest();
         [$course, , $args] = $this->make_course(2, 3);
         $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
-        $this->setUser($student);
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
 
-        $_POST['sesskey'] = sesskey();
-        $response = external_api::call_external_function('local_groupdist_get_preview', $args);
-        $this->assertTrue($response['error']);
+        $this->setUser($teacher);
+        $this->assertSame(2, $this->call($args)['totals']['groups']);
+
+        $this->setUser($student);
+        $this->assertSame('nopermissions', $this->refused($args)->errorcode);
     }
 
     /**
      * A cohort the user cannot see is rejected — the WS must not become a
      * hidden-cohort membership oracle. A visible cohort passes (control).
+     *
+     * The error code and the debug info pin the refusal to the cohort check
+     * ({@see self::assert_rejected_parameter()}).
      */
     public function test_preview_rejects_hidden_cohort(): void {
         global $CFG;
@@ -188,19 +228,16 @@ final class get_preview_test extends \externallib_advanced_testcase {
         $visible = $this->getDataGenerator()->create_cohort(['visible' => 1]);
 
         $this->setUser($teacher);
-        $_POST['sesskey'] = sesskey();
-        $response = external_api::call_external_function(
-            'local_groupdist_get_preview',
-            $args + ['cohortid' => (int) $hidden->id]
-        );
-        $this->assertTrue($response['error']);
+        $this->assert_rejected_parameter('cohortid', $this->refused($args + ['cohortid' => (int) $hidden->id]));
 
         $control = $this->call($args + ['cohortid' => (int) $visible->id]);
         $this->assertSame(0, $control['totals']['candidates']);
     }
 
     /**
-     * An affinity field the user may not see is rejected server-side.
+     * An affinity source the caller is not offered (here a profile field id
+     * that does not exist) is rejected server-side, and a native field passes
+     * (control).
      */
     public function test_preview_rejects_disallowed_affinity_field(): void {
         $this->resetAfterTest();
@@ -208,12 +245,11 @@ final class get_preview_test extends \externallib_advanced_testcase {
         $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
         $this->setUser($teacher);
 
-        $_POST['sesskey'] = sesskey();
-        $response = external_api::call_external_function(
-            'local_groupdist_get_preview',
-            $args + ['affinityrules' => [['source' => 'profile_999999', 'mode' => 'together']]]
-        );
-        $this->assertTrue($response['error']);
+        $exception = $this->refused($args + ['affinityrules' => [['source' => 'profile_999999', 'mode' => 'together']]]);
+        $this->assert_rejected_parameter('affinityrules', $exception);
+
+        $control = $this->call($args + ['affinityrules' => [['source' => 'city', 'mode' => 'together']]]);
+        $this->assertCount(1, $control['rulereport']);
     }
 
     /**
@@ -262,18 +298,11 @@ final class get_preview_test extends \externallib_advanced_testcase {
      * A profile value containing a bare "<" must not take the whole preview
      * down.
      *
-     * The vector is a TEXTAREA custom profile field, and it is the only one
-     * that reaches this: profile_field_textarea declares PARAM_RAW with the
-     * comment "We MUST clean this before display!"
-     * (user/profile/field/textarea/field.class.php:40), while the standard
-     * fields self-sanitise — user_update_user() runs city/department/
-     * institution through core_user::clean_field() with PARAM_TEXT — and
-     * profilefields::get_fields() offers every custom field with no filter on
-     * datatype. The value then reaches the payload straight from
-     * {user_info_data} with no format_string() on the path, into PARAM_TEXT
-     * return fields, where clean_param_value_text()'s strip_tags() eats the
-     * tail and validate_param() throws because cleaned !== original. One
-     * participant used to fail every page of the preview for everyone.
+     * A textarea custom profile field is the fixture because it stores PARAM_RAW,
+     * while core cleans the standard user fields on save. The value lands in
+     * PARAM_TEXT return fields, and clean_returnvalue() throws when strip_tags()
+     * would change it, failing every page of the preview for everyone.
+     * {@see get_preview::display_value()} strips it first.
      *
      * @return void
      */
@@ -412,7 +441,7 @@ final class get_preview_test extends \externallib_advanced_testcase {
      * land in Mustache double stashes client-side (preview_groups.mustache
      * for the card heading and the per-rule footer, preview_rulereport for
      * the section title and the destination list), so escaping them here
-     * showed a group called "Turma A & B" as "Turma A &amp; B".
+     * would show a group called "Turma A & B" as "Turma A &amp; B".
      *
      * @return void
      */
@@ -452,7 +481,7 @@ final class get_preview_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * A hidden cohort as a RULE source is rejected — same oracle rule as the
+     * A hidden cohort as a rule source is rejected — same oracle rule as the
      * cohort member filter. A visible cohort passes (control).
      */
     public function test_preview_rejects_hidden_cohort_rule(): void {
@@ -466,12 +495,8 @@ final class get_preview_test extends \externallib_advanced_testcase {
         $visible = $this->getDataGenerator()->create_cohort(['visible' => 1]);
 
         $this->setUser($teacher);
-        $_POST['sesskey'] = sesskey();
-        $response = external_api::call_external_function(
-            'local_groupdist_get_preview',
-            $args + ['affinityrules' => [['source' => 'cohort_' . $hidden->id, 'mode' => 'apart']]]
-        );
-        $this->assertTrue($response['error']);
+        $exception = $this->refused($args + ['affinityrules' => [['source' => 'cohort_' . $hidden->id, 'mode' => 'apart']]]);
+        $this->assert_rejected_parameter('affinityrules', $exception);
 
         // Three enrolled users plus the acting teacher (roleid 0 = any role).
         $control = $this->call(
@@ -484,14 +509,10 @@ final class get_preview_test extends \externallib_advanced_testcase {
      * The no-op reason and its message survive the return-structure allowlist
      * and reach the client.
      *
-     * clean_returnvalue() strips any key execute_returns() does not declare,
-     * so a payload field added without its declaration disappears in silence —
-     * which is how the preview came to render a page of zeros with nothing on
-     * it in the first place. The control leg is a run that WOULD write: it
-     * must carry the empty sentinel, not a reason.
-     *
-     * Mutation: remove either key from execute_returns() and the assertions
-     * below fail on the missing index.
+     * clean_returnvalue() silently strips any key execute_returns() does not
+     * declare. The control is a run that would write: it carries the empty
+     * sentinel, not a reason. Changes that must make it fail: removing
+     * noopreason or noopmessage from execute_returns().
      *
      * @return void
      */
@@ -519,14 +540,13 @@ final class get_preview_test extends \externallib_advanced_testcase {
         );
     }
     /**
-     * A group rule renders the group's NAME everywhere the preview shows a
+     * A group rule renders the group's name everywhere the preview shows a
      * value, never the raw '1' the candidate query stores.
      *
-     * build_value_maps() is a second source-kind dispatch, independent of the
-     * one in candidates.php: a group source missing from it ships green — the
-     * web service returns, the returns structure validates — while every
-     * member badge, the per-group rule status and the rules report all read
-     * "1".
+     * get_preview::build_value_maps() dispatches on the source kind
+     * independently of candidates.php. Without a group branch the response
+     * still validates, while every member badge, the per-group rule status and
+     * the rules report read "1".
      */
     public function test_group_rule_shows_the_group_name_not_the_raw_flag(): void {
         $generator = $this->getDataGenerator();
@@ -581,18 +601,146 @@ final class get_preview_test extends \externallib_advanced_testcase {
         $theirs = $generator->create_group(['courseid' => $generator->create_course()->id, 'name' => 'Theirs']);
         $this->setUser($generator->create_and_enrol($course, 'editingteacher'));
 
-        $_POST['sesskey'] = sesskey();
-        $response = external_api::call_external_function(
-            'local_groupdist_get_preview',
-            $args + ['affinityrules' => [['source' => 'group_' . $theirs->id, 'mode' => 'apart']]]
-        );
-        $this->assertTrue($response['error'], 'Another course\'s group was accepted as a rule source.');
+        $exception = $this->refused($args + ['affinityrules' => [['source' => 'group_' . $theirs->id, 'mode' => 'apart']]]);
+        $this->assert_rejected_parameter('affinityrules', $exception);
 
-        // Control: a group of THIS course is accepted, so the rejection above
+        // Control: a group of this course is accepted, so the rejection above
         // is the course check and not a broken payload.
         $control = $this->call($args + [
             'affinityrules' => [['source' => 'group_' . $mine->id, 'mode' => 'apart']],
         ]);
         $this->assertArrayHasKey('groups', $control);
+    }
+
+    /**
+     * With formatstringstriptags off, every admin- and user-set string still
+     * reaches the payload as plain text ({@see \local_groupdist\local\plaintext}).
+     *
+     * format_string() then returns clean_text() HTML, which spells a bare "&"
+     * as "&amp;" and a bare "<" as "&lt;", and the client's double stashes
+     * would show both literally. Covered: a group name, a location value, the
+     * location label, a rule label, a rule value (badges, rules report,
+     * warning) and the seats label inside a warning.
+     *
+     * @return void
+     */
+    public function test_the_payload_is_plain_text_with_formatstringstriptags_off(): void {
+        global $CFG, $DB;
+        require_once($CFG->dirroot . '/user/profile/lib.php');
+        $this->resetAfterTest();
+        set_config('formatstringstriptags', 0);
+        // Precondition: the setting really keeps entities, or nothing below is exercised.
+        $this->assertSame(
+            'Precondition &amp; check',
+            format_string('Precondition & check', true, [
+                'context' => \core\context\system::instance(),
+                'escape' => false,
+            ])
+        );
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $group1 = $generator->create_group(['courseid' => $course->id, 'name' => 'Turma A & B']);
+        $group2 = $generator->create_group(['courseid' => $course->id, 'name' => 'Turma <3 anos']);
+        $this->setAdminUser();
+        fields::reset_field_cache();
+        fields::ensure_fields_exist();
+        $DB->set_field('customfield_field', 'name', 'Sala & Local', ['id' => fields::get_location_field()->get('id')]);
+        $DB->set_field('customfield_field', 'name', 'Vagas & Lugares', ['id' => fields::get_seats_field()->get('id')]);
+        fields::reset_field_cache();
+        group_handler::create()->instance_form_save((object) [
+            'id' => (int) $group1->id,
+            'customfield_' . fields::SHORTNAME_LOCATION => 'Bloco 2 & 3',
+        ]);
+        $field = $generator->create_custom_profile_field([
+            'datatype' => 'textarea',
+            'shortname' => 'shift',
+            'name' => 'Turno & Sala',
+        ]);
+        // Three holders of one value across two groups: the keep-apart rule must
+        // repeat it, so the value also reaches a warning sentence.
+        for ($i = 0; $i < 3; $i++) {
+            $user = $generator->create_and_enrol($course);
+            profile_save_data((object) ['id' => $user->id, 'profile_field_shift' => 'Manha & Tarde']);
+        }
+        $user = $generator->create_and_enrol($course);
+        profile_save_data((object) ['id' => $user->id, 'profile_field_shift' => 'Turno <3 anos']);
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $result = $this->call([
+            'courseid' => (int) $course->id,
+            'groupids' => $group1->id . ',' . $group2->id,
+            'seed' => 11,
+            'roleid' => (int) current(get_archetype_roles('student'))->id,
+            'affinityrules' => [['source' => 'profile_' . $field->id, 'mode' => 'apart']],
+        ]);
+
+        $cards = array_column($result['groups'], null, 'id');
+        $this->assertSame('Turma A & B', $cards[(int) $group1->id]['name']);
+        // The bare "<" and what follows it go, as strip_tags() removes them with the setting on.
+        $this->assertSame('Turma ', $cards[(int) $group2->id]['name']);
+        $this->assertSame('Bloco 2 & 3', $cards[(int) $group1->id]['location']);
+        $this->assertSame('Sala & Local', $result['locationlabel']);
+        $this->assertSame('Turno & Sala', $cards[(int) $group1->id]['rules'][0]['label']);
+        $this->assertSame('Turno & Sala', $result['rulereport'][0]['label']);
+        $this->assertSame('Manha & Tarde', $result['rulereport'][0]['entries'][0]['value']);
+        $this->assertStringContainsString('Turma A & B', $result['rulereport'][0]['entries'][0]['groups']);
+        $badges = [];
+        foreach ($result['groups'] as $card) {
+            foreach ($card['members'] as $member) {
+                $badges = array_merge($badges, array_column($member['affinities'], 'value'));
+            }
+        }
+        $this->assertCount(4, $badges, 'Every participant fits the sample, so each carries one badge.');
+        sort($badges);
+        $this->assertSame(['Manha & Tarde', 'Manha & Tarde', 'Manha & Tarde', 'Turno '], $badges);
+        $messages = implode("\n", array_column($result['warnings'], 'message'));
+        $this->assertStringContainsString('Manha & Tarde', $messages);
+        $this->assertStringContainsString('Vagas & Lugares', $messages);
+        $this->assertStringNotContainsString('&amp;', json_encode($result));
+        $this->assertStringNotContainsString('&lt;', json_encode($result));
+    }
+
+    /**
+     * The existing-member sample reads one bounded window per group: the
+     * earliest members, skipping deleted accounts, and never more than the
+     * sample has room for.
+     *
+     * @return void
+     */
+    public function test_the_existing_member_sample_is_bounded_per_group(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $group = $generator->create_group(['courseid' => $course->id]);
+        $members = [];
+        for ($i = 0; $i < get_preview::MEMBER_SAMPLE + 3; $i++) {
+            $user = $generator->create_and_enrol($course);
+            $generator->create_group_member(['groupid' => $group->id, 'userid' => $user->id]);
+            $members[] = (int) $user->id;
+        }
+        $DB->set_field('user', 'deleted', 1, ['id' => $members[1]]);
+
+        $this->setAdminUser();
+        $distribution = distribution::build(
+            options::from_array([
+                'courseid' => $course->id,
+                'groupids' => [(int) $group->id],
+                'ignoregrouped' => 1,
+                'seed' => 5,
+            ]),
+            \core\context\course::instance($course->id)
+        );
+        // Precondition: every participant is already grouped, so the run
+        // allocates nobody and the whole sample comes from existing members.
+        $this->assertSame([], $distribution->allocation->assignments[(int) $group->id] ?? []);
+
+        $method = new \ReflectionMethod(get_preview::class, 'fetch_existing_samples');
+        $samples = $method->invoke(null, $distribution, $distribution->groups);
+
+        $expected = array_slice(array_values(array_diff($members, [$members[1]])), 0, get_preview::MEMBER_SAMPLE);
+        $this->assertSame($expected, array_map('intval', array_column($samples[(int) $group->id], 'id')));
     }
 }

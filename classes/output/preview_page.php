@@ -17,6 +17,7 @@
 namespace local_groupdist\output;
 
 use local_groupdist\local\options;
+use local_groupdist\local\plaintext;
 use local_groupdist\local\profilefields;
 
 /**
@@ -72,18 +73,16 @@ class preview_page implements \renderable, \templatable {
             if (cohort_get_cohort($options->cohortid, $this->context)) {
                 global $DB;
                 $name = (string) $DB->get_field('cohort', 'name', ['id' => $options->cohortid]);
-                $cohortname = format_string($name, true, ['context' => $this->context, 'escape' => false]);
+                $cohortname = plaintext::format($name, $this->context);
                 $memberchips[] = ['text' => get_string('recapcohort', 'local_groupdist', $cohortname)];
             }
         }
-        /* Mirrors candidates::fetch(): without moodle/course:viewsuspendedusers
-           the only-active filter is forced ON and the future-start relaxation
-           is inert. The recap has to name the filters that will actually run,
-           not the ones the form posted — otherwise the very filter that
-           emptied the candidate list is the one chip missing, and the no-op
-           explanation points at a recap that does not mention it. Naming an
-           active filter leaks nothing; the capability guards enrolment data,
-           not the knowledge that the default applies. */
+        /* Mirrors candidates::fetch(); keep in step. Without
+           moodle/course:viewsuspendedusers the only-active filter is forced on
+           and the future-start relaxation is inert, so the recap names the
+           filters that will actually run, not the ones the form posted. Naming
+           an active filter leaks nothing: the capability guards enrolment
+           data, not the knowledge that the default applies. */
         $canviewsuspended = has_capability('moodle/course:viewsuspendedusers', $this->context);
         $onlyactive = $options->onlyactive || !$canviewsuspended;
         $includefuture = $options->includefuture && $onlyactive && $canviewsuspended;

@@ -68,4 +68,27 @@ class distribution_applied extends \core\event\base {
     public function get_url(): \moodle_url {
         return new \moodle_url('/group/index.php', ['id' => $this->courseid]);
     }
+
+    /**
+     * Restore mapping of objectid when course logs are restored.
+     *
+     * The restore name is the one restore_local_groupdist_plugin registers
+     * each run under, so a restored log row points at the restored run.
+     *
+     * @return array The 'db' table and 'restore' mapping name.
+     */
+    public static function get_objectid_mapping() {
+        return ['db' => 'local_groupdist_run', 'restore' => 'local_groupdist_run'];
+    }
+
+    /**
+     * Restore mapping of the 'other' data: none needed.
+     *
+     * 'other' holds the seed and two counts, no ids.
+     *
+     * @return bool False, nothing to map.
+     */
+    public static function get_other_mapping() {
+        return false;
+    }
 }

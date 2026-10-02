@@ -27,10 +27,9 @@ use local_groupdist\output\audit_detail;
 /**
  * One page of group sections of an applied distribution run.
  *
- * Serves the search box and the "load more groups" control of the audit
- * report. Nothing is computed here: the payload is the stored snapshot,
- * windowed, and it comes out of the same reader the server-rendered first
- * page uses.
+ * Serves the live search and the paging bar of the audit report. The payload
+ * comes from the same auditreader the server-rendered page uses, so both
+ * windows of the stored snapshot agree.
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -83,25 +82,17 @@ class get_audit_sections extends external_api {
         $reader = new auditreader($run, $context);
 
         $perpage = auditreader::SECTIONS_PER_PAGE;
+        $userquery = audit_detail::clean_query($params['userquery']);
         $data = $reader->get_sections(
             audit_detail::clean_query($params['groupquery']),
-            audit_detail::clean_query($params['userquery']),
+            $userquery,
             max(0, $params['page']),
             $perpage
         );
 
         $sections = [];
         foreach ($data['sections'] as $section) {
-            $section['remaining'] = max(0, (int) $section['membertotal'] - (int) $section['shown']);
-            $section['hasseats'] = ($section['seats'] !== null);
-            $section['seats'] = (int) ($section['seats'] ?? 0);
-            $section['canpin'] = true;
-            $section['moreurl'] = (new \moodle_url('/local/groupdist/audit.php', [
-                'id' => (int) $run->courseid,
-                'run' => (int) $run->id,
-                'group' => (int) $section['id'],
-            ]))->out(false);
-            $sections[] = $section;
+            $sections[] = audit_detail::decorate_run_section($run, $section, $userquery);
         }
 
         // The bar is re-rendered rather than patched client-side: it is core's

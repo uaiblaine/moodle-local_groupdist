@@ -229,12 +229,9 @@ final class distribution_test extends \advanced_testcase {
      * Every way the preview can end up writing nothing reports a reason, and
      * a run that would write reports none.
      *
-     * noop_reason() is keyed on memberships === 0 rather than on an empty
-     * candidate list precisely so that the arms stay exhaustive: each case
-     * below reached the teacher as a page of zeros with no sentence on it.
-     *
-     * Mutation: delete any one arm and its case falls through to the next,
-     * returning the wrong reason.
+     * Changes that must make it fail: deleting any one arm of
+     * {@see distribution::noop_reason()}, so that its case falls through to
+     * the next arm and returns the wrong reason.
      *
      * @return void
      */
@@ -340,7 +337,8 @@ final class distribution_test extends \advanced_testcase {
      * here — and stays silent about it when it is off, so the hint never
      * claims a cause that cannot apply.
      *
-     * Mutation: delete the ignoregrouped branch in noop_message().
+     * Changes that must make it fail: deleting the ignoregrouped branch of
+     * {@see distribution::noop_message()}.
      *
      * @return void
      */
@@ -369,5 +367,63 @@ final class distribution_test extends \advanced_testcase {
         $off = $build(0);
         $this->assertSame(distribution::NOOP_NOCANDIDATES, $off->noop_reason());
         $this->assertStringNotContainsString($hint, $off->noop_message());
+    }
+
+    /**
+     * Destination groups follow one visibility rule whatever the cache holds.
+     *
+     * An actor without viewhiddengroups gets ALL groups and the MEMBERS groups
+     * they belong to, never an OWN or a NONE group: groups_get_all_groups()
+     * on a warm cache, minus the OWN group it admits for a member. On a cold
+     * core/coursehiddengroups entry that helper returns every group
+     * ({@see distribution::get_destination_groups()}); create_group() warms
+     * the entry, so it is purged after the last group is made. Changes that
+     * must make it fail: resolving destinations, in get_destination_groups()
+     * or in build(), through groups_get_all_groups() again, or admitting OWN
+     * groups for a member.
+     *
+     * @return void
+     */
+    public function test_destination_groups_hold_on_a_cold_cache(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+        $student = $generator->create_and_enrol($course, 'student');
+        $generator->create_and_enrol($course, 'student');
+
+        $make = function (string $name, int $visibility, bool $member) use ($generator, $course, $student): int {
+            $group = $generator->create_group(['courseid' => $course->id, 'name' => $name, 'visibility' => $visibility]);
+            if ($member) {
+                $generator->create_group_member(['groupid' => $group->id, 'userid' => $student->id]);
+            }
+            return (int) $group->id;
+        };
+        $open = $make('A open', GROUPS_VISIBILITY_ALL, false);
+        $members = $make('B members, mine', GROUPS_VISIBILITY_MEMBERS, true);
+        $own = $make('C own, mine', GROUPS_VISIBILITY_OWN, true);
+        $notmine = $make('D members, not mine', GROUPS_VISIBILITY_MEMBERS, false);
+        $secret = $make('E none, mine', GROUPS_VISIBILITY_NONE, true);
+        $all = [$open, $members, $own, $notmine, $secret];
+        $visible = [$open, $members];
+
+        $this->setUser($student);
+        \cache_helper::purge_by_definition('core', 'coursehiddengroups');
+        $this->assertSame($visible, array_keys(distribution::get_destination_groups($context)));
+
+        \cache_helper::purge_by_definition('core', 'coursehiddengroups');
+        $options = options::from_array(['courseid' => $course->id, 'groupids' => $all, 'seed' => 5]);
+        $built = array_column(distribution::build($options, $context)->groups, 'id');
+        $this->assertSame($visible, $built);
+
+        // Parity: on a warm cache core's own helper returns the same set plus the OWN group.
+        \core_group\visibility::update_hiddengroups_cache((int) $course->id);
+        $this->assertSame([$open, $members, $own], array_map('intval', array_keys(groups_get_all_groups($course->id))));
+        $this->assertSame($visible, array_keys(distribution::get_destination_groups($context)));
+
+        // Control: a viewhiddengroups holder gets every group.
+        $this->setAdminUser();
+        \cache_helper::purge_by_definition('core', 'coursehiddengroups');
+        $this->assertSame($all, array_keys(distribution::get_destination_groups($context)));
     }
 }

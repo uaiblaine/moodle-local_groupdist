@@ -20,17 +20,15 @@
     One affinity rule row, rendered by the local_groupdist/rules AMD module.
     The type select decides the second control, which is always driven by the
     same options list: a profile-field select, a cohort select or a course
-    group select — or, when that kind's picker is in search mode, either a
+    group select. When that kind's picker is in search mode it is instead a
     search box whose suggestions the AMD module fills from the matching search
     web service, or, once a value is chosen, that value as a chip with a clear
-    button. The two are exclusive: leaving the box beside the chip made it look
-    as though nothing had been selected, and there was no way back to the box
-    except deleting the whole rule. A group option may arrive disabled: a group this run distributes
-    INTO cannot constrain anything while the "ignore users already in the
-    selected groups" filter is on, because every member carrying the value has
-    already been filtered out of the run. The priority number, labels and
-    button titles carry the 1-based index; the connector chip appears on every
-    row after the first.
+    button. Chip and box are exclusive: a box beside the chip reads as nothing
+    selected, and clearing the chip brings the box back. A group option may
+    arrive disabled when it is also a destination of this run and the
+    ignore-grouped filter is on (see the rules_builder template). The priority
+    number, labels and button titles carry the 1-based index; the connector
+    chip appears on every row after the first.
 
     Context variables required for this template:
     * index - 1-based position (priority)

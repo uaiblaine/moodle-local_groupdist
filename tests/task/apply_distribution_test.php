@@ -32,7 +32,7 @@ final class apply_distribution_test extends \advanced_testcase {
     /**
      * Prepare a course with one group and users, returning options + fingerprint.
      *
-     * @return array [course, context, group, options, fingerprint].
+     * @return array [course, context, group, options, fingerprint, runid].
      */
     private function make_plan(): array {
         $generator = $this->getDataGenerator();
@@ -80,8 +80,9 @@ final class apply_distribution_test extends \advanced_testcase {
     }
 
     /**
-     * The staleness guard: a fingerprint mismatch writes NOTHING — proven with
-     * a control run showing the same plan does write when the world is unchanged.
+     * The staleness guard: a fingerprint mismatch writes nothing.
+     * test_execute_applies_on_matching_fingerprint() is the control: the same
+     * plan does write when nothing changed.
      */
     public function test_execute_refuses_stale_fingerprint(): void {
         global $DB;
@@ -107,24 +108,81 @@ final class apply_distribution_test extends \advanced_testcase {
         $messages = $sink->get_messages();
         $sink->close();
         $this->assertCount(1, $messages);
+        $this->assertSame(get_string('applymessagestalebody', 'local_groupdist'), $messages[0]->fullmessage);
+        $run = $DB->get_record('local_groupdist_run', ['id' => $runid], '*', MUST_EXIST);
+        $this->assertSame(\local_groupdist\local\runlog::STATUS_ABORTED, (int) $run->status);
+        $this->assertSame(0, (int) $run->memberswritten);
+    }
+
+    /**
+     * A retried task that turns stale after an earlier attempt wrote part of
+     * the plan keeps those memberships, and says so: the run records them as
+     * written and the owner is not told that nothing was written.
+     * test_execute_refuses_stale_fingerprint() is the control with no
+     * earlier write.
+     *
+     * @return void
+     */
+    public function test_execute_abort_reports_an_earlier_attempts_writes(): void {
+        global $CFG, $DB;
+        require_once($CFG->dirroot . '/group/lib.php');
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        [$course, $context, $group, $options, $fingerprint, $runid] = $this->make_plan();
+
+        // The first attempt wrote one membership, then died.
+        $plan = distribution::build($options, $context);
+        $firstuser = (int) $plan->allocation->assignments[(int) $group->id][0];
+        groups_add_member((int) $group->id, $firstuser, 'local_groupdist', $options->seed);
+        // Then the world changes before the retry.
+        $this->getDataGenerator()->create_and_enrol($course);
+
+        $task = apply_distribution::create($options, $fingerprint, $runid);
+        $task->set_userid(get_admin()->id);
+        $taskid = \core\task\manager::queue_adhoc_task($task);
+        $task->set_id($taskid);
+        $task->initialise_stored_progress();
+
+        $sink = $this->redirectMessages();
+        $this->expectOutputRegex('/fingerprint mismatch.*1 memberships from an earlier attempt were kept/');
+        $task->execute();
+        $messages = $sink->get_messages();
+        $sink->close();
+
+        // Nothing more was written.
+        $this->assertSame(1, $DB->count_records('groups_members', ['groupid' => $group->id]));
+        $run = $DB->get_record('local_groupdist_run', ['id' => $runid], '*', MUST_EXIST);
+        $this->assertSame(\local_groupdist\local\runlog::STATUS_ABORTED, (int) $run->status);
+        $this->assertSame(1, (int) $run->memberswritten);
+        $this->assertSame(
+            \local_groupdist\local\runlog::WRITE_WRITTEN,
+            (int) $DB->get_field('local_groupdist_run_user', 'writestatus', ['runid' => $runid, 'userid' => $firstuser])
+        );
+        $this->assertCount(1, $messages);
+        $this->assertSame(get_string('applymessagestalepartialbody', 'local_groupdist', 1), $messages[0]->fullmessage);
     }
 
     /**
      * An interrupted run resumes: its own partial writes (stamped with the
      * seed) are invisible to the recompute, so the fingerprint still matches
      * and the remainder is applied idempotently.
+     *
+     * Those writes also spend the seed for any new plan, which the task must
+     * not consult: the precondition shows the seed is spent, and the run still
+     * completes.
      */
     public function test_execute_resumes_after_partial_write(): void {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/group/lib.php');
         $this->resetAfterTest();
         $this->setAdminUser();
-        [, $context, $group, $options, $fingerprint, $runid] = $this->make_plan();
+        [$course, $context, $group, $options, $fingerprint, $runid] = $this->make_plan();
 
         // Simulate the first attempt dying after one membership.
         $plan = distribution::build($options, $context);
         $firstuser = $plan->allocation->assignments[(int) $group->id][0];
         groups_add_member((int) $group->id, $firstuser, 'local_groupdist', $options->seed);
+        $this->assertTrue(\local_groupdist\local\runlog::is_seed_spent((int) $course->id, $options->seed));
 
         $task = apply_distribution::create($options, $fingerprint, $runid);
         $task->set_userid(get_admin()->id);
@@ -138,6 +196,10 @@ final class apply_distribution_test extends \advanced_testcase {
         $sink->close();
 
         $this->assertSame(2, $DB->count_records('groups_members', ['groupid' => $group->id]));
+        $this->assertSame(
+            \local_groupdist\local\runlog::STATUS_COMPLETED,
+            (int) $DB->get_field('local_groupdist_run', 'status', ['id' => $runid])
+        );
     }
 
     /**
@@ -157,5 +219,30 @@ final class apply_distribution_test extends \advanced_testcase {
         $this->assertSame($taskid, apply_distribution::get_taskid_for_course((int) $course->id));
         $this->assertSame(0, apply_distribution::get_taskid_for_course((int) $othercourse->id));
         $this->assertInstanceOf(apply_distribution::class, apply_distribution::load($taskid));
+    }
+
+    /**
+     * A task out of attempts no longer counts as the course's task, although
+     * core keeps its row until the failed-task cleanup.
+     *
+     * The control is the same row with one attempt left. Changes that must
+     * make it fail: dropping the attempts filter from get_taskid_for_course(),
+     * which would refuse every new apply for the course until the cleanup.
+     *
+     * @return void
+     */
+    public function test_get_taskid_for_course_skips_a_task_out_of_attempts(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        [$course, , , $options, $fingerprint, $runid] = $this->make_plan();
+        $taskid = \core\task\manager::queue_adhoc_task(apply_distribution::create($options, $fingerprint, $runid));
+
+        $DB->set_field('task_adhoc', 'attemptsavailable', 1, ['id' => $taskid]);
+        $this->assertSame($taskid, apply_distribution::get_taskid_for_course((int) $course->id));
+
+        $DB->set_field('task_adhoc', 'attemptsavailable', 0, ['id' => $taskid]);
+        $this->assertTrue($DB->record_exists('task_adhoc', ['id' => $taskid]));
+        $this->assertSame(0, apply_distribution::get_taskid_for_course((int) $course->id));
     }
 }

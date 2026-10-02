@@ -54,13 +54,13 @@ Feature: Distribute participants into selected groups
     When I set the field "Groups" to "Group A (0),Group B (0)"
     And I click on "Distribute participants" "button"
     And I press "Preview distribution"
-    # A run that writes must NOT show the explanation. Nothing else asserts
-    # that the card actually hides: PHPUnit sees the payload, not the DOM.
+    # A run that writes must not show the explanation. Only Behat sees that the
+    # card actually hides: PHPUnit sees the payload, not the DOM.
     Then I should not see "This run would not add anyone"
     And I click on "Apply distribution" "button"
     Then I should see "Distribution applied: 4 memberships across 2 groups."
-    # Everyone now sits in a selected group and the keep-grouped filter is on
-    # by default, so the second run has an empty candidate list.
+    # Everyone now sits in a selected group and "Ignore users already in the
+    # selected groups" is on by default, so the second run has no candidates.
     When I set the field "Groups" to "Group A (2),Group B (2)"
     And I click on "Distribute participants" "button"
     And I press "Preview distribution"
@@ -86,9 +86,8 @@ Feature: Distribute participants into selected groups
     And I should see "Group A"
     And I should see "Showing 2 of 2 groups"
     # The expected outcome carries no badge; only the exceptional ones do.
-    # Scoped to the badge itself: the run meta line legitimately reads
-    # "... memberships written", so a whole-page check would pass for the
-    # wrong reason.
+    # Scoped to the badge itself: the run meta line reads "... memberships
+    # written", so a whole-page check would fail whatever the badges do.
     And "//span[contains(@class, 'badge')][normalize-space() = 'written']" "xpath_element" should not exist
 
   Scenario: A group section opens with five participants and offers the rest
@@ -169,10 +168,9 @@ Feature: Distribute participants into selected groups
     And I press "Preview distribution"
     Then I should see "1 · Keep apart: Group: Lab team"
     And I should see "Rules report"
-    # Back and adjust re-hydrates the builder from the stored rules, which is
-    # the only path through kindOf(): a source key it does not recognise
-    # renders into the FIELD select, which does not contain it, and the rule
-    # silently loses its source.
+    # Back and adjust re-hydrates the builder from the stored rules through
+    # kindOf() in rules.js: a source key it does not recognise renders into the
+    # field select, which does not contain it, and the rule loses its source.
     When I press "Back and adjust"
     Then the field "Rule 1 type" matches value "Group"
     And the field "Rule 1 group" matches value "Lab team"
@@ -186,9 +184,8 @@ Feature: Distribute participants into selected groups
     And I set the field "Rule 1 type" to "Group"
     Then I should see "Group A — a destination of this run (unavailable)"
     And I should see "Lab team"
-    # The marker is cosmetic; the guard is the disabled attribute. Core has no
-    # "option" selector and no negative form of this step, so both directions
-    # are asserted with xpath_element plus should be disabled/enabled.
+    # The marker text is cosmetic; the guard is the disabled attribute, asserted
+    # in both directions on options scoped to the rule's source select.
     And the "//select[@data-action='source']/option[contains(., 'a destination of this run (unavailable)')]" "xpath_element" should be disabled
     And the "//select[@data-action='source']/option[contains(., 'Lab team')]" "xpath_element" should be enabled
     # Unticking the filter makes those members take part, so the same group
@@ -199,17 +196,13 @@ Feature: Distribute participants into selected groups
 
   @javascript
   Scenario: Pick, clear and re-pick a group when the picker is a search
-    # Past GROUP_MENU_LIMIT (25) the picker is a search box. This pins the
-    # behaviour a teacher hit: pick a value, change your mind, pick another,
-    # without deleting the rule.
+    # Past options_form::GROUP_MENU_LIMIT (25 groups) the picker is a search
+    # box: pick a value, clear it and pick another without deleting the rule.
     #
-    # It does NOT pin the layout defect that made this impossible in the first
-    # place (a suggestion list with no CSS: transparent, unbounded, under the
-    # sibling alert and so unclickable). Measured: with that CSS removed this
-    # scenario still passes, because Moodle scrolls an element into view and
-    # clicks it through the driver rather than hit-testing the paint. The
-    # layout guard is bootstrap_compat_test::test_the_source_suggestion_list_is_laid_out,
-    # which is mutation-checked against exactly that removal.
+    # This cannot catch an unclickable suggestion list: Behat clicks through the
+    # driver rather than hit-testing the paint, so it passes even when the list
+    # sits under other content. The list's layout is pinned by
+    # bootstrap_compat_test::test_the_source_suggestion_list_is_laid_out().
     Given the following "groups" exist:
       | name      | course | idnumber |
       | Turma 000 | C1     | T000     |

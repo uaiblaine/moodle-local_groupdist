@@ -26,12 +26,12 @@
     local_groupdist_search_groups web service. Rules are summed (implicit
     AND); list position is the priority.
 
-    The destinations list is the groups this run distributes INTO. A group
+    The destinations list is the groups this run distributes into. A group
     source that is also a destination is vacuous while the "ignore users
     already in the selected groups" checkbox is ticked, because every member
     carrying the value has been filtered out of the run, so the module marks
-    those options and disables them — watching that checkbox live, since it
-    can be unticked after a rule was picked.
+    those options and disables them, re-checking whenever that checkbox
+    changes.
 
     Context variables required for this template:
     * fieldsjson - JSON list of value/label profile-field options

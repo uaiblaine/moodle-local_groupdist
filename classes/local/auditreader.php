@@ -29,10 +29,9 @@ namespace local_groupdist\local;
  * and only as far as it must: keep-together facts are group-local, so only the
  * window's own groups are scanned, while keep-apart facts name peers anywhere
  * in the run and therefore scan it once per window. Both keep at most
- * PEER_CAP + 1 peer rows per (rule, value, group) bucket, which is what stops
- * the quadratic blow-up the unpaged reader had — a cohort rule stores the same
- * value for every participant, so one bucket used to hold the entire run and
- * every member walked all of it.
+ * PEER_CAP + 1 peer rows per (rule, value, group) bucket, which keeps the pass
+ * linear: a membership rule stores the same value for every member, so an
+ * uncapped bucket could hold most of the run and every member would walk it.
  *
  * Everything displayed comes from the stored snapshot — rule labels and group
  * names as of apply time, per-participant values and outcomes — never from the
@@ -78,7 +77,7 @@ class auditreader {
     /** @var array Decoded ruleset entries, in priority order. */
     protected array $rules;
 
-    /** @var array Per-rule display info: index, label, apart, cohort, masked. */
+    /** @var array Per-rule display info: index, label, apart, membership, masked. */
     protected array $ruleinfo;
 
     /** @var array Snapshot group entries, in snapshot order. */
@@ -126,14 +125,8 @@ class auditreader {
         foreach ($this->snapshotgroups as $group) {
             $groupid = (int) $group['id'];
             $raw = (string) $group['name'];
-            /* escape => false because the name lands in a Mustache double
-               stash and in a PARAM_TEXT web service field: format_string()'s
-               own encoding would be escaped a second time on the way to the
-               screen, so a group called "R&D" would read "R&amp;D". */
-            $this->groupnames[$groupid] = format_string($raw, true, [
-                'context' => $context,
-                'escape' => false,
-            ]);
+            // Plain: the name lands in a Mustache double stash and in a PARAM_TEXT field.
+            $this->groupnames[$groupid] = plaintext::format($raw, $context);
             // Filters may rewrite the name, so the search accepts either form.
             $this->searchnames[$groupid] = [$raw, $this->groupnames[$groupid]];
         }
@@ -162,8 +155,7 @@ class auditreader {
      *
      * Sections come from the snapshot, so a group emptied or deleted since the
      * run still appears. A participant search drops the sections it leaves
-     * empty; without one, every snapshot group is listed even when empty,
-     * exactly as the unpaged reader did.
+     * empty; without one, every snapshot group is listed even when empty.
      *
      * @param string $groupquery Group name search ('' matches every section).
      * @param string $userquery Participant name search ('' matches everyone).
@@ -394,7 +386,8 @@ class auditreader {
      * Localised outcome badge data.
      *
      * @param int $writestatus A runlog WRITE_* value.
-     * @return array Keys 'label' and 'class' (Bootstrap suffix).
+     * @return array Keys 'label', 'class' (Bootstrap colour suffix) and 'notable'
+     *   (whether the templates paint the badge).
      */
     public static function outcome_badge(int $writestatus): array {
         switch ($writestatus) {
@@ -606,10 +599,10 @@ class auditreader {
         }
 
         /* Read in keyset chunks rather than through one recordset: neither
-           driver streams a plain recordset — mysqli buffers the whole result
-           with MYSQLI_STORE_RESULT and pgsql fetches 100000 rows per cursor
-           batch — so a large run would be materialised in full to produce a
-           page. Only the accumulators below survive a chunk. */
+           driver streams a plain recordset (mysqli buffers the whole result
+           with MYSQLI_STORE_RESULT, pgsql fetches 100000 rows per cursor batch
+           by default), so a large run would be materialised in full to produce
+           a page. Only the accumulators below survive a chunk. */
         $peers = [];
         $lastid = 0;
         do {
@@ -863,28 +856,22 @@ class auditreader {
             }
             return $this->countries[$value] ?? $value;
         }
-        /* A profile field value is arbitrary stored text — a textarea source
-           can hold markup. format_string() strips it, which is also what keeps
-           the value passable through the web service's PARAM_TEXT fields;
-           escape => false because the caller renders it escaped already. */
-        return format_string($value, true, ['context' => $this->context, 'escape' => false]);
+        /* A profile field value is arbitrary stored text: a textarea source
+           can hold markup. The plain spelling is what the double stash and the
+           web service's PARAM_TEXT fields take; {@see plaintext::format()}. */
+        return plaintext::format($value, $this->context);
     }
 
     /**
      * Ids of the course's still-existing groups, for the deleted-group marker.
      *
-     * Read straight from the table. groups_get_all_groups() cannot answer this
-     * question: it is visibility-filtered — it uses its cache only when
-     * visibility::can_view_all_groups() is true, and otherwise returns a group
+     * Read straight from the table, not through groups_get_all_groups(): unless
+     * visibility::can_view_all_groups() is true, that helper returns a group
      * only when its visibility is ALL, or the reader is a member and it is
-     * MEMBERS or OWN. A live NONE-visibility group is therefore missing from it
-     * for every reader lacking moodle/course:viewhiddengroups, and the run would
-     * be reported as having written into a group "since deleted" while the group
-     * and its memberships are intact — a false fact in a permanent record, and
-     * one that changed with the reader. Whether a group still exists is a fact
-     * about the course, not a display decision, and filtering it buys no privacy
-     * here: the group's name and its members are rendered from the run snapshot
-     * beside the badge either way.
+     * MEMBERS or OWN. A live NONE-visibility group would then be reported as
+     * deleted to every reader lacking moodle/course:viewhiddengroups. Existence
+     * is a fact about the course, and filtering it protects nothing: the group's
+     * name and members beside the badge come from the run snapshot either way.
      *
      * @return array Set of live group ids, keyed by id.
      */

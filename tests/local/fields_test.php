@@ -69,13 +69,12 @@ final class fields_test extends \advanced_testcase {
 
     /**
      * Field names reach callers unescaped, because every consumer escapes for
-     * itself. Measured on 5.2: with the default escaping, a field named
-     * "Vagas & Lugares" reached the bulk edit page as "Vagas &amp;amp;
-     * Lugares" and read "Vagas &amp; Lugares" on screen.
+     * itself; a pre-escaped "Vagas & Lugares" would read "Vagas &amp; Lugares"
+     * on the bulk edit page.
      *
-     * Measured: format_string's escape flag rewrites & and any < or > that
-     * survives strip_tags(), so a bare ampersand is a valid fixture while a
-     * tag-shaped one is not — <b>x</b> is stripped identically in both modes.
+     * format_string()'s escape flag rewrites & and any < or > that survives
+     * strip_tags(), so a bare ampersand is a valid fixture while a tag-shaped
+     * one is not: <b>x</b> is stripped identically in both modes.
      *
      * @return void
      */
@@ -93,6 +92,36 @@ final class fields_test extends \advanced_testcase {
 
         $this->assertSame('Vagas & Lugares', fields::get_seats_label());
         $this->assertSame('Local & Sala', fields::get_location_label());
+    }
+
+    /**
+     * With formatstringstriptags off the plain labels stay plain
+     * ({@see plaintext::format()}), while the escaped seats label keeps the
+     * spelling options_form's raw sinks need.
+     *
+     * Only ampersands make a fixture here: a field name is read through
+     * core\persistent::get(), which cleans it as PARAM_TEXT, so a bare "<"
+     * and what follows it never reach the formatting.
+     *
+     * @return void
+     */
+    public function test_labels_are_plain_with_formatstringstriptags_off(): void {
+        global $DB;
+        $this->resetAfterTest();
+        set_config('formatstringstriptags', 0);
+        $this->setAdminUser();
+        fields::reset_field_cache();
+        fields::ensure_fields_exist();
+        fields::reset_field_cache();
+
+        $DB->set_field('customfield_field', 'name', 'Vagas & Lugares', ['id' => fields::get_seats_field()->get('id')]);
+        $DB->set_field('customfield_field', 'name', 'Sala & Local', ['id' => fields::get_location_field()->get('id')]);
+        fields::reset_field_cache();
+
+        $this->assertSame('Vagas & Lugares', fields::get_seats_label());
+        $this->assertSame('Sala & Local', fields::get_location_label());
+        // Control: the escaped spelling is for raw sinks, and stays escaped.
+        $this->assertSame('Vagas &amp; Lugares', fields::get_seats_label(true));
     }
 
     /**

@@ -52,10 +52,24 @@ const SELECTORS = {
     IDCELL: 'td[data-colkey="id"]',
     IDBADGE: '.local-groupdist-idn',
     CELLERROR: '[data-region="cellerror"]',
+    COLUMNMENU: '[data-region="columnmenu"]',
 };
 
 const CHUNK_SIZE = 100;
 const PREFERENCE = 'local_groupdist_bulkedit_hiddencols';
+
+// The tooltips this module created, by element. Bootstrap 4 (Moodle 4.5) has
+// no Tooltip.getInstance(), so this is how one is found again to dispose of it.
+const tooltips = new WeakMap();
+
+/**
+ * Attach a tooltip to an element and remember it.
+ *
+ * @param {Element} element The element carrying the title.
+ */
+const addTooltip = (element) => {
+    tooltips.set(element, new Tooltip(element));
+};
 
 const state = {
     courseid: 0,
@@ -404,7 +418,7 @@ const updateIdnumber = (row, data) => {
     }
     const current = cell.querySelector(SELECTORS.IDBADGE);
     if (current) {
-        const tooltip = Tooltip.getInstance(current);
+        const tooltip = tooltips.get(current);
         if (tooltip) {
             tooltip.dispose();
         }
@@ -420,7 +434,7 @@ const updateIdnumber = (row, data) => {
     badge.setAttribute('title', data.idnumber);
     badge.textContent = data.idnumber;
     cell.appendChild(badge);
-    new Tooltip(badge);
+    addTooltip(badge);
 };
 
 /**
@@ -502,7 +516,16 @@ export const init = async() => {
         }
     });
 
-    region.querySelectorAll(SELECTORS.TOOLTIPS).forEach((el) => new Tooltip(el));
+    region.querySelectorAll(SELECTORS.TOOLTIPS).forEach(addTooltip);
+
+    // Keep the column menu open while its boxes are ticked. Bootstrap 5 reads
+    // data-bs-auto-close="outside"; Bootstrap 4 has no such option and closes
+    // the menu from a document click handler on any click that is not on the
+    // input itself, the label text included.
+    const columnmenu = region.querySelector(SELECTORS.COLUMNMENU);
+    if (columnmenu) {
+        columnmenu.addEventListener('click', (event) => event.stopPropagation());
+    }
 
     region.addEventListener('input', (event) => {
         const cell = event.target.closest(SELECTORS.CELL);

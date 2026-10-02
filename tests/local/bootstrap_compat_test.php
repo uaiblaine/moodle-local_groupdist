@@ -289,26 +289,53 @@ final class bootstrap_compat_test extends \basic_testcase {
     /**
      * Bootstrap 5 classes that Moodle 4.5 does not define, as regular expressions.
      *
-     * Derived by comparing the class names the compiled Boost CSS of 4.5 and
-     * 5.2 define, limited to the families the plugin uses. form-label is not
-     * here: 4.5 has no rule for it, but Bootstrap 4's reboot already gives a
-     * label its margin.
+     * Every family here is defined by the compiled Boost CSS of 5.2 and by none
+     * of 4.5's core rules, checked family by family. The list is wider than
+     * what the markup uses today so that a class arriving with a change from
+     * main is caught here rather than rendering as nothing on 4.5. form-label
+     * is not here: 4.5 has no rule for it, but Bootstrap 4's reboot already
+     * gives a label its margin.
      *
      * @return array List of regular expressions, each matching whole class tokens.
      */
     private function bs5_only_utilities(): array {
-        return [
-            '/(?<![\w-])visually-hidden(?![\w-])/',
-            '/(?<![\w-])form-select(-sm|-lg)?(?![\w-])/',
-            '/(?<![\w-])gap-[0-5](?![\w-])/',
-            '/(?<![\w-])fw-(bold|bolder|semibold|medium|normal|light|lighter)(?![\w-])/',
-            '/(?<![\w-])fst-(italic|normal)(?![\w-])/',
-            '/(?<![\w-])opacity-(0|25|50|75|100)(?![\w-])/',
-            // The lookahead spares the input attribute of the same name.
-            '/(?<![\w-])placeholder(-(glow|wave|xs|sm|lg))?(?![\w=-])/',
-            '/(?<![\w-])text-bg-[a-z]+(?![\w-])/',
-            '/(?<![\w-])text-[a-z]+-emphasis(?![\w-])/',
+        $families = [
+            'visually-hidden(-focusable)?',
+            'form-select(-sm|-lg)?',
+            'form-(switch|check-reverse|control-color|floating|range)',
+            '(row-|column-)?gap-[0-5]',
+            'fw-(bold|bolder|semibold|medium|normal|light|lighter)',
+            'fst-(italic|normal)',
+            'font-monospace',
+            'fs-[1-6]',
+            'lh-(1|sm|base|lg)',
+            'opacity-(0|10|25|50|75|100)',
+            '(bg|text|border)-opacity-(10|25|50|75|100)',
+            'text-bg-[a-z]+',
+            'text-[a-z]+-emphasis',
+            'text-body-(secondary|tertiary|emphasis)',
+            'bg-body(-secondary|-tertiary)?',
+            '(bg|border)-[a-z]+-subtle',
+            'd-(inline-)?grid',
+            '(top|bottom|start|end)-(0|50|100)',
+            'translate-middle(-x|-y)?',
+            'border-[1-5]',
+            'rounded-[1-5]',
+            'ratio(-[0-9x]+)?',
+            'vr',
+            '[hv]stack',
+            'z-[0-3]',
+            'object-fit-[a-z-]+',
+            'link-(offset|opacity)-[0-9]+(-hover)?',
+            'link-underline-[a-z0-9-]+',
+            'icon-link',
+            'focus-ring',
+            'g[xy]?-[1-5]',
         ];
+        $patterns = array_map(static fn ($family) => '/(?<![\w-])(' . $family . ')(?![\w-])/', $families);
+        // The lookahead also spares the input attribute of the same name.
+        $patterns[] = '/(?<![\w-])placeholder(-(glow|wave|xs|sm|lg))?(?![\w=-])/';
+        return $patterns;
     }
 
     /**

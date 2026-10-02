@@ -32,7 +32,7 @@ class hook_callbacks {
      * The group index page offers no server-side extension point (its renderable
      * is built inline and no page hook is dispatched), so the button is added by
      * an AMD module. This hook fires before the page requirements are finalised,
-     * so js_call_amd() is still safe here on both 5.1 and 5.2.
+     * so js_call_amd() is still safe here on every supported branch.
      *
      * @param before_footer_html_generation $hook The hook instance.
      * @return void

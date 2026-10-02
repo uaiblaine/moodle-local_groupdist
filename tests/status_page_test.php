@@ -134,12 +134,15 @@ final class status_page_test extends \advanced_testcase {
     /**
      * A queued task is reported as running, its progress bar appears once the
      * started task has created it, and where core has no task indicator the
-     * page reloads itself only while the task exists.
+     * page reloads itself only while the task exists. Where core has the
+     * indicator, it is what renders the task.
      *
      * The bar is matched by its element id, which the progress bar template
-     * takes from the bar's idnumber. Changes that must make it fail: dropping
-     * the bar or the periodic refresh from the indicator-less arm of
-     * status.php, or keeping the refresh once the task is gone.
+     * takes from the bar's idnumber, and the indicator by the class of its
+     * container. Changes that must make it fail: dropping the bar or the
+     * periodic refresh from the indicator-less arm of status.php, keeping the
+     * refresh once the task is gone, or rendering the indicator-less arm where
+     * core has the indicator.
      *
      * @return void
      */
@@ -163,15 +166,15 @@ final class status_page_test extends \advanced_testcase {
         $task->set_userid((int) get_admin()->id);
         $taskid = \core\task\manager::queue_adhoc_task($task, true);
         $idnumber = \core\output\stored_progress_bar::convert_to_idnumber(apply_distribution::class, $taskid);
-        $refresh = class_exists(\core\output\task_indicator::class)
-            ? null
-            : (int) \core\output\stored_progress_bar::get_timeout();
+        $hasindicator = class_exists(\core\output\task_indicator::class);
+        $refresh = $hasindicator ? null : (int) \core\output\stored_progress_bar::get_timeout();
 
         // Queued and not started: the message, and no bar to poll yet.
         $html = $this->render_status((int) $course->id);
         $this->assertStringContainsString(get_string('applyrunning', 'local_groupdist'), $html);
         $this->assertStringNotContainsString('id="' . $idnumber . '"', $html);
         $this->assertSame($refresh, $PAGE->periodicrefreshdelay);
+        $this->assertSame($hasindicator, str_contains($html, 'class="task-indicator'));
 
         // Started: the task's bar has a row, so the page shows it.
         ob_start();
@@ -181,6 +184,7 @@ final class status_page_test extends \advanced_testcase {
         $this->assertStringContainsString(get_string('applyrunning', 'local_groupdist'), $html);
         $this->assertStringContainsString('id="' . $idnumber . '"', $html);
         $this->assertSame($refresh, $PAGE->periodicrefreshdelay);
+        $this->assertSame($hasindicator, str_contains($html, 'class="task-indicator'));
 
         // Finished: the outcome stays on screen without reloading.
         $DB->delete_records('task_adhoc', ['id' => $taskid]);

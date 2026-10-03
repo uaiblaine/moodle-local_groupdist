@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+Moodle 5.3 branch (`MOODLE_503_STABLE`): version `2026100500` (the 5.3 namespace, `20261005XX`),
+release `v5.3-r1`, `MATURITY_ALPHA`, CI against core `MOODLE_503_STABLE`. The code is the 5.2
+branch's, unchanged.
+
 ### Changed
 
 - With "Ignore users already in the selected groups" turned off, a participant

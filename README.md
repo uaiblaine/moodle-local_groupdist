@@ -42,7 +42,7 @@ Before the button appears
 Requirements
 ------------
 
-- Moodle 5.3 (in development; branch `MOODLE_503_dev`, alpha). Stable versions have their own branches.
+- Moodle 5.3 (branch `MOODLE_503_STABLE`, alpha). Stable versions have their own branches.
 
 Installation
 ------------

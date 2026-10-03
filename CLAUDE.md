@@ -132,7 +132,7 @@ One branch per Moodle version, in the Boost Union style:
 | `MOODLE_502_STABLE` | 5.2 | `MOODLE_502_STABLE` | `20260420XX` | |
 | `MOODLE_501_STABLE` | 5.1 | `MOODLE_501_STABLE` | `20251006XX` | |
 | `MOODLE_405_STABLE` | 4.5 LTS | `MOODLE_405_STABLE` | `20241007XX` | PHPUnit 9: class-level `@covers` and `@dataProvider` docblocks, no attributes |
-| `MOODLE_503_dev` | 5.3 (in development) | `main` | `20260928XX` | `MATURITY_ALPHA`; its push filter is spelled out in its own `ci.yml` because `MOODLE_*_STABLE` does not match it |
+| `MOODLE_503_STABLE` | 5.3 | `MOODLE_503_STABLE` | `20261005XX` | `MATURITY_ALPHA` |
 
 - A fix lands on `main` first and is cherry-picked to the older branches.
   `version.php` and `.github/workflows/ci.yml` **diverge on purpose**: when a
@@ -145,8 +145,8 @@ One branch per Moodle version, in the Boost Union style:
   (the pattern Boost Union uses). moodle.org needs a different number for each
   Moodle-specific release and ignores `$plugin->release`. The first eight digits are the
   branching date of the core the branch targets and the last two are a counter: 4.5 is
-  `20241007XX`, 5.1 `20251006XX`, 5.2 `20260420XX`, and 5.3 `20260928XX` until its
-  release fixes the date. A branch's first release uses its `$plugin->requires` value
+  `20241007XX`, 5.1 `20251006XX`, 5.2 `20260420XX`, and 5.3 `20261005XX` (the 5.3.0 core
+  version). A branch's first release uses its `$plugin->requires` value
   (counter 00), and every later change that needs a bump (a table, a service, a cache,
   a hook, a rebuilt `amd/build`, anything Moodle must notice) adds 1 to **that branch's**
   counter only. A newer Moodle's namespace is always higher, so a site that moves from 4.5

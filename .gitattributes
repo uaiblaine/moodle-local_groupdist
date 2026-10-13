@@ -15,7 +15,6 @@
 /.mdlshield          export-ignore
 /.moodle-plugin-ci.yml export-ignore
 /.phpcsignore         export-ignore
-/.stylelintrc.json    export-ignore
 /CLAUDE.md            export-ignore
 /docs                 export-ignore
 /phpcs.xml            export-ignore

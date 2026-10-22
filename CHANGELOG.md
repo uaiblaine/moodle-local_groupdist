@@ -26,10 +26,16 @@ branch's, unchanged.
   describes the audit log, what it keeps and for how long, the
   `viewauditlog` capability and every setting.
 
+- The preview notice said twice that nothing is saved until you apply; the
+  footnote now only adds that large runs go to the background.
+
 ### Added
 
 - A `LICENSE` file beside `COPYING.txt`, as the plugins directory requires a
   licence file in the package.
+- README screenshots of the groups page, the options form, the preview, the
+  bulk edit table and the distribution log (`docs/screenshots/`, left out of
+  the package with `docs/`).
 
 ### Changed
 

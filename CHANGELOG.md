@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Fixed
+
+- Privacy: the group memberships a distribution writes (stamped with the
+  component `local_groupdist`) are now exported on a data request and removed
+  on a deletion request. Core's group provider handles only memberships with no
+  component, so these were left out of both before.
+- City, country, department and institution are offered as affinity sources
+  only when core would show them to the user: department and institution when
+  the site lists them in *Show user identity* and the user holds
+  `moodle/site:viewuseridentity`, city and country unless *Hide user fields*
+  hides them and the user lacks `moodle/course:viewhiddenuserfields`. The same
+  check masks those values in the distribution log, also in runs recorded
+  before this change.
+- The README described the plugin as owning no database tables. It now
+  describes the audit log, what it keeps and for how long, the
+  `viewauditlog` capability and every setting.
+
+### Added
+
+- A `LICENSE` file beside `COPYING.txt`, as the plugins directory requires a
+  licence file in the package.
+
+### Changed
+
+- `lang/pt_br` stays in the repository but leaves the release package: the
+  plugins directory accepts only English strings in a package, and translations
+  reach sites through AMOS.
+
 ### Changed
 
 - With "Ignore users already in the selected groups" turned off, a participant

@@ -455,4 +455,61 @@ final class auditreader_test extends \advanced_testcase {
         // Control: a plain field rule still shows its real value in the same run.
         $this->assertStringContainsString('Recife', $joined);
     }
+
+    /**
+     * A native identity field is masked for a viewer who may not see it.
+     *
+     * Department is shown by core only when showuseridentity lists it, so a
+     * teacher reading a run ruled on department sees the masked line until
+     * the site lists the field; the second reader over the same run is the
+     * control that the value is really in the snapshot.
+     */
+    public function test_identity_field_value_is_masked_for_the_viewer(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+        $group = $generator->create_group(['courseid' => $course->id, 'name' => 'Turma 01']);
+        foreach (['Alpha', 'Beta'] as $lastname) {
+            $user = $generator->create_and_enrol($course);
+            $user->lastname = $lastname;
+            $user->department = 'Engenharia';
+            user_update_user($user, false);
+        }
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+
+        $this->setAdminUser();
+        $options = options::from_array([
+            'courseid' => $course->id,
+            'groupids' => [(int) $group->id],
+            'affinityrules' => [['source' => 'department', 'mode' => options::AFFINITY_TOGETHER]],
+            'roleid' => (int) current(get_archetype_roles('student'))->id,
+            'seed' => 42,
+        ]);
+        $runid = runlog::create(distribution::build($options, $context), (int) get_admin()->id, $context);
+        $run = $DB->get_record('local_groupdist_run', ['id' => $runid], '*', MUST_EXIST);
+
+        $whylines = static function (auditreader $reader): string {
+            $lines = [];
+            foreach ($reader->get_sections('', '', 0, auditreader::SECTIONS_PER_PAGE)['sections'] as $section) {
+                foreach ($section['members'] as $member) {
+                    foreach ($member['why'] as $why) {
+                        $lines[] = $why['text'];
+                    }
+                }
+            }
+            return implode(' | ', $lines);
+        };
+
+        $this->setUser($teacher);
+        set_config('showuseridentity', 'email');
+        $masked = $whylines(new auditreader($run, $context));
+        $this->assertStringNotContainsString('Engenharia', $masked);
+        $this->assertStringContainsString(get_string('auditmaskedvalue', 'local_groupdist'), $masked);
+
+        set_config('showuseridentity', 'email,department');
+        $this->assertStringContainsString('Engenharia', $whylines(new auditreader($run, $context)));
+    }
 }

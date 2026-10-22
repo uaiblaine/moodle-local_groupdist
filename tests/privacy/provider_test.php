@@ -248,6 +248,151 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     /**
+     * A course where one user holds a membership the plugin wrote and a manual one.
+     *
+     * The manual membership (empty component) is core_group's to export and
+     * delete, so every test below uses it as the control that this provider
+     * touches its own rows only. The user has no audit row, so finding the
+     * course for them proves the membership arm of the provider on its own.
+     *
+     * @return array [context, member, plugin group id, manual group id].
+     */
+    private function seed_memberships(): array {
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $context = \core\context\course::instance($course->id);
+        $plugingroup = $generator->create_group(['courseid' => $course->id, 'name' => 'Turma A']);
+        $manualgroup = $generator->create_group(['courseid' => $course->id, 'name' => 'Turma B']);
+        $member = $generator->create_and_enrol($course);
+        $this->assertTrue(groups_add_member($plugingroup, $member, 'local_groupdist', 7));
+        $this->assertTrue(groups_add_member($manualgroup, $member));
+        return [$context, $member, (int) $plugingroup->id, (int) $manualgroup->id];
+    }
+
+    /**
+     * Whether a membership row exists, read from the table.
+     *
+     * @param int $groupid The group id.
+     * @param int $userid The user id.
+     * @return bool True when the row exists.
+     */
+    private function is_member(int $groupid, int $userid): bool {
+        global $DB;
+        return $DB->record_exists('groups_members', ['groupid' => $groupid, 'userid' => $userid]);
+    }
+
+    /**
+     * The metadata links core_group, whose rows the plugin writes.
+     *
+     * @return void
+     */
+    public function test_the_metadata_links_core_group(): void {
+        $collection = provider::get_metadata(new collection('local_groupdist'));
+        $links = array_filter($collection->get_collection(), static function ($item): bool {
+            return $item instanceof \core_privacy\local\metadata\types\subsystem_link;
+        });
+        $this->assertSame(['core_group'], array_values(array_map(static function ($item): string {
+            return $item->get_name();
+        }, $links)));
+    }
+
+    /**
+     * A user whose only data is a membership the plugin wrote is found in the
+     * course, by context and by userlist, and the export carries that group
+     * and not the manual one, whoever runs the export.
+     *
+     * @return void
+     */
+    public function test_plugin_memberships_are_found_and_exported(): void {
+        $this->resetAfterTest();
+        [$context, $member, , $manualid] = $this->seed_memberships();
+        $generator = $this->getDataGenerator();
+        $outsider = $generator->create_user();
+        $manualonly = $generator->create_and_enrol(get_course((int) $context->instanceid));
+        $this->assertTrue(groups_add_member($manualid, $manualonly->id));
+
+        $contextids = static function (int $userid): array {
+            return array_map('intval', provider::get_contexts_for_userid($userid)->get_contextids());
+        };
+        $this->assertContains((int) $context->id, $contextids((int) $member->id));
+        // Controls: no membership, and a manual membership only, are not this provider's.
+        $this->assertNotContains((int) $context->id, $contextids((int) $outsider->id));
+        $this->assertNotContains((int) $context->id, $contextids((int) $manualonly->id));
+
+        $userlist = new userlist($context, 'local_groupdist');
+        provider::get_users_in_context($userlist);
+        $this->assertContains((int) $member->id, $userlist->get_userids());
+        $this->assertNotContains((int) $manualonly->id, $userlist->get_userids());
+
+        /* Exported by someone else, as tool_dataprivacy's task does, who holds a
+           plugin membership of their own: core_group's export_groups() would read
+           that $USER instead of the request's subject and export "Turma C". */
+        $other = $generator->create_group(['courseid' => $context->instanceid, 'name' => 'Turma C']);
+        $generator->enrol_user((int) get_admin()->id, (int) $context->instanceid);
+        $this->assertTrue(groups_add_member($other, get_admin(), 'local_groupdist', 7));
+        $this->setAdminUser();
+        $this->export_context_data_for_user((int) $member->id, $context, 'local_groupdist');
+        $data = writer::with_context($context)->get_data([
+            get_string('pluginname', 'local_groupdist'),
+            get_string('groups', 'core_group'),
+        ]);
+        $this->assertNotEmpty($data->groups);
+        $this->assertSame(['Turma A'], array_values(array_map(static function ($group): string {
+            return $group->name;
+        }, (array) $data->groups)));
+    }
+
+    /**
+     * A deletion request for one user removes the memberships the plugin
+     * wrote for them and leaves the manual one to core_group.
+     *
+     * @return void
+     */
+    public function test_delete_data_for_user_removes_plugin_memberships(): void {
+        $this->resetAfterTest();
+        [$context, $member, $pluginid, $manualid] = $this->seed_memberships();
+
+        provider::delete_data_for_user(new approved_contextlist($member, 'local_groupdist', [$context->id]));
+
+        $this->assertFalse($this->is_member($pluginid, (int) $member->id));
+        $this->assertTrue($this->is_member($manualid, (int) $member->id));
+    }
+
+    /**
+     * A userlist deletion removes the approved users' plugin memberships only.
+     *
+     * @return void
+     */
+    public function test_delete_data_for_users_removes_plugin_memberships(): void {
+        $this->resetAfterTest();
+        [$context, $member, $pluginid, $manualid] = $this->seed_memberships();
+        $other = $this->getDataGenerator()->create_and_enrol(get_course((int) $context->instanceid));
+        $this->assertTrue(groups_add_member($pluginid, $other->id, 'local_groupdist', 7));
+
+        provider::delete_data_for_users(new approved_userlist($context, 'local_groupdist', [(int) $member->id]));
+
+        $this->assertFalse($this->is_member($pluginid, (int) $member->id));
+        $this->assertTrue($this->is_member($manualid, (int) $member->id));
+        // Control: a user who was not approved keeps the plugin membership.
+        $this->assertTrue($this->is_member($pluginid, (int) $other->id));
+    }
+
+    /**
+     * Deleting a whole context removes every plugin membership in it and no manual one.
+     *
+     * @return void
+     */
+    public function test_delete_data_for_all_users_removes_plugin_memberships(): void {
+        $this->resetAfterTest();
+        [$context, $member, $pluginid, $manualid] = $this->seed_memberships();
+
+        provider::delete_data_for_all_users_in_context($context);
+
+        $this->assertFalse($this->is_member($pluginid, (int) $member->id));
+        $this->assertTrue($this->is_member($manualid, (int) $member->id));
+    }
+
+    /**
      * The userlist deletion pseudonymises the approved users only.
      */
     public function test_delete_data_for_users(): void {

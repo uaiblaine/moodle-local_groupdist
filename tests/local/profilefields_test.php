@@ -190,9 +190,9 @@ final class profilefields_test extends \advanced_testcase {
     }
 
     /**
-     * Native fields are always present; cohorts are never enumerated here.
+     * City and country are offered by default; cohorts are never enumerated here.
      */
-    public function test_native_fields_always_offered(): void {
+    public function test_city_and_country_offered_by_default(): void {
         $this->resetAfterTest();
         $course = $this->getDataGenerator()->create_course();
         $context = \core\context\course::instance($course->id);
@@ -202,13 +202,75 @@ final class profilefields_test extends \advanced_testcase {
         $this->setUser($student);
         $available = profilefields::get_fields($context);
 
-        foreach (options::NATIVE_AFFINITY_FIELDS as $field) {
-            $this->assertArrayHasKey($field, $available);
-        }
+        $this->assertArrayHasKey('city', $available);
+        $this->assertArrayHasKey('country', $available);
         // Cohorts are picked through the bounded menu or the search, and are
         // authorized per rule via cohort_get_cohort() — never listed here.
         $this->assertArrayNotHasKey('cohort_' . $cohort->id, $available);
         $this->assertTrue(profilefields::is_allowed('cohort_' . $cohort->id, $context));
+    }
+
+    /**
+     * Department and institution are identity fields: offered only when
+     * showuseridentity lists them AND the user holds moodle/site:viewuseridentity.
+     *
+     * The teacher arm under the default setting is the control for the
+     * capability arm: the same teacher is refused until the setting lists the
+     * fields, and the student is refused after it does.
+     */
+    public function test_department_and_institution_follow_showuseridentity(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $context = \core\context\course::instance($course->id);
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+
+        set_config('showuseridentity', 'email');
+        $this->setUser($teacher);
+        foreach (['department', 'institution'] as $field) {
+            $this->assertArrayNotHasKey($field, profilefields::get_fields($context));
+            $this->assertFalse(profilefields::is_allowed($field, $context));
+        }
+
+        set_config('showuseridentity', 'email,department,institution');
+        foreach (['department', 'institution'] as $field) {
+            $this->assertArrayHasKey($field, profilefields::get_fields($context));
+            $this->assertTrue(profilefields::is_allowed($field, $context));
+        }
+
+        $this->setUser($student);
+        foreach (['department', 'institution'] as $field) {
+            $this->assertArrayNotHasKey($field, profilefields::get_fields($context));
+            $this->assertFalse(profilefields::is_allowed($field, $context));
+        }
+    }
+
+    /**
+     * City and country hidden through hiddenuserfields are offered only to a
+     * holder of moodle/course:viewhiddenuserfields (an editing teacher, not a
+     * student). The student arm before the setting changes is the control.
+     */
+    public function test_city_and_country_follow_hiddenuserfields(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $context = \core\context\course::instance($course->id);
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+
+        $this->setUser($student);
+        $this->assertTrue(profilefields::is_allowed('city', $context));
+
+        set_config('hiddenuserfields', 'city,country');
+        foreach (['city', 'country'] as $field) {
+            $this->assertArrayNotHasKey($field, profilefields::get_fields($context));
+            $this->assertFalse(profilefields::is_allowed($field, $context));
+        }
+
+        $this->setUser($teacher);
+        foreach (['city', 'country'] as $field) {
+            $this->assertArrayHasKey($field, profilefields::get_fields($context));
+            $this->assertTrue(profilefields::is_allowed($field, $context));
+        }
     }
 
     /**

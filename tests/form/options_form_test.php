@@ -550,6 +550,8 @@ final class options_form_test extends \advanced_testcase {
     public function test_a_lowered_rule_limit_binds_the_builder_and_validation(): void {
         $this->render_with_cohort();
         set_config('maxaffinityrules', 2, 'local_groupdist');
+        // Department and institution are identity fields, offered only when the site lists them.
+        set_config('showuseridentity', 'email,department,institution');
 
         $this->assertStringContainsString('data-maxrules="2"', $this->render_form());
 
@@ -576,8 +578,10 @@ final class options_form_test extends \advanced_testcase {
     public function test_a_raised_rule_limit_is_reachable(): void {
         global $DB;
 
-        // Four native columns and seven cohorts give eleven distinct sources.
+        // Four native columns and seven cohorts give eleven distinct sources;
+        // department and institution count only once the site lists them.
         $this->render_with_cohort(6);
+        set_config('showuseridentity', 'email,department,institution');
         $cohortids = $DB->get_fieldset_select('cohort', 'id', 'contextid = ?', [\core\context\system::instance()->id]);
         $sources = array_merge(
             options::NATIVE_AFFINITY_FIELDS,

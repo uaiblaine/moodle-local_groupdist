@@ -31,6 +31,55 @@ groups for editing seats, location and any other group custom field inline,
 with mass-apply, overbooking indicators and a per-row modal carrying every
 setting of core's own group edit form.
 
+Screenshots
+-----------
+
+*Moodle with the Boost theme and a demo course: 64 students, eight lab benches
+with seats and a room, and a lab pair recorded in a custom profile field.*
+
+### The groups page
+
+<table>
+<tr>
+<td valign="top" width="300"><img src="docs/screenshots/groups-page.png" alt="Course groups page with eight lab benches selected and the Bulk edit groups and Distribute participants buttons under With selected" width="280"></td>
+<td valign="top">
+
+Both actions sit under *With selected* on *Participants → Groups* and work on
+the groups selected in the list: here the eight empty lab benches. The teams
+below them were filled by an earlier distribution.
+
+</td>
+</tr>
+</table>
+
+### Choosing who goes where
+
+![Distribute participants options: the selected groups, the member filters, random allocation, two affinity rules and the seats option](docs/screenshots/options-form.png)
+
+The chips at the top are the groups the run will fill. *Group members* filters by role and enrolment state. *Allocation* is random or alphabetical, as in core's auto-create groups. *Affinity* is an ordered list of rules: here, keep each lab pair together first, and keep students from the same city apart second. A rule can read a profile field, a cohort or a course group, and the one higher up wins when two of them conflict. *Seats and overbooking* caps every group at its **Seats** field.
+
+### The preview
+
+![Preview: chosen options, totals, warnings count and the Apply distribution footer](docs/screenshots/preview.png)
+
+Nothing is written yet. The preview repeats the options, counts the participants, groups, average new members and seats in use, and lists any warning (a rule that could not be kept, a cluster split for lack of seats, participants left without a group). *Apply distribution* writes exactly this plan. If enrolments or memberships changed in the meantime, it refuses and asks for a new preview.
+
+![Preview sample: each lab bench with its location, a capacity bar, five members with their rule values, and the status of each rule](docs/screenshots/preview-groups.png)
+
+Below the totals, a sample of each group: its location, a bar of members against seats, up to five members tagged with their value for each rule, and one line per rule saying how the group fared.
+
+### Bulk edit groups
+
+![Bulk edit table of the eight lab benches with editable Seats and Location cells](docs/screenshots/bulk-edit.png)
+
+Seats, location and any other group custom field are edited inline for every selected group, or set for all of them at once. Only the changed cells are saved. *Edit* opens the group's full settings in a modal.
+
+### Distribution log
+
+![Run detail of the distribution log: who applied it, the rules, and each team with its members and an open Why here? explanation](docs/screenshots/audit-detail.png)
+
+Every applied run is kept as a snapshot: who applied it and when, the rules with their labels at the time, and each group as written. **Why here?** explains each placement from the recorded values: the lab pair that kept two students together, and the students from the same city sent to other teams. The groups and the participants can be searched.
+
 Before the button appears
 -------------------------
 

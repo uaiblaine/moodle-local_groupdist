@@ -148,6 +148,7 @@ $string['previewcapped'] = 'Pré-visualização limitada a {$a->cap} de {$a->tot
 $string['previewdistribution'] = 'Pré-visualizar distribuição';
 $string['previewnothingsaved'] = 'Pré-visualização da distribuição em {$a} grupos selecionados. Nada foi gravado ainda — as participações só são escritas ao aplicar.';
 $string['previewstale'] = 'Inscrições ou grupos mudaram durante a pré-visualização. Recarregue a pré-visualização antes de aplicar.';
+$string['privacy:metadata:core_group'] = 'Uma distribuição adiciona os participantes aos grupos do curso selecionados; o plugin exporta e apaga as participações que adicionou.';
 $string['privacy:metadata:local_groupdist_run'] = 'Uma fotografia por execução de distribuição aplicada: quem executou e os insumos de que o plano foi função.';
 $string['privacy:metadata:local_groupdist_run:courseid'] = 'O curso em que a distribuição rodou.';
 $string['privacy:metadata:local_groupdist_run:optionsjson'] = 'As opções da distribuição como escolhidas no momento da aplicação.';

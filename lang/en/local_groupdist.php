@@ -148,6 +148,7 @@ $string['previewcapped'] = 'Preview limited to {$a->cap} of {$a->total} groups. 
 $string['previewdistribution'] = 'Preview distribution';
 $string['previewnothingsaved'] = 'Preview of the distribution into {$a} selected groups. Nothing has been saved yet — memberships are only written when you apply.';
 $string['previewstale'] = 'Enrolments or groups changed while previewing. Reload the preview before applying.';
+$string['privacy:metadata:core_group'] = 'A distribution adds the participants to the selected course groups; the plugin exports and deletes the memberships it added.';
 $string['privacy:metadata:local_groupdist_run'] = 'One snapshot per applied distribution run: who ran it and the inputs the plan was computed from.';
 $string['privacy:metadata:local_groupdist_run:courseid'] = 'The course the distribution ran in.';
 $string['privacy:metadata:local_groupdist_run:optionsjson'] = 'The distribution options as chosen at apply time.';

@@ -1,0 +1,1 @@
+s/WHERE gm\.userid = :userid AND gm\.component = :component\",\n(\s*)\['courselevel' => CONTEXT_COURSE, 'userid' => \$userid, 'component' => 'local_groupdist'\]/WHERE gm.userid = :userid\",\n$1['courselevel' => CONTEXT_COURSE, 'userid' => \$userid]/;

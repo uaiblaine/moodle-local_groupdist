@@ -19,7 +19,8 @@ namespace local_groupdist\local;
 /**
  * Enumeration and authorization of the affinity rule sources.
  *
- * Native user columns are always offered. Custom profile fields follow core's
+ * Native user columns follow the rules core applies to them on its own pages
+ * ({@see self::native_field_allowed()}). Custom profile fields follow core's
  * visibility semantics (profile_field_base::is_visible(), listing case).
  * Cohorts follow cohort_get_cohort()'s parent-context and visibility rules, so
  * a hidden cohort id can never become a membership oracle.
@@ -56,8 +57,11 @@ class profilefields {
         require_once($CFG->dirroot . '/user/profile/lib.php');
 
         $result = [];
+        $identity = \core_user\fields::get_identity_fields($context, false);
         foreach (options::NATIVE_AFFINITY_FIELDS as $field) {
-            $result[$field] = get_string($field);
+            if (self::native_field_allowed($field, $identity, $context)) {
+                $result[$field] = get_string($field);
+            }
         }
 
         $viewall = has_capability('moodle/user:viewalldetails', $context);
@@ -80,6 +84,36 @@ class profilefields {
             $result['profile_' . (int) $field->id] = self::plain($field->name, \core\context\system::instance());
         }
         return $result;
+    }
+
+    /**
+     * Whether a native user column may be a source for the acting user.
+     *
+     * Department and institution are identity fields: core shows them only
+     * when they are listed in showuseridentity and the viewer holds
+     * moodle/site:viewuseridentity, which is what $identity already encodes
+     * (core_user\fields::get_identity_fields() also drops a listed field that
+     * hiddenuserfields hides). City and country are shown to whoever can see
+     * the profile unless hiddenuserfields hides them, in which case a course
+     * needs moodle/course:viewhiddenuserfields — the same test
+     * get_identity_fields() and user_get_user_details() make inside a course.
+     *
+     * @param string $field One of options::NATIVE_AFFINITY_FIELDS.
+     * @param array $identity The identity fields the acting user may see here.
+     * @param \core\context\course $context The course context.
+     * @return bool True when the column may be offered.
+     */
+    private static function native_field_allowed(string $field, array $identity, \core\context\course $context): bool {
+        global $CFG;
+
+        if ($field === 'department' || $field === 'institution') {
+            return in_array($field, $identity, true);
+        }
+        $hidden = array_filter(explode(',', (string) ($CFG->hiddenuserfields ?? '')));
+        if (!in_array($field, $hidden, true)) {
+            return true;
+        }
+        return has_capability('moodle/course:viewhiddenuserfields', $context);
     }
 
     /**

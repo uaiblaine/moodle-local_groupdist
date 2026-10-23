@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_groupdist';
-$plugin->version = 2026100500;
+$plugin->version = 2026100501;
 $plugin->requires = 2026100500;
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = 'v5.3-r1';
+$plugin->release = 'v5.3-r2';
 $plugin->supported = [503, 503];

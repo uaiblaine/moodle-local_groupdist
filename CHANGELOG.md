@@ -9,6 +9,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Moodle 5.3 branch (`MOODLE_503_STABLE`): version `2026100500` (the 5.3 namespace, `20261005XX`),
 release `v5.3-r1`, `MATURITY_ALPHA`, CI against core `MOODLE_503_STABLE`. The code is the 5.2
 branch's, unchanged.
+### Fixed
+
+- Privacy: the group memberships a distribution writes (stamped with the
+  component `local_groupdist`) are now exported on a data request and removed
+  on a deletion request. Core's group provider handles only memberships with no
+  component, so these were left out of both before.
+- City, country, department and institution are offered as affinity sources
+  only when core would show them to the user: department and institution when
+  the site lists them in *Show user identity* and the user holds
+  `moodle/site:viewuseridentity`, city and country unless *Hide user fields*
+  hides them and the user lacks `moodle/course:viewhiddenuserfields`. The same
+  check masks those values in the distribution log, also in runs recorded
+  before this change.
+- The README described the plugin as owning no database tables. It now
+  describes the audit log, what it keeps and for how long, the
+  `viewauditlog` capability and every setting.
+
+- The preview notice said twice that nothing is saved until you apply; the
+  footnote now only adds that large runs go to the background.
+
+### Added
+
+- A `LICENSE` file beside `COPYING.txt`, as the plugins directory requires a
+  licence file in the package.
+- README screenshots of the groups page, the options form, the preview, the
+  bulk edit table and the distribution log (`docs/screenshots/`, left out of
+  the package with `docs/`).
+
+### Changed
+
+- `lang/pt_br` stays in the repository but leaves the release package: the
+  plugins directory accepts only English strings in a package, and translations
+  reach sites through AMOS.
 
 ### Changed
 

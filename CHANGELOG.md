@@ -9,6 +9,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Moodle 5.3 branch (`MOODLE_503_STABLE`): version `2026100500` (the 5.3 namespace, `20261005XX`),
 release `v5.3-r1`, `MATURITY_ALPHA`, CI against core `MOODLE_503_STABLE`. The code is the 5.2
 branch's, unchanged.
+
+### Changed
+
+- The 5.3 branch is `MATURITY_STABLE` (version `2026100502`), as core 5.3 is a
+  stable release; v5.3-r2 is rebuilt from this commit.
+
 ### Fixed
 
 - Privacy: the group memberships a distribution writes (stamped with the

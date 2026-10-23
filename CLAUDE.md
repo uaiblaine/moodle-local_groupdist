@@ -135,7 +135,7 @@ One branch per Moodle version, in the Boost Union style:
 | `MOODLE_502_STABLE` | 5.2 | `MOODLE_502_STABLE` | `20260420XX` | |
 | `MOODLE_501_STABLE` | 5.1 | `MOODLE_501_STABLE` | `20251006XX` | |
 | `MOODLE_405_STABLE` | 4.5 LTS | `MOODLE_405_STABLE` | `20241007XX` | PHPUnit 9: class-level `@covers` and `@dataProvider` docblocks, no attributes |
-| `MOODLE_503_STABLE` | 5.3 | `MOODLE_503_STABLE` | `20261005XX` | `MATURITY_ALPHA` |
+| `MOODLE_503_STABLE` | 5.3 | `MOODLE_503_STABLE` | `20261005XX` | `MATURITY_STABLE` since v5.3-r2 (2026100502), core 5.3 being a stable release |
 
 - A fix lands on `main` first and is cherry-picked to the older branches.
   `version.php` and `.github/workflows/ci.yml` **diverge on purpose**: when a

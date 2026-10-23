@@ -202,6 +202,18 @@ removes those memberships and pseudonymises the audit rows (the user id is
 zeroed and the values are blanked), so the counts of the remaining
 participants stay intact.
 
+For other plugins
+-----------------
+
+Other plugins can read the Seats capacity without depending on this one:
+`\local_groupdist\seats::for_groups($groupids)` returns, for each group, the
+declared seats (`null` when the group declares no limit or the field does not
+exist) and the current member count (every member, whatever their role, the
+number the bulk edit page compares with the seats). Check
+`class_exists('\local_groupdist\seats')` first, so a site without this plugin
+simply has no seats. `enrol_apply` uses it to stop a group enrolment key from
+admitting anyone into a group with no seats left.
+
 Limitations
 -----------
 

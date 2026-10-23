@@ -37,6 +37,10 @@ branch's, unchanged.
 
 ### Added
 
+- `\local_groupdist\seats::for_groups()`, a public reader of each group's
+  declared seats and current member count for other plugins (`enrol_apply`
+  honours it for group enrolment keys). It is the only class outside
+  `classes/local/`, which stays internal.
 - A `LICENSE` file beside `COPYING.txt`, as the plugins directory requires a
   licence file in the package.
 - README screenshots of the groups page, the options form, the preview, the

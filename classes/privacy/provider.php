@@ -33,7 +33,13 @@ use local_groupdist\local\runlog;
  * the write outcome. Deletion requests pseudonymise the rows (userid zeroed,
  * values blanked) instead of removing them, so run counts and group
  * compositions stay intact for the remaining participants. The bulk edit
- * column preference is the only other personal data.
+ * column preference is the other personal data the plugin keeps itself.
+ *
+ * The group memberships a run writes are core rows stamped with component
+ * 'local_groupdist', and core_group's own provider handles only the rows with
+ * an empty component, so this provider lists and deletes them through the
+ * core_group helpers, the way enrol_meta does for its memberships, and exports
+ * them itself ({@see self::export_user_data()}).
  *
  * @package    local_groupdist
  * @copyright  2026 Anderson Blaine
@@ -71,11 +77,14 @@ class provider implements
             'local_groupdist_bulkedit_hiddencols',
             'privacy:metadata:preference:bulkeditcols'
         );
+
+        $collection->add_subsystem_link('core_group', [], 'privacy:metadata:core_group');
         return $collection;
     }
 
     /**
-     * Course contexts holding data of a user (as applier or as participant).
+     * Course contexts holding data of a user (as applier, as participant or
+     * as a member the plugin added to a group).
      *
      * @param int $userid The user id.
      * @return contextlist The contexts.
@@ -96,6 +105,17 @@ class provider implements
                JOIN {local_groupdist_run_user} ru ON ru.runid = r.id
               WHERE ru.userid = :userid",
             ['courselevel' => CONTEXT_COURSE, 'userid' => $userid]
+        );
+        /* The membership query of core_group\privacy\provider::get_contexts_for_group_member(),
+           without the group conversations it also adds: those belong to core_group's
+           own provider, which lists them for every user. */
+        $contextlist->add_from_sql(
+            "SELECT ctx.id
+               FROM {groups_members} gm
+               JOIN {groups} g ON g.id = gm.groupid
+               JOIN {context} ctx ON ctx.instanceid = g.courseid AND ctx.contextlevel = :courselevel
+              WHERE gm.userid = :userid AND gm.component = :component",
+            ['courselevel' => CONTEXT_COURSE, 'userid' => $userid, 'component' => 'local_groupdist']
         );
         return $contextlist;
     }
@@ -124,10 +144,11 @@ class provider implements
               WHERE r.courseid = :courseid AND ru.userid > 0',
             ['courseid' => $context->instanceid]
         );
+        \core_group\privacy\provider::get_group_members_in_context($userlist, 'local_groupdist');
     }
 
     /**
-     * Export a user's audit data per approved course context.
+     * Export a user's audit data and plugin-made memberships per approved course context.
      *
      * @param approved_contextlist $contextlist The approved contexts.
      * @return void
@@ -177,11 +198,37 @@ class provider implements
                     (object) ['appliedruns' => $applied, 'participations' => $participations]
                 );
             }
+
+            /* The query and record shape of core_group\privacy\provider::export_groups(), for
+               the request's user: that helper selects the memberships of $USER, and neither
+               the privacy manager nor tool_dataprivacy's task switches $USER to the subject,
+               so calling it would export the memberships of whoever runs the request. */
+            $memberships = $DB->get_records_sql(
+                'SELECT gm.id, g.name, gm.timeadded
+                   FROM {groups_members} gm
+                   JOIN {groups} g ON g.id = gm.groupid
+                  WHERE g.courseid = :courseid AND gm.userid = :userid AND gm.component = :component
+               ORDER BY gm.id',
+                ['courseid' => $courseid, 'userid' => $userid, 'component' => 'local_groupdist']
+            );
+            if ($memberships) {
+                $groups = [];
+                foreach ($memberships as $membership) {
+                    $groups[] = (object) [
+                        'name' => format_string($membership->name, true, ['context' => $context]),
+                        'timeadded' => \core_privacy\local\request\transform::datetime($membership->timeadded),
+                    ];
+                }
+                writer::with_context($context)->export_data(
+                    [get_string('pluginname', 'local_groupdist'), get_string('groups', 'core_group')],
+                    (object) ['groups' => $groups]
+                );
+            }
         }
     }
 
     /**
-     * Wipe the audit log of one context entirely.
+     * Wipe the audit log of one context and the memberships the plugin wrote there.
      *
      * @param \context $context The context.
      * @return void
@@ -189,11 +236,13 @@ class provider implements
     public static function delete_data_for_all_users_in_context(\context $context): void {
         if ($context instanceof \core\context\course) {
             runlog::purge_course((int) $context->instanceid);
+            \core_group\privacy\provider::delete_groups_for_all_users($context, 'local_groupdist');
         }
     }
 
     /**
-     * Pseudonymise one user's rows in the approved contexts.
+     * Pseudonymise one user's audit rows and remove the memberships the plugin
+     * wrote for them, in the approved contexts.
      *
      * @param approved_contextlist $contextlist The approved contexts.
      * @return void
@@ -205,10 +254,12 @@ class provider implements
                 runlog::pseudonymise_user_in_course($userid, (int) $context->instanceid);
             }
         }
+        \core_group\privacy\provider::delete_groups_for_user($contextlist, 'local_groupdist');
     }
 
     /**
-     * Pseudonymise several users' rows in one context.
+     * Pseudonymise several users' audit rows and remove the memberships the
+     * plugin wrote for them, in one context.
      *
      * @param approved_userlist $userlist The approved users.
      * @return void
@@ -221,6 +272,7 @@ class provider implements
         foreach ($userlist->get_userids() as $userid) {
             runlog::pseudonymise_user_in_course((int) $userid, (int) $context->instanceid);
         }
+        \core_group\privacy\provider::delete_groups_for_users($userlist, 'local_groupdist');
     }
 
     /**

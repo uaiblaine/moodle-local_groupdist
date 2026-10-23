@@ -29,27 +29,30 @@ explicit line in `~/dev/moodle-dev/plugins.conf`.
 
 ## Agent orchestration budget (fleet rule, repeated here on purpose)
 
-Section 6 of `~/dev/CLAUDE.md` (`moodle-dev/CLAUDE.fleet.md`) is the authority and
-says why. This short copy reaches sessions that do not load that file: cloud
-sessions and checkouts outside `~/dev`. Every subagent gets the model and effort of
-its role, and none runs on the session model (Fable).
+Section 6 of `~/dev/CLAUDE.md` (`moodle-dev/CLAUDE.fleet.md`) is the authority and says why.
+This short copy reaches sessions that do not load that file: cloud sessions and checkouts
+outside `~/dev`. Every subagent gets the model and effort of its role from its agent
+definition, and none runs on the session model.
 
 | Role | model | effort | agent |
 |---|---|---|---|
-| Mechanical sweeps, greps, renames, stale-reference checks | `sonnet` | `medium` | `fleet-sweeper` |
-| Readers, verifiers, refuters, graders, measurers | `sonnet` | `high` | `fleet-reader` |
-| Well-scoped implementation: a bug whose cause is established, a feature whose design is settled, a task with a written recipe, tests against a stated contract | `sonnet` | `high` | `fleet-fixer` |
-| Non-trivial implementation and its fixers: open design, several files, long tasks | `opus` | `xhigh` | `fleet-implementer` |
-| Consolidators, critics, estimators, ADR and documentation drafters | `opus` | `xhigh` | `fleet-synthesist` |
+| Mechanical sweeps, greps, renames, counts, log reading | `haiku` | `medium` | `fleet-sweeper` |
+| Checklists against evidence (handoff counts, spec lines against a sweep log, lang lockstep) | `haiku` | `high` | `fleet-checker` |
+| Readers, measurers, graders | `sonnet` | `medium` | `fleet-reader` |
+| Refuters and verifiers of a blocking finding | `sonnet` | `high` | `fleet-verifier` |
+| Well-scoped implementation (established cause, settled design, written recipe) | `sonnet` | `medium` | `fleet-fixer` |
+| Non-trivial implementation (open design, several files, long tasks) | `opus` | `high` | `fleet-implementer` |
+| Consolidators, critics, estimators, ADR and documentation drafters | `opus` | `high` | `fleet-synthesist` |
 
-- Launch the `Agent` tool with `subagent_type: "fleet-*"`; the tool has no `effort`
-  parameter, so the role's effort comes from that definition (`mdl claude-setup`
-  installs them). Where they are not installed, pass `model`.
-- Set `model` and `effort` on every Workflow `agent()`. Never `xhigh` or `max` on
-  Sonnet.
-- A subagent that changes code runs the gate its prompt names and reports the
-  command with its counts.
-- Workflows run only on the user's opt-in, and stay under 10 agents.
+- Launch the `Agent` tool with `subagent_type: "fleet-*"`; it has no `effort` parameter, so
+  the role's effort comes from that definition (`mdl claude-setup` installs them). Where they
+  are not installed, pass `model`. Aliases only; never `fable`; `xhigh` only for a long-horizon
+  implementer whose prompt says why; never `xhigh`/`max` on Sonnet or Haiku.
+- No long command inside a subagent: `mdl ci --matrix`, `mdl mutate` and Behat run from the
+  main session in a background Bash command; a subagent runs the fast gate its prompt names and
+  reports the command with its counts.
+- Workflows only on the user's opt-in, every `agent()` with `agentType: 'fleet-*'`, under 10
+  agents. Advisor off by default.
 
 ## Commands
 
@@ -167,8 +170,17 @@ Pull request reviews by MDL Shield are **manual only**. Comment `!mdlshield revi
 new since the last review) or `!mdlshield review full` (the whole pull request) on a pull
 request; the commands work for the repository owner and the `trusted_users` of
 `.mdlshield/config.yml`, and a forced command ignores the filters and a draft's silence.
-Nothing runs on its own because `include.branches` is an empty list, which MDL Shield reads
-as a rule that matches no branch.
+Nothing runs on its own because `include.branches` names a branch no pull request targets
+(a non-empty include list is a requirement; an empty one was measured NOT to stop automatic
+reviews).
+
+- **A review is a counted resource, so ask for one on purpose.** The monthly quota is shared by every
+  repository, and only a completed review uses one. The owner posts the command; a session never
+  does without being told to for that pull request. Keep a pull request at or under **3,000 effective
+  changed lines** (additions plus deletions after `exclude.paths`; the limit is MDL Shield's own
+  and 12,000 is the hard one, forced reviews included): `mdl mdlshield size <repo-dir>` estimates it.
+  One `review full` per pull request, after the local matrix is green. The rule and its reasons are
+  in the fleet CLAUDE.md (section 4, "MDL Shield review budget").
 
 - `.mdlshield/config.yml` and `.mdlshield/context.md` are read **from the default branch
   only** (`main`), so a pull request cannot change the rules that judge it. Both are
@@ -534,10 +546,20 @@ as a rule that matches no branch.
   "A &amp; B" are the same bytes). `applier::apply()` requires the runid — the
   `distribution_applied` event carries it as objectid.
 - **The privacy provider is a full provider**: the audit tables (metadata +
-  export + pseudonymising deletes + userlist) plus the collapsible-columns
+  export + pseudonymising deletes + userlist), the collapsible-columns
   preference `local_groupdist_bulkedit_hiddencols` (declared in
-  `lib.php:local_groupdist_user_preferences()` so the WS may set it). A new
-  user preference means extending BOTH lib.php and the privacy provider.
+  `lib.php:local_groupdist_user_preferences()` so the WS may set it), and the
+  memberships the applier writes. Those are core rows stamped
+  `component='local_groupdist'`, which core_group's provider skips (it handles
+  the empty component only), so the provider links `core_group` and calls its
+  helpers with the plugin's component, the `enrol_meta` pattern. A new user
+  preference means extending BOTH lib.php and the privacy provider; a new core
+  write stamped with the component means a new subsystem link.
+- **Native user columns are sources only where core shows them.** Department
+  and institution are identity fields (`core_user\fields::get_identity_fields()`),
+  city and country follow `hiddenuserfields` + `moodle/course:viewhiddenuserfields`.
+  `profilefields::get_fields()` is the one gate: the form, `get_preview`,
+  `apply.php` and the audit masking all reach it through `is_allowed()`.
 
 ## Testing notes
 

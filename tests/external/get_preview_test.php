@@ -270,6 +270,8 @@ final class get_preview_test extends \externallib_advanced_testcase {
         }
         $teacher = $generator->create_and_enrol($course, 'editingteacher');
         $this->setUser($teacher);
+        // Department is an identity field, offered only when the site lists it.
+        set_config('showuseridentity', 'email,department');
 
         $result = $this->call($args + [
             'roleid' => (int) current(get_archetype_roles('student'))->id,

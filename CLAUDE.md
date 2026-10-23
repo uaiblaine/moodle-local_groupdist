@@ -555,10 +555,20 @@ the same code; the divergences that cannot go to `main` are marked.
   "A &amp; B" are the same bytes). `applier::apply()` requires the runid — the
   `distribution_applied` event carries it as objectid.
 - **The privacy provider is a full provider**: the audit tables (metadata +
-  export + pseudonymising deletes + userlist) plus the collapsible-columns
+  export + pseudonymising deletes + userlist), the collapsible-columns
   preference `local_groupdist_bulkedit_hiddencols` (declared in
-  `lib.php:local_groupdist_user_preferences()` so the WS may set it). A new
-  user preference means extending BOTH lib.php and the privacy provider.
+  `lib.php:local_groupdist_user_preferences()` so the WS may set it), and the
+  memberships the applier writes. Those are core rows stamped
+  `component='local_groupdist'`, which core_group's provider skips (it handles
+  the empty component only), so the provider links `core_group` and calls its
+  helpers with the plugin's component, the `enrol_meta` pattern. A new user
+  preference means extending BOTH lib.php and the privacy provider; a new core
+  write stamped with the component means a new subsystem link.
+- **Native user columns are sources only where core shows them.** Department
+  and institution are identity fields (`core_user\fields::get_identity_fields()`),
+  city and country follow `hiddenuserfields` + `moodle/course:viewhiddenuserfields`.
+  `profilefields::get_fields()` is the one gate: the form, `get_preview`,
+  `apply.php` and the audit masking all reach it through `is_allowed()`.
 
 ## Testing notes
 

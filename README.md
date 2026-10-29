@@ -211,8 +211,7 @@ declared seats (`null` when the group declares no limit or the field does not
 exist) and the current member count (every member, whatever their role, the
 number the bulk edit page compares with the seats). Check
 `class_exists('\local_groupdist\seats')` first, so a site without this plugin
-simply has no seats. `enrol_apply` uses it to stop a group enrolment key from
-admitting anyone into a group with no seats left.
+simply has no seats.
 
 Limitations
 -----------

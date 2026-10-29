@@ -9,9 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - `\local_groupdist\seats::for_groups()`, a public reader of each group's
-  declared seats and current member count for other plugins (`enrol_apply`
-  honours it for group enrolment keys). It is the only class outside
-  `classes/local/`, which stays internal.
+  declared seats and current member count for other plugins. It is the only
+  class outside `classes/local/`, which stays internal.
 
 ### Fixed
 

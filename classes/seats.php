@@ -22,7 +22,7 @@ use local_groupdist\local\fields;
  * The Seats capacity of course groups, for other plugins.
  *
  * This is the one entry point outside this plugin's own code; everything under
- * local\ is internal and free to change. enrol_apply reaches it through
+ * local\ is internal and free to change. A caller reaches it through
  * class_exists('\local_groupdist\seats'), so an install without it reads as
  * "no group declares seats" rather than failing. Keep the class name, the
  * method and the shape of its return.

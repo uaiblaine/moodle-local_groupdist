@@ -4,7 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Unreleased
+## v5.2-r3 (2026042002) - 2026-10-29
+
+### Added
+
+- `\local_groupdist\seats::for_groups()`, a public reader of each group's
+  declared seats and current member count for other plugins (`enrol_apply`
+  honours it for group enrolment keys). It is the only class outside
+  `classes/local/`, which stays internal.
+
+### Fixed
+
+- The plugins directory readiness test splits a stylesheet rule's selector list
+  at top-level commas only: a comma inside `:not()`, `:is()`, `:where()` or
+  `:has()` no longer cuts a selector into fragments that read as unscoped.
+
+## v5.2-r2 (2026042001) - 2026-10-22
 
 ### Fixed
 
@@ -22,16 +37,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The README described the plugin as owning no database tables. It now
   describes the audit log, what it keeps and for how long, the
   `viewauditlog` capability and every setting.
-
 - The preview notice said twice that nothing is saved until you apply; the
   footnote now only adds that large runs go to the background.
 
 ### Added
 
-- `\local_groupdist\seats::for_groups()`, a public reader of each group's
-  declared seats and current member count for other plugins (`enrol_apply`
-  honours it for group enrolment keys). It is the only class outside
-  `classes/local/`, which stays internal.
 - A `LICENSE` file beside `COPYING.txt`, as the plugins directory requires a
   licence file in the package.
 - README screenshots of the groups page, the options form, the preview, the
@@ -43,6 +53,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `lang/pt_br` stays in the repository but leaves the release package: the
   plugins directory accepts only English strings in a package, and translations
   reach sites through AMOS.
+
+## v5.2-r1 (2026042000) - 2026-10-02
 
 ### Changed
 

@@ -55,5 +55,5 @@ no front-page or guest surface.
 
 - `amd/build/**` is minified output of `amd/src/**`; review the source.
 - `tests/**`, `lang/**` and `docs/**` carry no production behaviour.
-- One branch per Moodle version (`main` is 5.2). The 4.5 branch contains compatibility code
+- One branch per Moodle version (`main` is 5.3, the same commit as `MOODLE_503_STABLE`). The 4.5 branch contains compatibility code
   for a core that lacks some helpers, which is deliberate.

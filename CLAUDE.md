@@ -131,11 +131,11 @@ One branch per Moodle version, in the Boost Union style:
 
 | Branch | Moodle | Core branch in CI | `$plugin->version` | Notes |
 |---|---|---|---|---|
-| `main` | newest supported stable (5.2) | `MOODLE_502_STABLE` | `20260420XX` | always identical in content to `MOODLE_502_STABLE`; all development lands here first |
+| `main` | newest supported stable (5.3) | `MOODLE_503_STABLE` | `20261005XX` | always the same commit as `MOODLE_503_STABLE`; all development lands here first |
+| `MOODLE_503_STABLE` | 5.3 | `MOODLE_503_STABLE` | `20261005XX` | `MATURITY_STABLE` since v5.3-r2 (2026100502), core 5.3 being a stable release |
 | `MOODLE_502_STABLE` | 5.2 | `MOODLE_502_STABLE` | `20260420XX` | |
 | `MOODLE_501_STABLE` | 5.1 | `MOODLE_501_STABLE` | `20251006XX` | |
 | `MOODLE_405_STABLE` | 4.5 LTS | `MOODLE_405_STABLE` | `20241007XX` | PHPUnit 9: class-level `@covers` and `@dataProvider` docblocks, no attributes |
-| `MOODLE_503_STABLE` | 5.3 | `MOODLE_503_STABLE` | `20261005XX` | `MATURITY_ALPHA`; its CI runs against core `MOODLE_503_STABLE`, not `main` (6.0dev) |
 
 - A fix lands on `main` first and is cherry-picked to the older branches.
   `version.php` and `.github/workflows/ci.yml` **diverge on purpose**: when a
@@ -158,11 +158,10 @@ One branch per Moodle version, in the Boost Union style:
   never of another's, and `install.xml`'s `VERSION` is the editor's save stamp, left
   identical on every branch. A fix cherry-picked to another branch keeps that branch's own
   `version.php`, then adds 1 to its counter in the same commit.
-- Each non-main branch that a stack mounts is its own clone beside the main one
-  (`~/dev/moodle-local_groupdist-501`, `-405`, `-503`; `MOODLE_502_STABLE` is the same
-  content as `main` and needs no checkout). Run
-  `mdl ci moodle-local_groupdist-<n> --matrix --behat` from the checkout of the
-  branch under test.
+- Each branch that a stack mounts has its own checkout: `~/dev/moodle-local_groupdist`
+  holds `MOODLE_502_STABLE` (m502, m502b), `-503` holds `MOODLE_503_STABLE` (m503,
+  m503b), the same commit as `main`, and `-501` and `-405` the older branches. Run
+  `mdl ci <checkout> --matrix --behat` from the checkout of the branch under test.
 
 ## MDL Shield reviews
 
@@ -188,8 +187,8 @@ reviews).
   key it names; an invalid file stops reviews for the repository until it is fixed, and an
   unknown key only raises a warning on the summary comment.
 - **One Moodle version per repository.** There is no per-branch mapping, so the file pins
-  `moodle.versions: ["5.2"]` (the `main` line) and a pull request that targets
-  `MOODLE_501_STABLE`, `MOODLE_405_STABLE` or `MOODLE_503_STABLE` is reviewed against the 5.2
+  `moodle.versions: ["5.3"]` (the `main` line) and a pull request that targets
+  `MOODLE_502_STABLE`, `MOODLE_501_STABLE` or `MOODLE_405_STABLE` is reviewed against the 5.3
   core. Read a finding about a core API on those branches with that in mind.
 - `fail_on.severity` is `high`: the check fails on an open finding at or above it. Code
   quality findings never block, only security findings do.

@@ -4,16 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Unreleased
+## v5.3-r3 (2026100503) - 2026-10-29
 
-Moodle 5.3 branch (`MOODLE_503_STABLE`): version `2026100500` (the 5.3 namespace, `20261005XX`),
-release `v5.3-r1`, `MATURITY_ALPHA`, CI against core `MOODLE_503_STABLE`. The code is the 5.2
-branch's, unchanged.
+### Added
 
-### Changed
+- `\local_groupdist\seats::for_groups()`, a public reader of each group's
+  declared seats and current member count for other plugins (`enrol_apply`
+  honours it for group enrolment keys). It is the only class outside
+  `classes/local/`, which stays internal.
 
-- The 5.3 branch is `MATURITY_STABLE` (version `2026100502`), as core 5.3 is a
-  stable release; v5.3-r2 is rebuilt from this commit.
+### Fixed
+
+- The plugins directory readiness test splits a stylesheet rule's selector list
+  at top-level commas only: a comma inside `:not()`, `:is()`, `:where()` or
+  `:has()` no longer cuts a selector into fragments that read as unscoped.
+- The README's requirements line called the 5.3 branch alpha; it reads like
+  the other branches now.
+
+## v5.3-r2 (2026100502) - 2026-10-23
 
 ### Fixed
 
@@ -31,16 +39,11 @@ branch's, unchanged.
 - The README described the plugin as owning no database tables. It now
   describes the audit log, what it keeps and for how long, the
   `viewauditlog` capability and every setting.
-
 - The preview notice said twice that nothing is saved until you apply; the
   footnote now only adds that large runs go to the background.
 
 ### Added
 
-- `\local_groupdist\seats::for_groups()`, a public reader of each group's
-  declared seats and current member count for other plugins (`enrol_apply`
-  honours it for group enrolment keys). It is the only class outside
-  `classes/local/`, which stays internal.
 - A `LICENSE` file beside `COPYING.txt`, as the plugins directory requires a
   licence file in the package.
 - README screenshots of the groups page, the options form, the preview, the
@@ -52,6 +55,14 @@ branch's, unchanged.
 - `lang/pt_br` stays in the repository but leaves the release package: the
   plugins directory accepts only English strings in a package, and translations
   reach sites through AMOS.
+- The 5.3 branch is `MATURITY_STABLE` (version `2026100502`), as core 5.3 is a
+  stable release; v5.3-r2 is rebuilt from this commit.
+
+## v5.3-r1 (2026100500) - 2026-10-20
+
+Moodle 5.3 branch (`MOODLE_503_STABLE`): version `2026100500` (the 5.3 namespace, `20261005XX`),
+release `v5.3-r1`, `MATURITY_ALPHA`, CI against core `MOODLE_503_STABLE`. The code is the 5.2
+branch's, unchanged.
 
 ### Changed
 

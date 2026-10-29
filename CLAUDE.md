@@ -131,11 +131,11 @@ One branch per Moodle version, in the Boost Union style:
 
 | Branch | Moodle | Core branch in CI | `$plugin->version` | Notes |
 |---|---|---|---|---|
-| `main` | newest supported stable (5.2) | `MOODLE_502_STABLE` | `20260420XX` | always identical in content to `MOODLE_502_STABLE`; all development lands here first |
+| `main` | newest supported stable (5.3) | `MOODLE_503_STABLE` | `20261005XX` | always the same commit as `MOODLE_503_STABLE`; all development lands here first |
+| `MOODLE_503_STABLE` | 5.3 | `MOODLE_503_STABLE` | `20261005XX` | `MATURITY_STABLE` since v5.3-r2 (2026100502), core 5.3 being a stable release |
 | `MOODLE_502_STABLE` | 5.2 | `MOODLE_502_STABLE` | `20260420XX` | |
 | `MOODLE_501_STABLE` | 5.1 | `MOODLE_501_STABLE` | `20251006XX` | |
 | `MOODLE_405_STABLE` | 4.5 LTS | `MOODLE_405_STABLE` | `20241007XX` | PHPUnit 9: class-level `@covers` and `@dataProvider` docblocks, no attributes |
-| `MOODLE_503_STABLE` | 5.3 | `MOODLE_503_STABLE` | `20261005XX` | `MATURITY_STABLE` since v5.3-r2 (2026100502), core 5.3 being a stable release |
 
 - A fix lands on `main` first and is cherry-picked to the older branches.
   `version.php` and `.github/workflows/ci.yml` **diverge on purpose**: when a
@@ -148,8 +148,8 @@ One branch per Moodle version, in the Boost Union style:
   (the pattern Boost Union uses). moodle.org needs a different number for each
   Moodle-specific release and ignores `$plugin->release`. The first eight digits are the
   branching date of the core the branch targets and the last two are a counter: 4.5 is
-  `20241007XX`, 5.1 `20251006XX`, 5.2 `20260420XX`, and 5.3 `20261005XX` (the 5.3.0 core
-  version). A branch's first release uses its `$plugin->requires` value
+  `20241007XX`, 5.1 `20251006XX`, 5.2 `20260420XX`, and 5.3 `20261005XX` (the 5.3.0
+  core version). A branch's first release uses its `$plugin->requires` value
   (counter 00), and every later change that needs a bump (a table, a service, a cache,
   a hook, a rebuilt `amd/build`, anything Moodle must notice) adds 1 to **that branch's**
   counter only. A newer Moodle's namespace is always higher, so a site that moves from 4.5
@@ -158,11 +158,46 @@ One branch per Moodle version, in the Boost Union style:
   never of another's, and `install.xml`'s `VERSION` is the editor's save stamp, left
   identical on every branch. A fix cherry-picked to another branch keeps that branch's own
   `version.php`, then adds 1 to its counter in the same commit.
-- Each non-main branch that a stack mounts is its own clone beside the main one
-  (`~/dev/moodle-local_groupdist-501`, `-405`, `-503`; `MOODLE_502_STABLE` is the same
-  content as `main` and needs no checkout). Run
-  `mdl ci moodle-local_groupdist-<n> --matrix --behat` from the checkout of the
-  branch under test.
+- Each branch that a stack mounts has its own checkout: `~/dev/moodle-local_groupdist`
+  holds `MOODLE_502_STABLE` (m502, m502b), `-503` holds `MOODLE_503_STABLE` (m503,
+  m503b), the same commit as `main`, and `-501` and `-405` the older branches. Run
+  `mdl ci <checkout> --matrix --behat` from the checkout of the branch under test.
+
+## MDL Shield reviews
+
+Pull request reviews by MDL Shield are **manual only**. Comment `!mdlshield review` (what is
+new since the last review) or `!mdlshield review full` (the whole pull request) on a pull
+request; the commands work for the repository owner and the `trusted_users` of
+`.mdlshield/config.yml`, and a forced command ignores the filters and a draft's silence.
+Nothing runs on its own because `include.branches` names a branch no pull request targets
+(a non-empty include list is a requirement; an empty one was measured NOT to stop automatic
+reviews).
+
+- **A review is a counted resource, so ask for one on purpose.** The monthly quota is shared by every
+  repository, and only a completed review uses one. The owner posts the command; a session never
+  does without being told to for that pull request. Keep a pull request at or under **3,000 effective
+  changed lines** (additions plus deletions after `exclude.paths`; the limit is MDL Shield's own
+  and 12,000 is the hard one, forced reviews included): `mdl mdlshield size <repo-dir>` estimates it.
+  One `review full` per pull request, after the local matrix is green. The rule and its reasons are
+  in the fleet CLAUDE.md (section 4, "MDL Shield review budget").
+
+- `.mdlshield/config.yml` and `.mdlshield/context.md` are read **from the default branch
+  only** (`main`), so a pull request cannot change the rules that judge it. Both are
+  `export-ignore`d and never reach the release zip. The file overrides the website for each
+  key it names; an invalid file stops reviews for the repository until it is fixed, and an
+  unknown key only raises a warning on the summary comment.
+- **One Moodle version per repository.** There is no per-branch mapping, so the file pins
+  `moodle.versions: ["5.3"]` (the `main` line) and a pull request that targets
+  `MOODLE_502_STABLE`, `MOODLE_501_STABLE` or `MOODLE_405_STABLE` is reviewed against the 5.3
+  core. Read a finding about a core API on those branches with that in mind.
+- `fail_on.severity` is `high`: the check fails on an open finding at or above it. Code
+  quality findings never block, only security findings do.
+- The context file is project knowledge that **influences** the reviewer and is not a
+  filter. Keep it in step with the code it states: capabilities, the web service list and
+  the two sink spellings. The website's own review context is replaced entirely by this
+  file, not merged.
+- On the website the repository still needs *Enable pull request reviews* and a granted
+  preview access; the file cannot do either.
 
 ## Architecture gotchas
 

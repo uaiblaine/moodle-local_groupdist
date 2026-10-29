@@ -8,22 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- **Moodle 4.5 (`MOODLE_405_STABLE`).** The plugin installs and runs on 4.5:
-  - Field provisioning checks a shortname without core's 5.x-only
-    `api::is_shortname_unique()`, which stopped the install.
-  - The background apply reports progress without the 5.x-only
-    `initialise_stored_progress()`, `get_progress()` and task indicator; on
-    4.5 the status page shows the stored progress bar and reloads until the
-    run ends.
-  - Number fields are refused at what `{customfield_data}` can store
-    (100000 on 4.5) in the bulk edit save and the settings modal, instead of
-    failing on the database write.
-  - The Bootstrap 5 classes 4.5 lacks (`visually-hidden`, `form-select`,
-    `gap-*`, `fw-*`, `text-bg-*`, the loading skeleton and others) are
-    polyfilled behind a body class added only below 5.0; the bulk edit
-    column menu opens and stays open under Bootstrap 4, and its tooltips no
-    longer rely on Bootstrap 5's `Tooltip.getInstance()`.
-  - Page scripts load `config.php` with `require_once`.
+- The plugins directory readiness test splits a stylesheet rule's selector list
+  at top-level commas only: a comma inside `:not()`, `:is()`, `:where()` or
+  `:has()` no longer cuts a selector into fragments that read as unscoped.
+
+## v4.5-r2 (2024100701) - 2026-10-22
+
+### Fixed
+
 - Privacy: the group memberships a distribution writes (stamped with the
   component `local_groupdist`) are now exported on a data request and removed
   on a deletion request. Core's group provider handles only memberships with no
@@ -38,7 +30,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The README described the plugin as owning no database tables. It now
   describes the audit log, what it keeps and for how long, the
   `viewauditlog` capability and every setting.
-
 - The preview notice said twice that nothing is saved until you apply; the
   footnote now only adds that large runs go to the background.
 
@@ -55,6 +46,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `lang/pt_br` stays in the repository but leaves the release package: the
   plugins directory accepts only English strings in a package, and translations
   reach sites through AMOS.
+
+## v4.5-r1 (2024100700) - 2026-10-02
+
+### Fixed
+
+- **Moodle 4.5 (`MOODLE_405_STABLE`).** The plugin installs and runs on 4.5:
+  - Field provisioning checks a shortname without core's 5.x-only
+    `api::is_shortname_unique()`, which stopped the install.
+  - The background apply reports progress without the 5.x-only
+    `initialise_stored_progress()`, `get_progress()` and task indicator; on
+    4.5 the status page shows the stored progress bar and reloads until the
+    run ends.
+  - Number fields are refused at what `{customfield_data}` can store
+    (100000 on 4.5) in the bulk edit save and the settings modal, instead of
+    failing on the database write.
+  - The Bootstrap 5 classes 4.5 lacks (`visually-hidden`, `form-select`,
+    `gap-*`, `fw-*`, `text-bg-*`, the loading skeleton and others) are
+    polyfilled behind a body class added only below 5.0; the bulk edit
+    column menu opens and stays open under Bootstrap 4, and its tooltips no
+    longer rely on Bootstrap 5's `Tooltip.getInstance()`.
+  - Page scripts load `config.php` with `require_once`.
 
 ### Changed
 

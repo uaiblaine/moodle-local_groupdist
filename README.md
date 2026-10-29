@@ -94,7 +94,7 @@ Before the button appears
 Requirements
 ------------
 
-- Moodle 5.3 (branch `MOODLE_503_STABLE`, alpha). Stable versions have their own branches.
+- Moodle 5.3 (branch `MOODLE_503_STABLE`; releases `v5.3-rN`). Other Moodle versions have their own branches.
 
 Installation
 ------------
